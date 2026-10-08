@@ -40,7 +40,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <aside className="hidden w-56 shrink-0 border-r md:block">
             <AppNav />
           </aside>
-          <main className="flex-1 p-6">{children}</main>
+          <main className="min-w-0 flex-1 p-6">{children}</main>
         </div>
       </body>
     </html>

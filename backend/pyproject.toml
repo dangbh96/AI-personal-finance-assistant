@@ -36,6 +36,10 @@ extend-exclude = ["alembic/versions"]
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM"]
 
+[tool.ruff.lint.isort]
+# Thư mục migration `alembic/` trùng tên package alembic → ép coi là third-party.
+known-third-party = ["alembic"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-m 'not ai'"

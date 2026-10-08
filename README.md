@@ -46,14 +46,16 @@ py -3.13 -m venv .venv            # chỉ cần lần đầu
 source .venv/Scripts/activate     # venv tạo trên Windows nên là Scripts/ (thoát: deactivate)
 pip install -e ".[dev]"
 cp .env.example .env              # điền OPENAI_API_KEY nếu có (không bắt buộc ở Phase 0)
-alembic upgrade head
+alembic upgrade head              # tạo bảng + seed 15 danh mục mặc định
+python -m app.scripts.seed_demo --months 3   # (tuỳ chọn) dữ liệu demo ~150 giao dịch
 uvicorn app.main:app --reload --port 8000
 ```
 
 - Health check: `curl http://localhost:8000/api/v1/health`
 - Swagger UI: http://localhost:8000/docs
 - Lint/format: `ruff check .` · `ruff format .`
-- Test: `pytest` (cần DB đang chạy; không cần OpenAI key). Test gọi AI thật: `pytest -m ai`.
+- Test: `pytest` (cần DB đang chạy; không cần OpenAI key). Test gọi AI thật: `pytest -m ai`. Pytest tự `alembic upgrade head` trên DB `pfa_test` và rollback sau mỗi test.
+- Dữ liệu demo: `python -m app.scripts.seed_demo --months 3 [--reset] [--seed 42] [--end YYYY-MM-DD]` — `--reset` xoá **mọi** giao dịch trong kỳ sinh trước khi tạo lại.
 
 ### 3. Frontend (Next.js) — http://localhost:3000
 
@@ -64,9 +66,10 @@ cp .env.example .env.local
 npm run dev
 ```
 
-- Lint: `npm run lint` · Build: `npm run build`
+- Lint: `npm run lint` · Type-check: `npm run typecheck` · Build: `npm run build`
+- Sinh lại type API sau khi đổi schema backend (backend phải đang chạy ở port 8000): `npm run gen:api` → `src/lib/api-types.ts` (commit file này).
 
-Trang chủ hiển thị thẻ "Trạng thái hệ thống" (Backend / Database / AI).
+Trang chủ hiển thị thẻ "Trạng thái hệ thống" (Backend / Database / AI). `/transactions`: ghi chép, lọc, sửa, xoá giao dịch. `/settings`: quản lý danh mục.
 
 ### Lưu ý khi dùng Git Bash trên Windows
 

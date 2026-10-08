@@ -41,6 +41,7 @@ erDiagram
         text default_spending_type "nullable"
         text icon
         bool is_system
+        bool is_archived "ẩn thay vì xoá"
     }
     TRANSACTION {
         uuid id PK
@@ -259,3 +260,12 @@ Tên trong bảng dưới là **tên bảng thực tế** (số nhiều snake_ca
 - `weekly_review.week_start` luôn là Thứ Hai (CHECK `extract(isodow from week_start) = 1`).
 - `budget_allocation`: phải có `category_id` **hoặc** `jar_name` (strategy envelope có thể dùng jar gom nhiều category — mapping jar → categories lưu ở `app_setting` hoặc bảng `jar_category` nếu cần, quyết định ở Phase 4).
 - Index: `transaction(occurred_on)`, `transaction(category_id, occurred_on)`, HNSW index trên các cột `vector`.
+
+## Ghi chú triển khai thực tế
+
+**Phase 1** (migration `20261008_ac3898ef679d_core_transactions`):
+- Tên constraint theo naming convention trong `app/core/db.py` (`pk_<table>`, `uq_<table>_<col>`, `ck_<table>_<name>`, `fk_<table>_<col>_<ref>`).
+- `categories`: `slug` UNIQUE (ASCII snake_case, sinh từ `name` bỏ dấu, trùng thì thêm `_2`, `_3`…); CHECK `kind IN (income, expense)`, `default_spending_type` hợp lệ, `kind = 'expense' OR default_spending_type IS NULL`. Ở tầng API, category expense **bắt buộc** có `default_spending_type`. Không xoá — chỉ `is_archived`; không cho tạo/chuyển giao dịch sang category đã ẩn (giao dịch cũ giữ nguyên).
+- `transactions`: CHECK `amount > 0`, `direction`, `spending_type`, `source`, và cặp `direction`/`spending_type`; FK `category_id` `ON DELETE RESTRICT`. Khớp `category.kind = direction` kiểm tra ở `transaction_service`. API giới hạn `amount ≤ 10^15`.
+- `app_settings`: có `created_at`/`updated_at`; seed `week_start = "monday"`, `currency = "VND"`.
+- PK UUID: `server_default gen_random_uuid()` (PG ≥ 13) + `uuid4` phía Python.

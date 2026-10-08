@@ -5,9 +5,9 @@
 
 ## Phase hiện tại
 
-**Tiếp theo: [Phase 1 — Core transactions](./phases/phase-01-transactions.md)**
+**Tiếp theo: [Phase 2 — AI natural language entry](./phases/phase-02-nl-entry.md)**
 
-Handoff Phase 0: xem [phase-00-scaffolding.md § 9](./phases/phase-00-scaffolding.md#9-handoff-notes). Lưu ý: Postgres chạy ở **port 5433** trên host.
+Handoff Phase 1: xem [phase-01-transactions.md § 9](./phases/phase-01-transactions.md#9-handoff-notes). **M1 đạt.** DB dev đã có dữ liệu demo (`seed_demo --months 3`). Postgres vẫn ở **port 5433**.
 
 ## Bảng trạng thái
 
@@ -15,7 +15,7 @@ Handoff Phase 0: xem [phase-00-scaffolding.md § 9](./phases/phase-00-scaffoldin
 |---|---|---|---|---|---|---|
 | D | [System design & plan export](./phases/phase-D-design-docs.md) | Done | 2026-10-07 | 2026-10-07 | | Tài liệu thiết kế + plan 20 phase |
 | 0 | [Scaffolding](./phases/phase-00-scaffolding.md) | Done | 2026-10-08 | 2026-10-08 | | Next.js 16.4, shadcn base-nova, DB port 5433 |
-| 1 | [Core transactions](./phases/phase-01-transactions.md) | Not started | | | M1 | |
+| 1 | [Core transactions](./phases/phase-01-transactions.md) | Done | 2026-10-08 | 2026-10-08 | M1 ✅ | 93 test; summary nhận thêm filter |
 | 2 | [AI natural language entry](./phases/phase-02-nl-entry.md) | Not started | | | | |
 | 3 | [Classification learning](./phases/phase-03-classification-learning.md) | Not started | | | M2 | |
 | 4 | [Budget engine](./phases/phase-04-budget-engine.md) | Not started | | | | |
@@ -54,6 +54,9 @@ Handoff Phase 0: xem [phase-00-scaffolding.md § 9](./phases/phase-00-scaffoldin
 | 2026-10-08 | 0 | Postgres map `5433:5432`; thêm `TEST_DATABASE_URL` (DB `pfa_test`), `LOG_LEVEL` | Port 5432 trên máy dev đã bị Postgres khác chiếm; cần DB riêng cho pytest |
 | 2026-10-08 | 0 | Next.js 16.4 (thay vì 15), shadcn dùng Base UI + package `cn` | Phiên bản mới nhất của `create-next-app` / shadcn CLI tại thời điểm scaffold |
 | 2026-10-08 | — | Terminal chuẩn đổi từ PowerShell sang **Git Bash**: README, `copilot-instructions.md`, khối lệnh Verify của mọi phase + template dùng cú pháp bash | Người dùng dùng Git Bash làm terminal |
+| 2026-10-08 | 1 | `GET /transactions/summary` nhận cùng bộ filter với list (+ `date_from/date_to`, `by_category.kind/icon`) | Thẻ tổng trên UI phải khớp bộ lọc |
+| 2026-10-08 | 1 | Category expense bắt buộc `default_spending_type`; PATCH field không cho sửa → 422; không tạo/chuyển giao dịch sang category đã ẩn | Giữ dữ liệu nhất quán, lỗi rõ ràng thay vì bỏ qua âm thầm |
+| 2026-10-08 | 1 | Lỗi validate trả `{"detail": [...], "code": "validation_error"}`; thêm `npm run typecheck`, `gen:api --default-non-nullable false` | Thống nhất format lỗi; type request body đúng |
 
 ## Câu hỏi mở xuyên suốt
 

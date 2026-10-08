@@ -1,6 +1,8 @@
 from fastapi import APIRouter
 
-from app.api.routers import health
+from app.api.routers import categories, health, transactions
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(health.router)
+api_router.include_router(categories.router)
+api_router.include_router(transactions.router)
