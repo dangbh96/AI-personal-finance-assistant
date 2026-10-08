@@ -137,13 +137,13 @@ Prompt/guardrail không đổi so với Phase 8:
 ## 6. Verify / Acceptance criteria
 
 **Lệnh chạy**
-```powershell
+```bash
 cd backend
 alembic upgrade head
 ruff check .
-pytest tests\unit\test_zone_service.py tests\api\test_budget_zones.py
+pytest tests/unit/test_zone_service.py tests/api/test_budget_zones.py
 
-cd ..\frontend
+cd ../frontend
 npm run gen:api
 npm run lint
 npm run dev

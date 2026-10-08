@@ -17,7 +17,7 @@
 - **Schema DB:** chỉ thay đổi qua Alembic migration. Bảng tên số nhiều snake_case. Cập nhật `docs/architecture/data-model.md` khi schema đổi.
 - **Test:** `pytest` mặc định không cần OpenAI key; test gọi AI thật đánh dấu `@pytest.mark.ai` (chạy bằng `pytest -m ai`).
 - **Bí mật:** không commit `.env`, không log API key, không gửi key xuống frontend.
-- Môi trường dev là Windows + PowerShell: lệnh trong tài liệu dùng cú pháp PowerShell.
+- Môi trường dev là Windows + **Git Bash**: lệnh trong tài liệu dùng cú pháp bash (`&&`, `export VAR=...`, đường dẫn `/`, `cp`, `rm`). Venv kích hoạt bằng `source .venv/Scripts/activate` (venv tạo trên Windows nên là `Scripts/`, không phải `bin/`). Đường dẫn có dấu cách phải đặt trong ngoặc kép. Mỗi dòng lệnh trong mục Verify nên chạy được từ thư mục gốc repo (dùng `(cd backend && ...)` nếu cần).
 
 ## Khi kết thúc (hoặc tạm dừng) một phase
 

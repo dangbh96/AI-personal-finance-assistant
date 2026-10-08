@@ -38,7 +38,7 @@ User upload ảnh hoá đơn để app đọc merchant/ngày/tổng tiền/items
 - Map `ReceiptExtraction` sang `TransactionDraft`, tái dùng classifier Phase 2/3 để chọn category/spending_type.
 - Confirm flow: user sửa draft rồi gọi confirm; receipt chuyển `confirmed`.
 - Failure handling: ảnh unreadable/AI lỗi → receipt `failed`, trả manual entry prefilled từ thông tin đoán được nếu có.
-- Golden AI set 5 ảnh mẫu trong `backend\tests\ai_golden\receipts\` (to be collected): supermarket, restaurant, coffee shop, blurry photo, handwritten.
+- Golden AI set 5 ảnh mẫu trong `backend/tests/ai_golden/receipts/` (to be collected): supermarket, restaurant, coffee shop, blurry photo, handwritten.
 - UI `/import` tab "Hoá đơn": upload, preview image, extraction result, confidence, confirm/edit.
 - Privacy note trong UI: ảnh gửi tới OpenAI để trích xuất, lưu local trong `UPLOAD_DIR`.
 
@@ -72,7 +72,7 @@ User upload ảnh hoá đơn để app đọc merchant/ngày/tổng tiền/items
 
 Upload flow:
 1. Validate content type + extension + size <= 10MB.
-2. Tạo uuid filename, lưu vào `UPLOAD_DIR\receipts\YYYY\MM\`.
+2. Tạo uuid filename, lưu vào `UPLOAD_DIR/receipts/YYYY/MM/`.
 3. Insert receipt `uploaded`.
 4. Gọi `receipt_vision.extract(path)`; nếu pass, update `extracted`, `status='extracted'`.
 5. Map sang draft: `direction='expense'`, `amount=total`, `occurred_on=date or today`, `note=f"{merchant} - hoá đơn"`, category/spending_type từ classifier dựa trên merchant/items.
@@ -116,7 +116,7 @@ Guardrails/privacy:
 - Validate `total > 0`; currency khác VND trả 422/manual vì app chưa đa tiền tệ.
 
 Golden tests `@pytest.mark.ai`:
-- 5 ảnh trong `backend\tests\ai_golden\receipts\`: `supermarket.jpg`, `restaurant.jpg`, `coffee_shop.jpg`, `blurry_photo.jpg`, `handwritten.jpg`.
+- 5 ảnh trong `backend/tests/ai_golden/receipts/`: `supermarket.jpg`, `restaurant.jpg`, `coffee_shop.jpg`, `blurry_photo.jpg`, `handwritten.jpg`.
 - File expected YAML cạnh ảnh chứa merchant/date/total.
 - Pass threshold: total correct ≥ 4/5; merchant normalized match ≥ 3/5; unreadable/blurry không hallucinate total nếu expected `unreadable=true`.
 
@@ -147,17 +147,17 @@ Golden tests `@pytest.mark.ai`:
 ## 6. Verify / Acceptance criteria
 
 **Lệnh chạy**
-```powershell
-cd backend; alembic upgrade head; ruff check .; pytest
-$env:OPENAI_API_KEY="sk-..."; pytest -m ai
+```bash
+cd backend && alembic upgrade head && ruff check . && pytest
+export OPENAI_API_KEY="sk-..." && pytest -m ai
 uvicorn app.main:app --reload --port 8000
-cd ..\frontend; npm run gen:api; npm run lint; npm run dev
+cd ../frontend && npm run gen:api && npm run lint && npm run dev
 ```
 
 **Test cases / golden set**
 | # | Input / kịch bản | Kỳ vọng |
 |---|---|---|
-| 1 | Upload `receipt.jpg` 1MB `image/jpeg` | 201, file lưu dưới `UPLOAD_DIR\receipts\YYYY\MM\{uuid}.jpg`, receipt `uploaded` rồi `extracted` nếu AI mock pass |
+| 1 | Upload `receipt.jpg` 1MB `image/jpeg` | 201, file lưu dưới `UPLOAD_DIR/receipts/YYYY/MM/{uuid}.jpg`, receipt `uploaded` rồi `extracted` nếu AI mock pass |
 | 2 | Upload PDF hoặc `text/plain` | 415/422, không tạo receipt/file |
 | 3 | Upload ảnh 10.500.000 bytes | 413, message max 10MB |
 | 4 | Mock extraction merchant "Co.opmart", date 2026-10-05, total 352.000, items 3 dòng | Draft `amount=352000`, `occurred_on=2026-10-05`, `direction='expense'`, note chứa Co.opmart |

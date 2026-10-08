@@ -54,9 +54,9 @@ Mỗi task đủ nhỏ để làm và commit trong một lần ngồi.
 ## 6. Verify / Acceptance criteria
 
 **Lệnh chạy**
-```powershell
+```bash
 # ví dụ
-cd backend; pytest
+cd backend && pytest
 ```
 
 **Test cases / golden set**

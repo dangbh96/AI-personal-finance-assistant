@@ -141,11 +141,11 @@ class TransactionSearchResponse(BaseModel):
 ## 6. Verify / Acceptance criteria
 
 **Lệnh chạy**
-```powershell
-cd backend; alembic upgrade head; ruff check .; pytest tests\unit\test_embedding_content.py tests\api\test_transaction_search.py
-cd backend; python -m app.scripts.backfill_embeddings --batch-size 50
-cd backend; pytest -m ai tests\ai_golden\test_semantic_search.py
-cd frontend; npm run gen:api; npm run lint; npm run dev
+```bash
+(cd backend && alembic upgrade head && ruff check . && pytest tests/unit/test_embedding_content.py tests/api/test_transaction_search.py)
+(cd backend && python -m app.scripts.backfill_embeddings --batch-size 50)
+(cd backend && pytest -m ai tests/ai_golden/test_semantic_search.py)
+(cd frontend && npm run gen:api && npm run lint && npm run dev)
 ```
 
 **Test cases / golden set**

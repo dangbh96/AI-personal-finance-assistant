@@ -111,15 +111,15 @@ Không dùng AI trong Phase 5. Các số liệu actual, variance, top contributo
 ## 6. Verify / Acceptance criteria
 
 **Lệnh chạy**
-```powershell
+```bash
 cd backend
 alembic upgrade head
 ruff check .
-pytest tests\unit\test_budget_status.py tests\api\test_budget_status.py
+pytest tests/unit/test_budget_status.py tests/api/test_budget_status.py
 python -m app.scripts.seed_demo --months 3
 pytest
 
-cd ..\frontend
+cd ../frontend
 npm run gen:api
 npm run lint
 npm run dev

@@ -133,14 +133,14 @@ Không dùng AI trong Phase 4. Tất cả chiến lược budget là determinist
 ## 6. Verify / Acceptance criteria
 
 **Lệnh chạy**
-```powershell
+```bash
 cd backend
 alembic upgrade head
 ruff check .
-pytest tests\unit\test_budget_service.py tests\api\test_budgets.py
+pytest tests/unit/test_budget_service.py tests/api/test_budgets.py
 pytest
 
-cd ..\frontend
+cd ../frontend
 npm run gen:api
 npm run lint
 npm run dev

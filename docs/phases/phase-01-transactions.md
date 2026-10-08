@@ -95,10 +95,10 @@ Không có.
 ## 6. Verify / Acceptance criteria
 
 **Lệnh chạy**
-```powershell
-cd backend; alembic upgrade head; ruff check .; pytest
+```bash
+cd backend && alembic upgrade head && ruff check . && pytest
 python -m app.scripts.seed_demo --months 3
-cd ..\frontend; npm run gen:api; npm run lint; npm run dev
+cd ../frontend && npm run gen:api && npm run lint && npm run dev
 ```
 
 **Test cases (pytest)**

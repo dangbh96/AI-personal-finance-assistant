@@ -141,10 +141,10 @@ Coach tool `simulate(params)` gọi cùng service, trả result ngắn + link `/
 ## 6. Verify / Acceptance criteria
 
 **Lệnh chạy**
-```powershell
-cd backend; alembic upgrade head; ruff check .; pytest tests\unit\test_simulator_service.py tests\api\test_simulator.py
-cd backend; pytest -m ai tests\ai_golden\test_simulator_narrative.py
-cd frontend; npm run gen:api; npm run lint; npm run dev
+```bash
+(cd backend && alembic upgrade head && ruff check . && pytest tests/unit/test_simulator_service.py tests/api/test_simulator.py)
+(cd backend && pytest -m ai tests/ai_golden/test_simulator_narrative.py)
+(cd frontend && npm run gen:api && npm run lint && npm run dev)
 ```
 
 **Test cases / golden set**

@@ -121,7 +121,7 @@ class SmokeCheckResult(BaseModel):
 ## 6. Verify / Acceptance criteria
 
 **Lệnh chạy**
-```powershell
+```bash
 docker compose up -d --build
 curl http://localhost:8000/api/v1/health
 
@@ -131,7 +131,7 @@ pytest --cov=app.services --cov-report=term-missing --cov-fail-under=85
 pytest -m "not ai"
 pytest -m ai
 
-cd ..\frontend
+cd ../frontend
 npm run lint
 npm run build
 ```

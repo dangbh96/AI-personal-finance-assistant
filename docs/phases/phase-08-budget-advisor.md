@@ -143,14 +143,14 @@ Guardrails:
 ## 6. Verify / Acceptance criteria
 
 **Lệnh chạy**
-```powershell
+```bash
 cd backend
 alembic upgrade head
 ruff check .
-pytest tests\unit\test_advisor_rules.py tests\api\test_budget_advice.py
-pytest -m ai tests\ai_golden\test_budget_advice_explanation.py
+pytest tests/unit/test_advisor_rules.py tests/api/test_budget_advice.py
+pytest -m ai tests/ai_golden/test_budget_advice_explanation.py
 
-cd ..\frontend
+cd ../frontend
 npm run gen:api
 npm run lint
 npm run dev

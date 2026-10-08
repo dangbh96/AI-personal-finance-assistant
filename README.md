@@ -24,12 +24,12 @@ Toàn bộ thiết kế và kế hoạch theo phase nằm trong [docs/](./docs/R
 
 ## Chạy local
 
-Yêu cầu: Docker Desktop (WSL2), Python 3.12+ (máy dev dùng 3.13 qua `py` launcher), Node.js 20+.
-Lệnh dưới đây dùng Windows PowerShell, chạy từ thư mục gốc repo.
+Yêu cầu: Docker Desktop (WSL2), Python 3.12+ (máy dev dùng 3.13 qua `py` launcher), Node.js 20+, Git Bash.
+Lệnh dưới đây dùng **Git Bash**, mỗi khối bắt đầu từ thư mục gốc repo.
 
 ### 1. Database (PostgreSQL 16 + pgvector)
 
-```powershell
+```bash
 docker compose up -d db
 docker compose ps          # pfa-db phải ở trạng thái (healthy)
 ```
@@ -40,12 +40,12 @@ Lần khởi tạo volume đầu tiên tự tạo thêm database `pfa_test` cho 
 
 ### 2. Backend (FastAPI) — http://localhost:8000
 
-```powershell
+```bash
 cd backend
-py -3.13 -m venv .venv
-.\.venv\Scripts\Activate.ps1
+py -3.13 -m venv .venv            # chỉ cần lần đầu
+source .venv/Scripts/activate     # venv tạo trên Windows nên là Scripts/ (thoát: deactivate)
 pip install -e ".[dev]"
-Copy-Item .env.example .env      # điền OPENAI_API_KEY nếu có (không bắt buộc ở Phase 0)
+cp .env.example .env              # điền OPENAI_API_KEY nếu có (không bắt buộc ở Phase 0)
 alembic upgrade head
 uvicorn app.main:app --reload --port 8000
 ```
@@ -57,13 +57,19 @@ uvicorn app.main:app --reload --port 8000
 
 ### 3. Frontend (Next.js) — http://localhost:3000
 
-```powershell
+```bash
 cd frontend
 npm install
-Copy-Item .env.example .env.local
+cp .env.example .env.local
 npm run dev
 ```
 
 - Lint: `npm run lint` · Build: `npm run build`
 
 Trang chủ hiển thị thẻ "Trạng thái hệ thống" (Backend / Database / AI).
+
+### Lưu ý khi dùng Git Bash trên Windows
+
+- Đường dẫn có dấu cách phải đặt trong ngoặc kép: `cd "/c/Users/.../Fast Track assignment/AI-personal-finance-assistant"`.
+- Mở REPL Python tương tác (gõ `python` không tham số) nếu bị treo thì dùng `winpty python`.
+- Đặt biến môi trường tạm thời: `export OPENAI_API_KEY="sk-..."` (hoặc ghi vào `backend/.env`).

@@ -154,11 +154,11 @@ Prompt `backend/app/ai/prompts/coach_v1.md`:
 ## 6. Verify / Acceptance criteria
 
 **Lệnh chạy**
-```powershell
-cd backend; alembic upgrade head; ruff check .; pytest
-$env:OPENAI_API_KEY="sk-..."; pytest -m ai
+```bash
+cd backend && alembic upgrade head && ruff check . && pytest
+export OPENAI_API_KEY="sk-..." && pytest -m ai
 uvicorn app.main:app --reload --port 8000
-cd ..\frontend; npm run gen:api; npm run lint; npm run dev
+cd ../frontend && npm run gen:api && npm run lint && npm run dev
 ```
 
 **Test cases / golden set**

@@ -88,12 +88,13 @@ Không có. Chỉ khung `openai_client.is_configured()`.
 ## 6. Verify / Acceptance criteria
 
 **Lệnh chạy**
-```powershell
+```bash
 docker compose up -d db
 docker compose ps                      # db healthy (host port 5433)
 
 cd backend
-python -m venv .venv; .\.venv\Scripts\Activate.ps1   # máy này: dùng `py -3.13 -m venv .venv` (lệnh `python` chưa có trong PATH)
+py -3.13 -m venv .venv            # chỉ cần lần đầu (lệnh `python` chưa có trong PATH)
+source .venv/Scripts/activate     # venv tạo trên Windows nên thư mục là Scripts/
 pip install -e ".[dev]"
 alembic upgrade head
 ruff check .
@@ -159,9 +160,9 @@ npm run dev                           # mở http://localhost:3000
   - Type OpenAPI → TS (`openapi-typescript`) để Phase 1 như plan; hiện `HealthResponse` khai báo tay trong `api.ts`.
 - **Lệnh hữu ích:**
   - `docker compose up -d db` · `docker compose stop db` · `docker exec -it pfa-db psql -U pfa -d pfa`
-  - `cd backend; .\.venv\Scripts\Activate.ps1; alembic upgrade head; ruff check .; ruff format --check .; pytest; uvicorn app.main:app --reload --port 8000`
+  - `cd backend && source .venv/Scripts/activate && alembic upgrade head && ruff check . && ruff format --check . && pytest && uvicorn app.main:app --reload --port 8000`
   - `alembic revision --autogenerate -m "<mô tả>"` (nhớ import model mới trong `app/models/__init__.py`)
-  - `cd frontend; npm run dev; npm run lint; npm run build`
+  - `cd frontend && npm run dev` · `npm run lint` · `npm run build`
   - `npx shadcn@latest add <component>`
 - **Gợi ý cho phase tiếp theo:**
   - Đặt model ORM trong `app/models/*.py` và import trong `app/models/__init__.py` để autogenerate thấy.

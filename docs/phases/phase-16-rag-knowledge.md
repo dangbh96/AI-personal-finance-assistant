@@ -29,9 +29,9 @@ Coach trả lời câu hỏi kiến thức tài chính cá nhân bằng nội du
 
 **In scope**
 - Bảng `knowledge_documents`, `knowledge_chunks` có embedding `vector(1536)`.
-- Script ingest `python -m app.scripts.ingest_knowledge docs_kb\` đọc markdown và PDF bằng `pypdf`.
+- Script ingest `python -m app.scripts.ingest_knowledge docs_kb/` đọc markdown và PDF bằng `pypdf`.
 - Chunking khoảng 500–800 tokens, overlap 100 tokens, lưu source/title/heading metadata.
-- Bộ knowledge base tự viết trong `backend\knowledge\` (không copy tài liệu có bản quyền): 50/30/20, envelope/jars, pay yourself first, emergency fund, sinking funds, debt basics.
+- Bộ knowledge base tự viết trong `backend/knowledge/` (không copy tài liệu có bản quyền): 50/30/20, envelope/jars, pay yourself first, emergency fund, sinking funds, debt basics.
 - Coach tool `search_knowledge` trả chunks + citations.
 - Answer format có mục `Nguồn:` và citation theo title/heading/source.
 - Retrieval eval hit@3.
@@ -62,13 +62,13 @@ Index:
 | Method | Path | Mô tả | Request | Response |
 |---|---|---|---|---|
 | GET | `/api/v1/knowledge/search` | Dev/debug search knowledge | `q`, `limit=5` | `{results:[{chunk_id,title,heading,content,score,citation}]}` |
-| POST | `/api/v1/knowledge/reindex` | Dev-only ingest lại thư mục mặc định | `{path?: "backend\\knowledge"}` | `{documents, chunks}` |
+| POST | `/api/v1/knowledge/reindex` | Dev-only ingest lại thư mục mặc định | `{path?: "backend/knowledge"}` | `{documents, chunks}` |
 
 Script chính:
-```powershell
+```bash
 cd backend
-python -m app.scripts.ingest_knowledge docs_kb\
-python -m app.scripts.ingest_knowledge backend\knowledge\
+python -m app.scripts.ingest_knowledge docs_kb/
+python -m app.scripts.ingest_knowledge knowledge/   # = backend/knowledge/
 ```
 
 Pydantic schemas:
@@ -115,7 +115,7 @@ class CoachAnswerWithCitations(BaseModel):
 - [ ] T1 Migration `knowledge_documents`, `knowledge_chunks` + HNSW index
 - [ ] T2 Thêm dependency `pypdf` và module loader markdown/pdf
 - [ ] T3 Implement chunker 500–800 tokens, overlap 100, giữ heading metadata
-- [ ] T4 Viết knowledge base tự soạn trong `backend\knowledge\`: `50-30-20.md`, `envelope-jars.md`, `pay-yourself-first.md`, `emergency-fund.md`, `sinking-funds.md`, `debt-basics.md`
+- [ ] T4 Viết knowledge base tự soạn trong `backend/knowledge/`: `50-30-20.md`, `envelope-jars.md`, `pay-yourself-first.md`, `emergency-fund.md`, `sinking-funds.md`, `debt-basics.md`
 - [ ] T5 Implement ingest script idempotent theo `content_hash`
 - [ ] T6 Implement `knowledge_service.search` dùng pgvector cosine + metadata citation
 - [ ] T7 Add Coach tool `search_knowledge` và update Coach prompt/guard
@@ -127,11 +127,11 @@ class CoachAnswerWithCitations(BaseModel):
 ## 6. Verify / Acceptance criteria
 
 **Lệnh chạy**
-```powershell
-cd backend; alembic upgrade head; ruff check .; pytest tests\unit\test_knowledge_chunking.py tests\api\test_knowledge_search.py
-cd backend; python -m app.scripts.ingest_knowledge backend\knowledge\
-cd backend; pytest -m ai tests\ai_golden\test_rag_coach.py
-cd frontend; npm run gen:api; npm run lint; npm run dev
+```bash
+(cd backend && alembic upgrade head && ruff check . && pytest tests/unit/test_knowledge_chunking.py tests/api/test_knowledge_search.py)
+(cd backend && python -m app.scripts.ingest_knowledge knowledge/)
+(cd backend && pytest -m ai tests/ai_golden/test_rag_coach.py)
+(cd frontend && npm run gen:api && npm run lint && npm run dev)
 ```
 
 **Test cases / golden set**

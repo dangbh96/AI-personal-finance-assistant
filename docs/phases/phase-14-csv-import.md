@@ -36,7 +36,7 @@ User import được sao kê ngân hàng CSV/XLSX hàng loạt, xem preview, s�
 - `dedup_hash = hash(date, amount, direction, normalized_description)` cho từng dòng; dòng trùng được đánh dấu trong preview và bỏ qua khi commit.
 - Batch classify 20 dòng/request, tái dùng Phase 3 preferences; exact-match preference dùng luôn, không gọi LLM.
 - Bulk edit category/spending type trong preview, commit trong một DB transaction.
-- Fixture `backend\tests\fixtures\imports\` gồm 25 dòng, 2 duplicate, 1 bad row.
+- Fixture `backend/tests/fixtures/imports/` gồm 25 dòng, 2 duplicate, 1 bad row.
 
 **Out of scope**
 - Kết nối API ngân hàng trực tiếp.
@@ -124,7 +124,7 @@ class ImportCommitRequest(BaseModel):
 - [ ] T5 Implement preview API, 409 khi file_hash đã committed
 - [ ] T6 Tích hợp Phase 3 preferences + batch classify 20 dòng/request
 - [ ] T7 Implement commit API trong DB transaction, bỏ qua duplicate, rollback toàn bộ nếu lỗi không recover được
-- [ ] T8 Tạo fixtures `backend\tests\fixtures\imports\` (VCB CSV utf-8-sig, Techcombank cp1258, XLSX) với 25 rows/2 duplicates/1 bad row
+- [ ] T8 Tạo fixtures `backend/tests/fixtures/imports/` (VCB CSV utf-8-sig, Techcombank cp1258, XLSX) với 25 rows/2 duplicates/1 bad row
 - [ ] T9 Pytest parser, dedup, API preview/commit, AI golden batch classify
 - [ ] T10 UI `/import` upload → mapping → preview → bulk edit → commit
 - [ ] T11 Cập nhật docs/PROGRESS/handoff + commit `phase-14: csv import`
@@ -132,10 +132,10 @@ class ImportCommitRequest(BaseModel):
 ## 6. Verify / Acceptance criteria
 
 **Lệnh chạy**
-```powershell
-cd backend; alembic upgrade head; ruff check .; pytest tests\unit\test_import_service.py tests\api\test_imports.py
-cd backend; pytest -m ai tests\ai_golden\test_import_classification.py
-cd frontend; npm run gen:api; npm run lint; npm run dev
+```bash
+(cd backend && alembic upgrade head && ruff check . && pytest tests/unit/test_import_service.py tests/api/test_imports.py)
+(cd backend && pytest -m ai tests/ai_golden/test_import_classification.py)
+(cd frontend && npm run gen:api && npm run lint && npm run dev)
 ```
 
 **Test cases (pytest)**

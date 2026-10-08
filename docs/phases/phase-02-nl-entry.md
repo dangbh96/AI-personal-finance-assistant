@@ -127,17 +127,17 @@ Guardrails:
 ## 6. Verify / Acceptance criteria
 
 **Lệnh chạy**
-```powershell
+```bash
 cd backend
 alembic upgrade head
 ruff check .
 pytest
-$env:OPENAI_API_KEY="sk-..."
-$env:OPENAI_MODEL_FAST="gpt-4o-mini"
+export OPENAI_API_KEY="sk-..."
+export OPENAI_MODEL_FAST="gpt-4o-mini"
 pytest -m ai
 uvicorn app.main:app --reload --port 8000
 
-cd ..\frontend
+cd ../frontend
 npm run gen:api
 npm run lint
 npm run dev

@@ -144,10 +144,10 @@ Nếu Phase 10 registry tồn tại, có thể đăng ký read-only tool `get_ca
 ## 6. Verify / Acceptance criteria
 
 **Lệnh chạy**
-```powershell
-cd backend; alembic upgrade head; ruff check .; pytest
+```bash
+cd backend && alembic upgrade head && ruff check . && pytest
 uvicorn app.main:app --reload --port 8000
-cd ..\frontend; npm run gen:api; npm run lint; npm run dev
+cd ../frontend && npm run gen:api && npm run lint && npm run dev
 ```
 
 **Test cases / golden set**

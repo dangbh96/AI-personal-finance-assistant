@@ -53,6 +53,7 @@ Handoff Phase 0: xem [phase-00-scaffolding.md § 9](./phases/phase-00-scaffoldin
 | 2026-10-07 | D | Thêm `frontend-structure.md`, ADR-007 (tiền là số nguyên đồng) | Cần cho tính nhất quán giữa các phase |
 | 2026-10-08 | 0 | Postgres map `5433:5432`; thêm `TEST_DATABASE_URL` (DB `pfa_test`), `LOG_LEVEL` | Port 5432 trên máy dev đã bị Postgres khác chiếm; cần DB riêng cho pytest |
 | 2026-10-08 | 0 | Next.js 16.4 (thay vì 15), shadcn dùng Base UI + package `cn` | Phiên bản mới nhất của `create-next-app` / shadcn CLI tại thời điểm scaffold |
+| 2026-10-08 | — | Terminal chuẩn đổi từ PowerShell sang **Git Bash**: README, `copilot-instructions.md`, khối lệnh Verify của mọi phase + template dùng cú pháp bash | Người dùng dùng Git Bash làm terminal |
 
 ## Câu hỏi mở xuyên suốt
 
