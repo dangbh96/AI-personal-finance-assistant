@@ -5,14 +5,16 @@
 
 ## Phase hiện tại
 
-**Tiếp theo: [Phase 0 — Scaffolding](./phases/phase-00-scaffolding.md)**
+**Tiếp theo: [Phase 1 — Core transactions](./phases/phase-01-transactions.md)**
+
+Handoff Phase 0: xem [phase-00-scaffolding.md § 9](./phases/phase-00-scaffolding.md#9-handoff-notes). Lưu ý: Postgres chạy ở **port 5433** trên host.
 
 ## Bảng trạng thái
 
 | Phase | Tên | Trạng thái | Bắt đầu | Hoàn thành | Milestone | Ghi chú |
 |---|---|---|---|---|---|---|
 | D | [System design & plan export](./phases/phase-D-design-docs.md) | Done | 2026-10-07 | 2026-10-07 | | Tài liệu thiết kế + plan 20 phase |
-| 0 | [Scaffolding](./phases/phase-00-scaffolding.md) | Not started | | | | |
+| 0 | [Scaffolding](./phases/phase-00-scaffolding.md) | Done | 2026-10-08 | 2026-10-08 | | Next.js 16.4, shadcn base-nova, DB port 5433 |
 | 1 | [Core transactions](./phases/phase-01-transactions.md) | Not started | | | M1 | |
 | 2 | [AI natural language entry](./phases/phase-02-nl-entry.md) | Not started | | | | |
 | 3 | [Classification learning](./phases/phase-03-classification-learning.md) | Not started | | | M2 | |
@@ -49,6 +51,8 @@
 | Ngày | Phase | Thay đổi | Lý do |
 |---|---|---|---|
 | 2026-10-07 | D | Thêm `frontend-structure.md`, ADR-007 (tiền là số nguyên đồng) | Cần cho tính nhất quán giữa các phase |
+| 2026-10-08 | 0 | Postgres map `5433:5432`; thêm `TEST_DATABASE_URL` (DB `pfa_test`), `LOG_LEVEL` | Port 5432 trên máy dev đã bị Postgres khác chiếm; cần DB riêng cho pytest |
+| 2026-10-08 | 0 | Next.js 16.4 (thay vì 15), shadcn dùng Base UI + package `cn` | Phiên bản mới nhất của `create-next-app` / shadcn CLI tại thời điểm scaffold |
 
 ## Câu hỏi mở xuyên suốt
 

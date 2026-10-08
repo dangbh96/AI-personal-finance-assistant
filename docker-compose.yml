@@ -1,0 +1,22 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: pfa-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pfa
+      POSTGRES_PASSWORD: pfa
+      POSTGRES_DB: pfa
+    ports:
+      - "5433:5432"
+    volumes:
+      - pfa_db_data:/var/lib/postgresql/data
+      - ./docker/db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pfa -d pfa"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pfa_db_data:

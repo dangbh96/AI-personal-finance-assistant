@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **ID** | `phase-00-scaffolding` |
-| **Trạng thái** | Not started |
+| **Trạng thái** | Done |
 | **Phụ thuộc** | Phase D |
 | **Mở khoá** | Phase 1 |
 | **Milestone** | — |
@@ -75,22 +75,22 @@ Không có. Chỉ khung `openai_client.is_configured()`.
 
 ## 5. Task breakdown
 
-- [ ] T1 `docker-compose.yml` service `db` + healthcheck; `docker compose up -d db` chạy được
-- [ ] T2 Khởi tạo `backend/` (venv, `pyproject.toml`, cấu trúc thư mục, ruff)
-- [ ] T3 `config.py`, `db.py`, `main.py`, router health
-- [ ] T4 Alembic init + migration baseline rỗng, `alembic upgrade head` chạy được
-- [ ] T5 pytest: test health trả 200 khi DB lên
-- [ ] T6 Khởi tạo `frontend/` (Next.js + Tailwind + shadcn)
-- [ ] T7 `api.ts` + trang chủ hiển thị trạng thái
-- [ ] T8 `.env.example` + README "Chạy local" (Windows PowerShell commands)
-- [ ] T9 Commit `phase-00: scaffolding`
+- [x] T1 `docker-compose.yml` service `db` + healthcheck; `docker compose up -d db` chạy được
+- [x] T2 Khởi tạo `backend/` (venv, `pyproject.toml`, cấu trúc thư mục, ruff)
+- [x] T3 `config.py`, `db.py`, `main.py`, router health
+- [x] T4 Alembic init + migration baseline rỗng, `alembic upgrade head` chạy được
+- [x] T5 pytest: test health trả 200 khi DB lên
+- [x] T6 Khởi tạo `frontend/` (Next.js + Tailwind + shadcn)
+- [x] T7 `api.ts` + trang chủ hiển thị trạng thái
+- [x] T8 `.env.example` + README "Chạy local" (Windows PowerShell commands)
+- [x] T9 Commit `phase-00: scaffolding`
 
 ## 6. Verify / Acceptance criteria
 
 **Lệnh chạy**
 ```powershell
 docker compose up -d db
-docker compose ps                      # db healthy
+docker compose ps                      # db healthy (host port 5433)
 
 cd backend
 python -m venv .venv; .\.venv\Scripts\Activate.ps1   # máy này: dùng `py -3.13 -m venv .venv` (lệnh `python` chưa có trong PATH)
@@ -122,12 +122,12 @@ npm run dev                           # mở http://localhost:3000
 
 ## 7. Definition of Done
 
-- [ ] Tất cả task mục 5 xong, verify mục 6 pass
-- [ ] `ruff check`, `pytest`, `npm run lint` xanh
-- [ ] README có hướng dẫn chạy local đúng thực tế
-- [ ] Nếu đổi port/biến môi trường → cập nhật [containers.md](../architecture/containers.md)
-- [ ] [PROGRESS.md](../PROGRESS.md) cập nhật, Handoff notes điền
-- [ ] Commit `phase-00: ...`
+- [x] Tất cả task mục 5 xong, verify mục 6 pass
+- [x] `ruff check`, `pytest`, `npm run lint` xanh
+- [x] README có hướng dẫn chạy local đúng thực tế
+- [x] Nếu đổi port/biến môi trường → cập nhật [containers.md](../architecture/containers.md)
+- [x] [PROGRESS.md](../PROGRESS.md) cập nhật, Handoff notes điền
+- [x] Commit `phase-00: ...`
 
 ## 8. Rủi ro / câu hỏi mở
 
@@ -138,11 +138,34 @@ npm run dev                           # mở http://localhost:3000
 
 ## 9. Handoff notes
 
-> Điền khi kết thúc phase.
-
-- **Ngày hoàn thành:**
+- **Ngày hoàn thành:** 2026-10-08
 - **Đã làm:**
+  - `docker-compose.yml`: service `db` (`pgvector/pgvector:pg16`, container `pfa-db`, volume `pfa_db_data`, healthcheck `pg_isready`). Script `docker/db/init/01-create-test-db.sql` tạo DB `pfa_test` khi volume khởi tạo lần đầu.
+  - `backend/`: FastAPI app factory (`app/main.py`), `core/config.py` (`Settings` qua pydantic-settings, đọc `backend/.env`; `openai_api_key` ẩn khỏi `repr`), `core/db.py` (`Base`, `engine`, `SessionLocal`, `get_db`, alias `DbSession = Annotated[Session, Depends(get_db)]`), `core/logging.py`, `schemas/health.py`, `api/router.py` (prefix `/api/v1`), `api/routers/health.py`, `ai/openai_client.py` (`is_configured`, `model_fast/smart`, `embedding_model` — chưa gọi API). Khung rỗng `models/ repositories/ services/ agents/`, `tests/{unit,api,ai_golden}`.
+  - Alembic: `alembic/env.py` lấy URL từ `Settings` và `target_metadata = app.models.Base.metadata`; migration baseline rỗng `20261008_d4383138fd55_baseline.py`; file name template `YYYYMMDD_<rev>_<slug>`.
+  - Test (10 pass): health 200 với DB thật (`pfa_test`, override `get_db`), 503 khi DB không kết nối được (engine trỏ port 1), `ai_configured` true/false, OpenAPI có `/api/v1/health`, unit test config/openai_client. `pytest` mặc định `-m 'not ai'`.
+  - `frontend/`: Next.js 16.4 (App Router, TS, Tailwind v4, ESLint 9, `src/`), shadcn/ui (style `base-nova`, Base UI) + `card`, `badge`, `button`. `src/lib/api.ts` (`apiGet<T>`, `ApiError` với `status = null` khi mất kết nối, type `HealthResponse`). Layout: header + sidebar `AppNav` (route tương lai hiển thị mờ kèm số phase). Trang `/`: `SystemStatusCard` (client component, nút "Kiểm tra lại"). Font Inter có subset `vietnamese`, `lang="vi"`.
+  - Verify: test case 1–4 và cả 2 kịch bản UI đã kiểm tra thủ công (DB tắt → "Database: Lỗi"; backend tắt → "Backend: Không kết nối được").
 - **Lệch so với plan (và lý do):**
+  - Postgres map **`5433:5432`** vì máy dev đã có Postgres khác chiếm 5432 → `DATABASE_URL` dùng port 5433; đã cập nhật `containers.md`.
+  - Thêm biến `TEST_DATABASE_URL` (DB `pfa_test`) và `LOG_LEVEL`.
+  - Env mẫu tách 2 file: `backend/.env.example`, `frontend/.env.example` (copy thành `.env.local`).
+  - Next.js thực tế là **16.4.0** (không phải 15): `cacheComponents` + `partialPrefetching` bật mặc định, Tailwind qua loader `@tailwindcss/turbopack`. File `frontend/AGENTS.md` do Next sinh ra (yêu cầu đọc docs trong `node_modules/next/dist/docs/` trước khi viết code Next) — giữ lại.
+  - shadcn CLI 4.x dùng Base UI (`@base-ui/react`) thay Radix và package `cn` (của shadcn-ui) thay `clsx + tailwind-merge`; `src/lib/utils.ts` chỉ re-export `cn`.
 - **Nợ kỹ thuật / TODO để lại:**
+  - `npm install` báo 5 lỗ hổng "high" từ dependency transitive — xem lại ở Phase 18 (không chạy `npm audit fix --force`).
+  - Python trên máy dev là bản cài lai (`C:\Python313` thiếu `Lib`, stdlib lấy từ thư mục user) → mỗi lệnh Python in cảnh báo `Could not find platform independent libraries <prefix>`; vô hại nhưng nên cài lại Python 3.13 khi tiện.
+  - Test API dùng DB thật; chưa có cơ chế transaction-rollback/cleanup cho test có ghi dữ liệu → làm ở Phase 1.
+  - Type OpenAPI → TS (`openapi-typescript`) để Phase 1 như plan; hiện `HealthResponse` khai báo tay trong `api.ts`.
 - **Lệnh hữu ích:**
+  - `docker compose up -d db` · `docker compose stop db` · `docker exec -it pfa-db psql -U pfa -d pfa`
+  - `cd backend; .\.venv\Scripts\Activate.ps1; alembic upgrade head; ruff check .; ruff format --check .; pytest; uvicorn app.main:app --reload --port 8000`
+  - `alembic revision --autogenerate -m "<mô tả>"` (nhớ import model mới trong `app/models/__init__.py`)
+  - `cd frontend; npm run dev; npm run lint; npm run build`
+  - `npx shadcn@latest add <component>`
 - **Gợi ý cho phase tiếp theo:**
+  - Đặt model ORM trong `app/models/*.py` và import trong `app/models/__init__.py` để autogenerate thấy.
+  - Dùng `DbSession` trong router thay cho `Depends(get_db)` (ruff rule B008).
+  - Trong `tests/conftest.py`, thêm fixture chạy `alembic upgrade head` (hoặc `Base.metadata.create_all`) trên `pfa_test` và rollback mỗi test.
+  - `alembic.ini` phải giữ ASCII (Alembic đọc bằng encoding mặc định của Windows → comment tiếng Việt gây `UnicodeDecodeError`).
+  - `LayoutProps`/`PageProps` là type global do Next sinh khi `next dev`/`next build`; chạy `tsc --noEmit` trên repo mới clone sẽ lỗi cho tới khi chạy một trong hai lệnh đó (hoặc `npx next typegen`).
