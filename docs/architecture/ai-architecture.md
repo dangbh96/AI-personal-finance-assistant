@@ -25,21 +25,30 @@ Tên model đọc từ env (`OPENAI_MODEL_FAST`, `OPENAI_MODEL_SMART`) — khôn
 4. **AI không quyết định thay user:** luôn trả draft/gợi ý, user xác nhận.
 5. Ngôn ngữ: tiếng Việt, xưng "bạn".
 
-Prompt lưu ở `backend/app/ai/prompts/*.md` (có version trong tên hoặc header), không inline dài trong code.
+Prompt lưu ở `backend/app/ai/prompts/*.md` (có version trong tên hoặc header), không inline dài trong code. Phase 2: `nl_transaction_parse.v2.md` (placeholder `{{today}}`, `{{calendar}}`, `{{categories}}`, `{{amount_hints}}`… do `nl_transaction_parser.build_messages` điền).
 
 ## 3. Structured output chính (phác thảo)
 
 ```python
-class TransactionDraft(BaseModel):
+# Phase 2 — app/schemas/ai.py (output của model; API trả thêm category_id đã resolve)
+class TransactionDraftOutput(BaseModel):
     direction: Literal["income", "expense"]
     amount: int                      # đồng, > 0
-    occurred_on: date | None         # None = hôm nay
+    occurred_on: date                # model resolve ngày tương đối từ lịch tham chiếu; không nêu = hôm nay
     note: str
-    category_slug: str               # phải thuộc danh sách category gửi kèm
-    spending_type: Literal["essential", "non_essential", "irregular"] | None
-    confidence: float                # 0..1
+    category_slug: str               # phải thuộc danh sách category đang dùng gửi kèm (backend hậu kiểm)
+    spending_type: Literal["essential", "non_essential", "irregular"] | None  # income = None, expense bắt buộc
+    confidence: float                # 0..1 (UI nhắc kiểm tra khi < 0.6)
     reason: str                      # vì sao chọn category/type
 
+class TransactionParseOutput(BaseModel):
+    transactions: list[TransactionDraftOutput]   # 1..10, giữ thứ tự trong câu
+    warnings: list[str]
+```
+
+Hậu kiểm deterministic sau khi model trả về (Phase 2): slug tồn tại + `kind` khớp `direction` (sai → gửi lỗi cho model sửa 1 lần → vẫn sai thì `502 AI_INVALID_OUTPUT`); `amount` đối chiếu với số tiền trích bằng quy tắc (`services/amount_text.extract_amounts`) → warning nếu lệch hoặc thiếu khoản; ngày ở tương lai / quá 1 năm → warning. Câu không có số tiền bị chặn trước khi gọi AI (`422 amount_missing`).
+
+```python
 class ReviewNarrative(BaseModel):
     observation: str                 # What happened?
     explanation: str                 # Why?

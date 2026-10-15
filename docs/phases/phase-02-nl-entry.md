@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **ID** | `phase-02-nl-entry` |
-| **Trạng thái** | Not started |
+| **Trạng thái** | Done |
 | **Phụ thuộc** | Phase 1 |
 | **Mở khoá** | Phase 3, 13 |
 | **Milestone** | — |
@@ -112,17 +112,17 @@ Guardrails:
 
 ## 5. Task breakdown
 
-- [ ] T1 Hoàn thiện `ai/openai_client.py` với cấu hình env, timeout, retry/backoff, Pydantic validation, lỗi `AIUnavailable`
-- [ ] T2 Thêm schema `TransactionDraft` / parse request-response và unit test validate amount/direction/spending_type
-- [ ] T3 Implement `nl_transaction_parser.parse_transactions()` nhận text, today, categories; hậu kiểm slug/ngày
-- [ ] T4 Thêm `POST /api/v1/transactions/parse` + test 503 khi thiếu key bằng mock `is_configured=false`
-- [ ] T5 Bảo đảm `POST /transactions` lưu được `source='nl'`, `raw_input`, `ai_suggestion` khi user xác nhận
-- [ ] T6 Thêm golden test file cho ≥10 câu tiếng Việt, mark `@pytest.mark.ai`, threshold rõ ràng
-- [ ] T7 Thêm mock-based API tests không cần OpenAI key cho one draft, multi draft, invalid category từ AI
-- [ ] T8 UI `QuickAddBox` trên `/` gọi parse và hiển thị lỗi/loading
-- [ ] T9 UI `TransactionDraftReview` cho sửa/lưu/bỏ qua từng draft; tái dùng form controls Phase 1
-- [ ] T10 Chạy sinh lại OpenAPI types nếu schema thay đổi
-- [ ] T11 Cập nhật docs/PROGRESS/handoff + commit `phase-02: natural language entry`
+- [x] T1 Hoàn thiện `ai/openai_client.py` với cấu hình env, timeout, retry/backoff, Pydantic validation, lỗi `AIUnavailable`
+- [x] T2 Thêm schema `TransactionDraft` / parse request-response và unit test validate amount/direction/spending_type
+- [x] T3 Implement `nl_transaction_parser.parse_transactions()` nhận text, today, categories; hậu kiểm slug/ngày
+- [x] T4 Thêm `POST /api/v1/transactions/parse` + test 503 khi thiếu key bằng mock `is_configured=false`
+- [x] T5 Bảo đảm `POST /transactions` lưu được `source='nl'`, `raw_input`, `ai_suggestion` khi user xác nhận
+- [x] T6 Thêm golden test file cho ≥10 câu tiếng Việt, mark `@pytest.mark.ai`, threshold rõ ràng (12 câu; kết quả ở § 9)
+- [x] T7 Thêm mock-based API tests không cần OpenAI key cho one draft, multi draft, invalid category từ AI
+- [x] T8 UI `QuickAddBox` trên `/` gọi parse và hiển thị lỗi/loading
+- [x] T9 UI `TransactionDraftReview` cho sửa/lưu/bỏ qua từng draft; tái dùng form controls Phase 1
+- [x] T10 Chạy sinh lại OpenAPI types nếu schema thay đổi
+- [x] T11 Cập nhật docs/PROGRESS/handoff + commit `phase-02: natural language entry`
 
 ## 6. Verify / Acceptance criteria
 
@@ -179,14 +179,14 @@ Pass threshold: amount đúng 100%, direction đúng 100%, occurred_on đúng �
 
 ## 7. Definition of Done
 
-- [ ] Tất cả task mục 5 xong, verify mục 6 pass
-- [ ] `pytest` không cần API key vẫn xanh; AI golden chỉ chạy khi `pytest -m ai`
-- [ ] `ruff check`, `npm run lint`, `npm run gen:api` xanh
-- [ ] Không có endpoint AI nào tự ghi DB
-- [ ] `raw_input` và `ai_suggestion` được lưu khi user xác nhận draft
-- [ ] [PROGRESS.md](../PROGRESS.md) cập nhật trạng thái phase = Done
-- [ ] Mục 9 Handoff notes đã điền
-- [ ] Commit với message `phase-02: natural language entry`
+- [x] Tất cả task mục 5 xong, verify mục 6 pass (golden set đạt 100% mọi chỉ số, 3/3 lần chạy)
+- [x] `pytest` không cần API key vẫn xanh; AI golden chỉ chạy khi `pytest -m ai`
+- [x] `ruff check`, `npm run lint`, `npm run gen:api` xanh
+- [x] Không có endpoint AI nào tự ghi DB
+- [x] `raw_input` và `ai_suggestion` được lưu khi user xác nhận draft
+- [x] [PROGRESS.md](../PROGRESS.md) cập nhật trạng thái phase = Done
+- [x] Mục 9 Handoff notes đã điền
+- [x] Commit với message `phase-02: natural language entry`
 
 ## 8. Rủi ro / câu hỏi mở
 
@@ -197,11 +197,45 @@ Pass threshold: amount đúng 100%, direction đúng 100%, occurred_on đúng �
 
 ## 9. Handoff notes
 
-> Điền khi kết thúc phase.
-
-- **Ngày hoàn thành:**
+- **Ngày hoàn thành:** 2026-10-13
 - **Đã làm:**
+  - **`ai/openai_client.py`:** `is_configured`/`ensure_configured`, `structured_completion(schema, messages, *, task, model, timeout=20, validate)` → `(output, model)`. Chat Completions `response_format=json_schema` strict (sinh từ Pydantic bằng `to_strict_json_schema`, bỏ `minLength`/`maxLength`/`default`), `temperature=0`. Retry mạng/429/5xx do SDK (`max_retries=2`, backoff); output sai Pydantic hoặc sai nghiệp vụ (`OutputValidationError` từ callback `validate`) → gửi lỗi cho model sửa **1 lần** → vẫn sai `502 AI_INVALID_OUTPUT`. Lỗi OpenAI map sang `AIUnavailable` (kế thừa `DomainError`): `AI_NOT_CONFIGURED`, `AI_AUTH_FAILED`, `AI_RATE_LIMITED`, `AI_TIMEOUT`, `AI_UNAVAILABLE` (503). Log task/model/token/latency, không log key/prompt.
+  - **`schemas/ai.py`:** `TransactionDraftOutput` + `TransactionParseOutput` (output model), `TransactionDraft` (= output + `category_id`), `TransactionParseRequest` (`text` 1..500, `today` tuỳ chọn, `timezone` IANA mặc định `Asia/Ho_Chi_Minh`), `TransactionParseResponse`.
+  - **`ai/nl_transaction_parser.py` + `ai/prompts/nl_transaction_parse.v2.md`:** prompt kèm bảng danh mục **đang dùng** (bỏ danh mục đã ẩn), **lịch tham chiếu tính sẵn** (hôm nay/hôm qua/hôm kia; tuần này & tuần trước mỗi ngày một dòng dạng `thứ 7 (Thứ Bảy) tuần trước: 2026-10-03` — tuần từ Thứ Hai qua `services/money.week_range`; tháng này/trước) và số tiền trích bằng quy tắc. Hậu kiểm slug + kind; cảnh báo deterministic: amount không thấy trong câu, số draft < số khoản tiền, ngày tương lai / > 1 năm. Câu không có chữ số / từ chỉ tiền → `422 amount_missing` **trước khi gọi AI**.
+  - **`services/amount_text.py`** (deterministic, không AI): `extract_amounts(text)` hiểu `55k`, `45 nghìn`, `1tr5`, `1.5tr`, `1,5 triệu`, `4 triệu rưỡi`, `1tr250`, `2 lít`, `3 củ`, `1 tỷ`, `55.000đ`…; bỏ qua "thứ 7", "2 ly", "năm 2026", ngày/giờ; chỉ dùng số nguyên.
+  - **API:** `POST /api/v1/transactions/parse` (không ghi DB). Lưu draft qua `POST /transactions` sẵn có với `source="nl"`, `raw_input`, `ai_suggestion` — không cần đổi schema/migration.
+  - **Test (171 pass, 1 deselected):** `tests/unit/test_amount_text.py`, `test_ai_schemas.py`, `test_openai_client.py` (retry/feedback, refusal, map lỗi OpenAI, strict schema), `tests/api/test_transactions_parse.py` (đủ 6 test case mục 6 + archived category, kind mismatch, warnings, default today, không ghi DB). Mock tại seam `openai_client._chat_json` nên đi qua toàn bộ luồng validate thật. Golden: `tests/ai_golden/nl_parse_cases.json` (12 câu mục 6) + `test_nl_parse_golden.py` (in báo cáo từng chỉ số, assert theo ngưỡng; tự skip khi chưa cấu hình key).
+  - **Frontend:** tách `components/transactions/transaction-fields.tsx` (`TransactionFields`, `validateTransactionValues`) — dialog Phase 1 và card draft dùng chung. `components/quick-add/quick-add-box.tsx` (trên `/`; gửi `today` + timezone trình duyệt; đọc `/health` để báo sớm "Chưa cấu hình AI" + link `/transactions`) và `transaction-draft-review.tsx` (mỗi draft là form sửa được, badge độ tin cậy, cảnh báo khi `confidence < 0.6`, hiển thị `reason`/`warnings`, Lưu/Bỏ qua từng cái, "Lưu tất cả" tuần tự; draft lỗi không chặn draft khác). Bảng giao dịch có badge nguồn (✨ "Câu tự nhiên"), tooltip hiện câu gốc. `gen:api` đã chạy lại.
+  - **Verify:** `ruff check`, `ruff format --check`, `pytest`, `npm run lint`, `npm run typecheck`, `npm run build` xanh. 4 kịch bản UI mục 6 đã chạy trên trình duyệt: kịch bản 1–3 với OpenAI thật (draft phở 55.000 ₫ / Ăn uống / Thiết yếu / hôm nay; sửa note "Phở bò" → lưu `source=nl`, `raw_input`, `ai_suggestion` đúng; 2 draft cafe/cơm → bỏ qua cafe, lưu cơm), kịch bản 4 với backend không có key. Đã kiểm tra lại dialog thêm/sửa của Phase 1 sau refactor. Dữ liệu thử đã xoá khỏi DB dev.
+  - **Golden set (`pytest -m ai`, `gpt-4o-mini`, 2026-10-15):**
+
+    | Prompt | count | amount | direction | occurred_on | category_slug | spending_type |
+    |---|---|---|---|---|---|---|
+    | v1 | 12/12 | 14/14 | 14/14 | 13/14 (93%) | 12/14 (86%) | 14/14 |
+    | **v2** (3 lần chạy, cả 3 như nhau) | 12/12 | 14/14 | 14/14 | **14/14** | **14/14** | 14/14 |
+
+    v1 đạt ngưỡng nhưng sai có hệ thống: "cafe" → `other` (2 lần) và "thứ 7 tuần trước" → 2026-10-01 (thứ 5) thay vì 2026-10-03. v2: lịch mỗi ngày một dòng, số thứ đặt trước ("thứ 7 (Thứ Bảy) tuần trước: …"), quy tắc tra "thứ N tuần trước", và nói rõ đồ uống thuộc danh mục ăn uống. Chi phí ~2.300 prompt token / câu.
 - **Lệch so với plan (và lý do):**
+  - Golden test chạy muộn hơn phase (2026-10-15) vì lúc đầu key bị 401; kết quả ở trên. Prompt nâng lên **v2** sau lần chạy đầu.
+  - `TransactionDraft` trả thêm `category_id` (frontend cần để POST); `occurred_on` luôn có giá trị (backend đưa lịch tham chiếu nên model luôn resolve được), khác phác thảo `date | None` cũ trong ai-architecture (đã cập nhật).
+  - Mã lỗi AI viết HOA theo plan (`AI_NOT_CONFIGURED`…), khác quy ước snake_case thường của lỗi nghiệp vụ Phase 1 (`category_not_found`). Thêm các mã `AI_AUTH_FAILED`, `AI_RATE_LIMITED`, `AI_TIMEOUT`, `AI_UNAVAILABLE`; output sai → **502**.
+  - Thêm `services/amount_text.py` + lịch tham chiếu trong prompt (không có trong plan) để giảm sai số tiền/ngày và có cảnh báo deterministic thay vì tin hoàn toàn vào model (ADR-005).
+  - Thêm `422 amount_missing` cho câu không có số tiền (mục 8 gợi ý).
+  - Thông báo sau khi lưu là dòng trạng thái inline ("Đã lưu N giao dịch" + link), không dùng toast — repo chưa có thư viện toast; trang `/` chưa có summary tháng để refresh (Phase 5).
+  - `pyproject.toml`: thêm `package-data` cho `app/ai/prompts/*.md`.
 - **Nợ kỹ thuật / TODO để lại:**
+  - Ghi chú (`note`) đôi khi giữ từ chỉ thời gian dù prompt dặn bỏ ("Sáng cafe", "Trưa cơm") — không ảnh hưởng số liệu, user sửa được; có thể thêm vào golden set và chỉnh ở prompt v3 nếu cần.
+  - Golden set mới có 12 câu, toàn câu "đẹp"; Phase 3 nên bổ sung câu mơ hồ / sai chính tả / không dấu.
+  - Retry vòng sửa output gửi lại toàn bộ prompt (token x2 khi model sai) — chấp nhận được với `gpt-4o-mini`.
+  - Số tiền viết bằng chữ ("năm mươi nghìn") không trích được bằng quy tắc → không có cảnh báo amount cho các câu này.
+  - "2 lít xăng" (lít thật) bị `extract_amounts` hiểu là 200.000 — chỉ ảnh hưởng gợi ý/cảnh báo, không ảnh hưởng draft.
+  - Chưa có test tự động cho frontend (QuickAdd/DraftReview) — Vitest/Playwright ở Phase 18.
+  - Khi test UI bằng công cụ trình duyệt: tab ở trạng thái `hidden` làm `requestAnimationFrame` dừng → Suspense của `/transactions` kẹt ở "Đang tải…" và Playwright chờ "stable" mãi; không phải bug của app (tab hiển thị load bình thường). Dùng `click(..., { force: true })` hoặc tab mới.
 - **Lệnh hữu ích:**
-- **Gợi ý cho phase tiếp theo:**
+  - `(cd backend && pytest tests/api/test_transactions_parse.py -q)`
+  - `(cd backend && pytest -m ai -s)` — golden set, in bảng chỉ số (trên console Windows nếu tiếng Việt bị lỗi hiển thị: `export PYTHONIOENCODING=utf-8`)
+  - `curl -s -X POST localhost:8000/api/v1/transactions/parse -H 'Content-Type: application/json' -d '{"text":"sáng cafe 35k, trưa phở 55k","today":"2026-10-07"}'`
+- **Gợi ý cho phase tiếp theo (Phase 3 — Classification learning):**
+  - So sánh `transactions.ai_suggestion` (draft gốc: `category_slug`, `spending_type`, `note`, `model`) với giá trị đã lưu để biết user có sửa không → lưu feedback/upsert preference trong `POST /transactions` khi `source="nl"`.
+  - Chèn few-shot preference vào prompt: thêm placeholder mới trong `nl_transaction_parse.v2.md` và tham số cho `build_messages`; giữ `validate` callback để hậu kiểm.
+  - Chuẩn hoá câu để match preference: `core/text.strip_accents` + bỏ số tiền (có thể tái dùng regex của `services/amount_text`).

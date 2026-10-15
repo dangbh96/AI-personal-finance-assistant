@@ -235,7 +235,7 @@ Tên trong bảng dưới là **tên bảng thực tế** (số nhiều snake_ca
 | Phase | Bảng / cột mới |
 |---|---|
 | 1 | `categories`, `transactions` (cột lõi + `source`, `raw_input`, `ai_suggestion` nullable), `app_settings` |
-| 2 | — (dùng `transactions.raw_input`, `transactions.ai_suggestion` đã tạo ở P1) |
+| 2 | — (dùng `transactions.raw_input`, `transactions.ai_suggestion` đã tạo ở P1). Giao dịch nhập bằng câu: `source='nl'`, `raw_input` = câu gốc, `ai_suggestion` = draft AI **trước khi user sửa** (`TransactionDraft` + `model`) |
 | 3 | `classification_preferences`, `classification_feedback` |
 | 4 | `budgets`, `budget_allocations` (cột lõi) |
 | 5 | — (chỉ query/aggregate) |

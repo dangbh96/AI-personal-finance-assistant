@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { QuickAddBox } from "@/components/quick-add/quick-add-box";
 import { SystemStatusCard } from "@/components/system-status-card";
 
 export default function HomePage() {
@@ -8,13 +9,14 @@ export default function HomePage() {
       <div>
         <h1 className="font-heading text-2xl font-semibold">Tổng quan</h1>
         <p className="text-sm text-muted-foreground">
-          Ghi chép thu chi thủ công đã sẵn sàng ở mục{" "}
+          Gõ một câu để ghi nhanh thu chi, hoặc nhập thủ công ở mục{" "}
           <Link href="/transactions" className="underline underline-offset-3">
             Giao dịch
           </Link>
           . Các tính năng khác sẽ được thêm dần theo từng phase.
         </p>
       </div>
+      <QuickAddBox />
       <SystemStatusCard />
     </div>
   );

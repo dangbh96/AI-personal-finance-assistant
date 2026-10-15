@@ -4,8 +4,10 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Response, status
 
+from app.ai import nl_transaction_parser
 from app.core.db import DbSession
 from app.models.enums import Direction, SpendingType
+from app.schemas.ai import TransactionParseRequest, TransactionParseResponse
 from app.schemas.common import ErrorResponse
 from app.schemas.transaction import (
     TransactionCreate,
@@ -77,6 +79,23 @@ def summarize_transactions(db: DbSession, filters: Filters):
 )
 def create_transaction(db: DbSession, data: TransactionCreate):
     return transaction_service.create_transaction(db, data)
+
+
+@router.post(
+    "/parse",
+    response_model=TransactionParseResponse,
+    responses={
+        422: {"model": ErrorResponse},
+        502: {"model": ErrorResponse, "description": "AI trả kết quả không hợp lệ"},
+        503: {"model": ErrorResponse, "description": "AI chưa cấu hình / không khả dụng"},
+    },
+)
+def parse_transactions(db: DbSession, data: TransactionParseRequest):
+    """Phân tích câu tự nhiên thành draft giao dịch. **Không lưu DB** — user xác nhận rồi mới
+    gọi `POST /transactions` với `source="nl"`, `raw_input`, `ai_suggestion`."""
+    return nl_transaction_parser.parse_transactions(
+        db, data.text, today=data.today, timezone=data.timezone
+    )
 
 
 @router.get("/{transaction_id}", response_model=TransactionRead, responses=ERRORS)

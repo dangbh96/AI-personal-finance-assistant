@@ -38,7 +38,7 @@ flowchart LR
 
 | Route | Phase | Thành phần chính |
 |---|---|---|
-| `/` | 0 → mở rộng dần | Health status (P0), Quick add NL (P2), thẻ tóm tắt tháng (P5) |
+| `/` | 0 → mở rộng dần | Health status (P0), Quick add NL (P2: `QuickAddBox` → `TransactionDraftReview`), thẻ tóm tắt tháng (P5) |
 | `/transactions` | 1 | `TransactionTable`, `TransactionForm`, filter tháng/category/type |
 | `/settings` | 1, 3 | Quản lý category, danh sách preference đã học |
 | `/budget/new` | 4 | `BudgetWizard` (chọn strategy → nhập số → preview) |
@@ -59,5 +59,6 @@ flowchart LR
 - `src/hooks/use-api-data.ts`: đọc dữ liệu phía client (`useApiData(path)` → `{data, error, loading, reload}`). Trang là Server Component mỏng bọc Client Component; nếu component đọc thời gian hiện tại (vd. tháng mặc định) thì gọi `use(io())` và bọc `<Suspense>` (Next 16 Cache Components).
 - `src/lib/format.ts`: `formatVND(amount)` dùng `Intl.NumberFormat('vi-VN', {style:'currency', currency:'VND'})`.
 - `src/lib/amount.ts`: `parseAmountInput("1tr5")` — tiện ích gõ tắt số tiền trong form, backend vẫn nhận số nguyên.
+- `src/components/transactions/transaction-fields.tsx`: `TransactionFields` + `validateTransactionValues` — bộ ô nhập giao dịch dùng chung cho dialog tạo/sửa (P1) và card draft AI (P2); truyền `className` để đổi layout (vd. lưới 2 cột).
 - UI tiếng Việt; tên biến/component tiếng Anh theo [glossary](../product/glossary.md).
 - Mọi kết quả AI hiển thị dưới dạng **draft có thể sửa** + nút xác nhận.

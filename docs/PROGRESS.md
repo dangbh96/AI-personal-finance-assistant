@@ -5,9 +5,9 @@
 
 ## Phase hiện tại
 
-**Tiếp theo: [Phase 2 — AI natural language entry](./phases/phase-02-nl-entry.md)**
+**Tiếp theo: [Phase 3 — Classification learning](./phases/phase-03-classification-learning.md)**
 
-Handoff Phase 1: xem [phase-01-transactions.md § 9](./phases/phase-01-transactions.md#9-handoff-notes). **M1 đạt.** DB dev đã có dữ liệu demo (`seed_demo --months 3`). Postgres vẫn ở **port 5433**.
+Handoff Phase 2: xem [phase-02-nl-entry.md § 9](./phases/phase-02-nl-entry.md#9-handoff-notes). Nhập bằng câu tự nhiên chạy được (draft → user xác nhận → lưu `source='nl'`, `raw_input`, `ai_suggestion`). Golden set NL parse (prompt v2, `gpt-4o-mini`) đạt 100% mọi chỉ số. Postgres vẫn ở **port 5433**.
 
 ## Bảng trạng thái
 
@@ -16,7 +16,7 @@ Handoff Phase 1: xem [phase-01-transactions.md § 9](./phases/phase-01-transacti
 | D | [System design & plan export](./phases/phase-D-design-docs.md) | Done | 2026-10-07 | 2026-10-07 | | Tài liệu thiết kế + plan 20 phase |
 | 0 | [Scaffolding](./phases/phase-00-scaffolding.md) | Done | 2026-10-08 | 2026-10-08 | | Next.js 16.4, shadcn base-nova, DB port 5433 |
 | 1 | [Core transactions](./phases/phase-01-transactions.md) | Done | 2026-10-08 | 2026-10-08 | M1 ✅ | 93 test; summary nhận thêm filter |
-| 2 | [AI natural language entry](./phases/phase-02-nl-entry.md) | Not started | | | | |
+| 2 | [AI natural language entry](./phases/phase-02-nl-entry.md) | Done | 2026-10-13 | 2026-10-15 | | 171 test (mock); golden 12 câu đạt 100% (prompt v2) |
 | 3 | [Classification learning](./phases/phase-03-classification-learning.md) | Not started | | | M2 | |
 | 4 | [Budget engine](./phases/phase-04-budget-engine.md) | Not started | | | | |
 | 5 | [Budget vs Actual](./phases/phase-05-budget-vs-actual.md) | Not started | | | M3 | |
@@ -57,6 +57,10 @@ Handoff Phase 1: xem [phase-01-transactions.md § 9](./phases/phase-01-transacti
 | 2026-10-08 | 1 | `GET /transactions/summary` nhận cùng bộ filter với list (+ `date_from/date_to`, `by_category.kind/icon`) | Thẻ tổng trên UI phải khớp bộ lọc |
 | 2026-10-08 | 1 | Category expense bắt buộc `default_spending_type`; PATCH field không cho sửa → 422; không tạo/chuyển giao dịch sang category đã ẩn | Giữ dữ liệu nhất quán, lỗi rõ ràng thay vì bỏ qua âm thầm |
 | 2026-10-08 | 1 | Lỗi validate trả `{"detail": [...], "code": "validation_error"}`; thêm `npm run typecheck`, `gen:api --default-non-nullable false` | Thống nhất format lỗi; type request body đúng |
+| 2026-10-13 | 2 | `TransactionDraft` trả thêm `category_id`, `occurred_on` luôn có; mã lỗi AI: `AI_NOT_CONFIGURED`/`AI_AUTH_FAILED`/`AI_RATE_LIMITED`/`AI_TIMEOUT`/`AI_UNAVAILABLE` (503), `AI_INVALID_OUTPUT` (502); `422 amount_missing` | Frontend cần id để lưu; lỗi rõ ràng theo nguyên nhân |
+| 2026-10-13 | 2 | Thêm `services/amount_text.extract_amounts` + lịch tham chiếu trong prompt + cảnh báo deterministic (amount/ngày) | Giảm sai số tiền/ngày, không tin hoàn toàn vào model (ADR-005) |
+| 2026-10-13 | 2 | Thông báo lưu là dòng trạng thái inline thay vì toast | Repo chưa có thư viện toast |
+| 2026-10-15 | 2 | Chạy golden test (trễ vì key cũ 401); prompt NL parse lên v2 (lịch mỗi ngày một dòng, đồ uống → ăn uống) | v1 đạt ngưỡng nhưng sai "thứ 7 tuần trước" và "cafe" → `other`; v2 đạt 100% |
 
 ## Câu hỏi mở xuyên suốt
 

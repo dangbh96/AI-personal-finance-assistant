@@ -15,8 +15,12 @@ export type TransactionCreate = Schemas["TransactionCreate"];
 export type TransactionUpdate = Schemas["TransactionUpdate"];
 export type TransactionList = Schemas["TransactionList"];
 export type TransactionSummary = Schemas["TransactionSummary"];
+export type TransactionDraft = Schemas["TransactionDraft"];
+export type TransactionParseRequest = Schemas["TransactionParseRequest"];
+export type TransactionParseResponse = Schemas["TransactionParseResponse"];
 export type Direction = Transaction["direction"];
 export type SpendingType = NonNullable<Transaction["spending_type"]>;
+export type TransactionSource = Transaction["source"];
 
 export class ApiError extends Error {
   constructor(

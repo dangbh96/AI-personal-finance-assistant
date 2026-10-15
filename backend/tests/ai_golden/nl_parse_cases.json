@@ -1,0 +1,28 @@
+[
+  {"text": "Hôm nay ăn phở 55k", "today": "2026-10-07", "expected": [
+    {"amount": 55000, "direction": "expense", "occurred_on": "2026-10-07", "category_slug": "food", "spending_type": "essential"}]},
+  {"text": "Grab về nhà 45 nghìn", "today": "2026-10-07", "expected": [
+    {"amount": 45000, "direction": "expense", "occurred_on": "2026-10-07", "category_slug": "transport", "spending_type": "essential"}]},
+  {"text": "Tháng này nhận lương 25 triệu", "today": "2026-10-07", "expected": [
+    {"amount": 25000000, "direction": "income", "occurred_on": "2026-10-07", "category_slug": "salary", "spending_type": null}]},
+  {"text": "Mua tai nghe 1tr5", "today": "2026-10-07", "expected": [
+    {"amount": 1500000, "direction": "expense", "occurred_on": "2026-10-07", "category_slug": "electronics", "spending_type": "non_essential"}]},
+  {"text": "cafe 2 lít", "today": "2026-10-07", "expected": [
+    {"amount": 200000, "direction": "expense", "occurred_on": "2026-10-07", "category_slug": "food", "spending_type": "non_essential"}]},
+  {"text": "Hôm qua đóng tiền điện 780k", "today": "2026-10-07", "expected": [
+    {"amount": 780000, "direction": "expense", "occurred_on": "2026-10-06", "category_slug": "utilities", "spending_type": "essential"}]},
+  {"text": "Thứ 7 tuần trước đi khám 650 nghìn", "today": "2026-10-07", "expected": [
+    {"amount": 650000, "direction": "expense", "occurred_on": "2026-10-03", "category_slug": "health", "spending_type": "essential"}]},
+  {"text": "Được thưởng dự án 3 củ", "today": "2026-10-07", "expected": [
+    {"amount": 3000000, "direction": "income", "occurred_on": "2026-10-07", "category_slug": "bonus", "spending_type": null}]},
+  {"text": "Mua áo sơ mi 450k", "today": "2026-10-07", "expected": [
+    {"amount": 450000, "direction": "expense", "occurred_on": "2026-10-07", "category_slug": "shopping", "spending_type": "non_essential"}]},
+  {"text": "Sửa laptop 1.2tr", "today": "2026-10-07", "expected": [
+    {"amount": 1200000, "direction": "expense", "occurred_on": "2026-10-07", "category_slug": "electronics", "spending_type": "irregular"}]},
+  {"text": "Sáng cafe 35k, trưa phở 55k, tối Grab 90k", "today": "2026-10-07", "expected": [
+    {"amount": 35000, "direction": "expense", "occurred_on": "2026-10-07", "category_slug": "food", "spending_type": "non_essential"},
+    {"amount": 55000, "direction": "expense", "occurred_on": "2026-10-07", "category_slug": "food", "spending_type": "essential"},
+    {"amount": 90000, "direction": "expense", "occurred_on": "2026-10-07", "category_slug": "transport", "spending_type": "essential"}]},
+  {"text": "Nhận freelance 4 triệu rưỡi", "today": "2026-10-07", "expected": [
+    {"amount": 4500000, "direction": "income", "occurred_on": "2026-10-07", "category_slug": "freelance", "spending_type": null}]}
+]

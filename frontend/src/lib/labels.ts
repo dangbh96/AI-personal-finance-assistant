@@ -1,8 +1,16 @@
-import type { Direction, SpendingType } from "@/lib/api";
+import type { Direction, SpendingType, TransactionSource } from "@/lib/api";
 
 export const DIRECTION_LABELS: Record<Direction, string> = {
   income: "Thu nhập",
   expense: "Chi tiêu",
+};
+
+export const SOURCE_LABELS: Record<TransactionSource, string> = {
+  manual: "Thủ công",
+  nl: "Câu tự nhiên",
+  receipt: "Hoá đơn",
+  import: "Import",
+  recurring: "Định kỳ",
 };
 
 export const SPENDING_TYPE_LABELS: Record<SpendingType, string> = {

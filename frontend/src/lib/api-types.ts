@@ -91,6 +91,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/transactions/parse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Parse Transactions
+         * @description Phân tích câu tự nhiên thành draft giao dịch. **Không lưu DB** — user xác nhận rồi mới
+         *     gọi `POST /transactions` với `source="nl"`, `raw_input`, `ai_suggestion`.
+         */
+        post: operations["parse_transactions_api_v1_transactions_parse_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/transactions/{transaction_id}": {
         parameters: {
             query?: never;
@@ -309,6 +330,54 @@ export interface components {
                 [key: string]: unknown;
             } | null;
         };
+        /**
+         * TransactionDraft
+         * @description Draft gửi cho frontend: như output của model + `category_id` đã resolve.
+         */
+        TransactionDraft: {
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "income" | "expense";
+            /**
+             * Amount
+             * @description Số nguyên đồng (VND), > 0
+             */
+            amount: number;
+            /**
+             * Occurred On
+             * Format: date
+             */
+            occurred_on: string;
+            /**
+             * Note
+             * @description Mô tả ngắn, tiếng Việt
+             */
+            note: string;
+            /**
+             * Category Slug
+             * @description Slug thuộc danh sách danh mục gửi kèm
+             */
+            category_slug: string;
+            /**
+             * Spending Type
+             * @description Chỉ cho expense; income phải là null
+             */
+            spending_type: ("essential" | "non_essential" | "irregular") | null;
+            /** Confidence */
+            confidence: number;
+            /**
+             * Reason
+             * @description Vì sao chọn danh mục / loại chi tiêu
+             */
+            reason: string;
+            /**
+             * Category Id
+             * Format: uuid
+             */
+            category_id: string;
+        };
         /** TransactionList */
         TransactionList: {
             /** Items */
@@ -319,6 +388,32 @@ export interface components {
             page: number;
             /** Page Size */
             page_size: number;
+        };
+        /** TransactionParseRequest */
+        TransactionParseRequest: {
+            /** Text */
+            text: string;
+            /**
+             * Today
+             * @description Ngày hiện tại phía user; bỏ trống thì lấy theo `timezone`
+             */
+            today?: string | null;
+            /**
+             * Timezone
+             * @default Asia/Ho_Chi_Minh
+             */
+            timezone?: string;
+        };
+        /** TransactionParseResponse */
+        TransactionParseResponse: {
+            /** Drafts */
+            drafts: components["schemas"]["TransactionDraft"][];
+            /** Model */
+            model: string;
+            /** Raw Input */
+            raw_input: string;
+            /** Warnings */
+            warnings: string[];
         };
         /** TransactionRead */
         TransactionRead: {
@@ -684,6 +779,57 @@ export interface operations {
             };
             /** @description Unprocessable Content */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    parse_transactions_api_v1_transactions_parse_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransactionParseRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransactionParseResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description AI trả kết quả không hợp lệ */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description AI chưa cấu hình / không khả dụng */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
