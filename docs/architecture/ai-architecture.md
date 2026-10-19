@@ -5,7 +5,8 @@
 | Tác vụ | Phase | Kỹ thuật | Model mặc định | Output |
 |---|---|---|---|---|
 | Parse câu nhập giao dịch | 2 | Structured Outputs (Pydantic → JSON schema) | `gpt-4o-mini` | `TransactionDraft` |
-| Phân loại category × spending_type | 2, 3 | Structured Outputs + few-shot từ `classification_preference` | `gpt-4o-mini` | `ClassificationSuggestion` (kèm `confidence`, `reason`) |
+| Phân loại category × spending_type | 2, 3 | Structured Outputs + few-shot từ `classification_preference`; exact-match preference → deterministic | `gpt-4o-mini` | `ClassificationSuggestion` (kèm `confidence`, `reason`) |
+| Parse câu sở thích phân loại ("Tao coi giày là thiết yếu") | 3 | Structured Outputs | `gpt-4o-mini` | `PreferenceDraft` |
 | Weekly / Monthly review narrative | 6, 7 | LangGraph workflow, input là metrics đã tính sẵn | `gpt-4o` | `ReviewNarrative` |
 | Giải thích Budget advice | 8 | Structured Outputs, input là `evidence` deterministic | `gpt-4o-mini` | `explanation` |
 | Financial Coach | 10, 16 | LangGraph ReAct agent + function calling (LangChain tools) | `gpt-4o` | Chat message + tool calls |
@@ -25,7 +26,7 @@ Tên model đọc từ env (`OPENAI_MODEL_FAST`, `OPENAI_MODEL_SMART`) — khôn
 4. **AI không quyết định thay user:** luôn trả draft/gợi ý, user xác nhận.
 5. Ngôn ngữ: tiếng Việt, xưng "bạn".
 
-Prompt lưu ở `backend/app/ai/prompts/*.md` (có version trong tên hoặc header), không inline dài trong code. Phase 2: `nl_transaction_parse.v2.md` (placeholder `{{today}}`, `{{calendar}}`, `{{categories}}`, `{{amount_hints}}`… do `nl_transaction_parser.build_messages` điền).
+Prompt lưu ở `backend/app/ai/prompts/*.md` (có version trong tên hoặc header), không inline dài trong code. Phase 3: `nl_transaction_parse.v3.md` (placeholder `{{today}}`, `{{calendar}}`, `{{categories}}`, `{{preferences}}`, `{{amount_hints}}`… do `nl_transaction_parser.build_messages` điền; v3 = v2 + mục "Sở thích phân loại của người dùng") và `classification_preference_parse.v1.md`.
 
 ## 3. Structured output chính (phác thảo)
 
@@ -104,17 +105,25 @@ stateDiagram-v2
 flowchart LR
     inp["Câu nhập mới"] --> norm["Chuẩn hoá<br/>lowercase, bỏ dấu, bỏ số tiền"]
     norm --> match["Tìm preference khớp<br/>(keyword overlap; P15: + vector similarity)"]
-    match -->|"khớp mạnh (exact pattern)"| direct["Dùng luôn preference<br/>(không cần LLM cho phần phân loại)"]
+    match -->|"khớp mạnh (exact pattern)<br/>+ câu đơn giản"| direct["Draft deterministic<br/>(không gọi LLM)"]
     match -->|"khớp một phần"| fewshot["Đưa top-5 preference<br/>vào prompt làm few-shot"]
     match -->|"không khớp"| plain["Prompt thường"]
-    fewshot --> llm["LLM classify"]
+    fewshot --> llm["LLM parse + classify"]
     plain --> llm
+    llm --> post["Hậu kiểm: draft nào exact-match<br/>→ phân loại theo preference"]
     direct --> draft["Draft cho user"]
-    llm --> draft
+    post --> draft
     draft --> confirm{"User sửa?"}
     confirm -->|"Có"| save["Lưu feedback +<br/>upsert preference"]
-    confirm -->|"Không"| hit["Tăng hit_count"]
+    confirm -->|"Không, draft dùng preference"| hit["Tăng hit_count"]
 ```
+
+Chi tiết triển khai:
+- **Chuẩn hoá** (`services/classification_text`, deterministic): `"Mua giày MLB 1.8 triệu"` → `mua giay mlb`. Pattern lưu bỏ thêm từ chung (`STOPWORDS`: động từ chung, đại từ, lượng từ, từ chỉ thời gian). Keyword học từ correction = từ có nghĩa đầu tiên của ghi chú (+ từ ngay sau nếu là "từ đầu" như `tien`, `sua`, `phi`…): `giay`, `sua laptop`, `tien nha`.
+- **Exact match**: mọi token của pattern có trong câu (không cần liền nhau — `sua laptop` khớp "sửa màn hình laptop"); pattern chỉ gồm từ chung (`mua`, `tien`) bị coi là quá rộng, không áp dụng. Nhiều preference khớp → pattern nhiều token nhất, rồi `hit_count`, rồi mới dùng gần nhất. Preference của danh mục đã ẩn bị bỏ qua.
+- **Shortcut không gọi OpenAI** chỉ khi câu đơn giản: đúng 1 khoản tiền, không còn chữ số khác, không có từ chỉ ngày (`qua`, `thu`, `tuan`, `t7`…), và không có từ gợi ý chiều tiền ngược với danh mục của preference (`ban`, `nhan`… với preference chi tiêu). Draft: `amount` từ `extract_amounts`, `occurred_on` = hôm nay, `confidence = 0.95`, `reason = "Theo sở thích phân loại đã học: “giay” → Mua sắm · Thiết yếu"`, `matched_preference_id`, response `model = "classification_preference"`. Câu còn lại đi LLM (few-shot = preference có token chung), sau đó từng draft exact-match (theo ghi chú của draft; câu 1 draft dùng thêm token câu gốc, cùng `direction`) bị ghi đè phân loại theo preference.
+- **Parse không ghi DB** (kể cả `hit_count`); học/tăng `hit_count` xảy ra trong `POST /transactions` (cùng commit) dựa trên `ai_suggestion` mà frontend gửi kèm. Response `POST /transactions` có `learned_preference` khi vừa học.
+- **Explicit preference**: `POST /classification-preferences/parse` (LLM → `PreferenceDraft`, hậu kiểm slug/kind/pattern đủ cụ thể, sai → model sửa 1 lần → 502) → user sửa/xác nhận → `POST /classification-preferences` (upsert theo pattern).
 
 ## 7. Đánh giá chất lượng AI (golden tests)
 

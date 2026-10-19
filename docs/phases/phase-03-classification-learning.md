@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **ID** | `phase-03-classification-learning` |
-| **Trạng thái** | Not started |
+| **Trạng thái** | Done |
 | **Phụ thuộc** | Phase 2 |
 | **Mở khoá** | Phase 14 |
 | **Milestone** | **M2 — Tracking loop hoàn chỉnh** |
@@ -130,18 +130,18 @@ Guardrails:
 
 ## 5. Task breakdown
 
-- [ ] T1 Migration + ORM cho `classification_preferences`, `classification_feedback`
-- [ ] T2 Pydantic schemas `PreferenceRead/Create`, `ClassificationFeedbackRead`, `PreferenceDraft`
-- [ ] T3 Implement normalize: lowercase, strip diacritics, strip amount/slang, tokenize, unit tests tiếng Việt
-- [ ] T4 `classification_preference_service`: exact match, top-5 retrieval, upsert, delete, hit_count
-- [ ] T5 Gắn preference lookup vào `transactions/parse`: exact shortcut trước, few-shot sau
-- [ ] T6 Mở rộng `transaction_service.create()` để record feedback/upsert preference khi final khác AI suggestion
-- [ ] T7 Endpoint CRUD preferences + endpoint parse explicit preference
-- [ ] T8 API tests cho correction → feedback + preference, delete preference, exact shortcut không gọi OpenAI
-- [ ] T9 Golden tests before/after preference, mark `@pytest.mark.ai`
-- [ ] T10 UI `/settings` tab preferences + explicit statement flow
-- [ ] T11 UI badge/reason trong draft review khi dùng preference
-- [ ] T12 Cập nhật OpenAPI types, docs/PROGRESS/handoff + commit `phase-03: classification learning`
+- [x] T1 Migration + ORM cho `classification_preferences`, `classification_feedback`
+- [x] T2 Pydantic schemas `PreferenceRead/Create`, `ClassificationFeedbackRead`, `PreferenceDraft` (không tạo `ClassificationFeedbackRead` — chưa có endpoint đọc feedback)
+- [x] T3 Implement normalize: lowercase, strip diacritics, strip amount/slang, tokenize, unit tests tiếng Việt
+- [x] T4 `classification_preference_service`: exact match, top-5 retrieval, upsert, delete, hit_count
+- [x] T5 Gắn preference lookup vào `transactions/parse`: exact shortcut trước, few-shot sau
+- [x] T6 Mở rộng `transaction_service.create()` để record feedback/upsert preference khi final khác AI suggestion
+- [x] T7 Endpoint CRUD preferences + endpoint parse explicit preference
+- [x] T8 API tests cho correction → feedback + preference, delete preference, exact shortcut không gọi OpenAI
+- [x] T9 Golden tests before/after preference, mark `@pytest.mark.ai`
+- [x] T10 UI `/settings` tab preferences + explicit statement flow
+- [x] T11 UI badge/reason trong draft review khi dùng preference
+- [x] T12 Cập nhật OpenAPI types, docs/PROGRESS/handoff + commit `phase-03: classification learning`
 
 ## 6. Verify / Acceptance criteria
 
@@ -197,14 +197,14 @@ Pass threshold: exact shortcut deterministic 100%; after-preference category/typ
 
 ## 7. Definition of Done
 
-- [ ] Tất cả task mục 5 xong, verify mục 6 pass
-- [ ] `pytest` không cần API key xanh; `pytest -m ai` có threshold ghi ở Handoff
-- [ ] Exact preference path được test không gọi OpenAI
-- [ ] `/settings` xem/xoá/tạo explicit preference hoạt động
-- [ ] [data-model.md](../architecture/data-model.md) cập nhật nếu schema thực tế lệch
-- [ ] [PROGRESS.md](../PROGRESS.md) cập nhật đánh dấu **M2 — Tracking loop hoàn chỉnh**
-- [ ] Mục 9 Handoff notes đã điền
-- [ ] Commit với message `phase-03: classification learning`
+- [x] Tất cả task mục 5 xong, verify mục 6 pass
+- [x] `pytest` không cần API key xanh; `pytest -m ai` có threshold ghi ở Handoff
+- [x] Exact preference path được test không gọi OpenAI
+- [x] `/settings` xem/xoá/tạo explicit preference hoạt động
+- [x] [data-model.md](../architecture/data-model.md) cập nhật nếu schema thực tế lệch
+- [x] [PROGRESS.md](../PROGRESS.md) cập nhật đánh dấu **M2 — Tracking loop hoàn chỉnh**
+- [x] Mục 9 Handoff notes đã điền
+- [x] Commit với message `phase-03: classification learning`
 
 ## 8. Rủi ro / câu hỏi mở
 
@@ -214,11 +214,42 @@ Pass threshold: exact shortcut deterministic 100%; after-preference category/typ
 
 ## 9. Handoff notes
 
-> Điền khi kết thúc phase.
-
-- **Ngày hoàn thành:**
+- **Ngày hoàn thành:** 2026-10-19
 - **Đã làm:**
+  - **DB** (migration `20261019_06a6605af7ab_classification_learning`): `classification_preferences` (unique `(user_id, pattern)` NULLS NOT DISTINCT, index `pattern`, `last_used_at DESC`) và `classification_feedback`. Chi tiết ở [data-model.md § Phase 3](../architecture/data-model.md#ghi-chú-triển-khai-thực-tế). Đã thử `downgrade -1` / `upgrade head`.
+  - **`services/classification_text.py`** (deterministic): `normalize_text` ("Mua giày MLB 1.8 triệu" → `mua giay mlb`, bỏ số tiền bằng `amount_text.amount_spans`), `normalize_pattern` (bỏ thêm `STOPWORDS`), `extract_keyword` (từ có nghĩa đầu tiên, + từ sau nếu là `HEAD_WORDS` như `tien`, `sua`, `phi`, `thue`, `sieu` → `giay`, `sua laptop`, `tien nha`), `is_specific`, `pattern_matches` (mọi token của pattern có trong câu, không cần liền nhau), `overlap`, `has_digits_besides_amounts`. `amount_text` thêm `amount_spans`, `remove_amounts`.
+  - **`services/classification_preference_service.py`**: list/get/delete, `active_preferences` (bỏ danh mục đã ẩn), `find_exact` (pattern nhiều token nhất → `hit_count` → mới dùng), `related` (top-5 có token chung), `create_preference` (explicit, upsert theo pattern, 422 `preference_too_broad` / `category_not_found` / `category_archived` / `income_spending_type`), `record_feedback` (gọi trong `transaction_service.create_transaction_and_learn`, cùng commit).
+  - **AI:** `ai/classifier.py` (suggestion từ preference, `apply_preferences` hậu kiểm từng draft của model, `format_few_shot`); `nl_transaction_parser` dùng prompt **v3** (thêm mục "Sở thích phân loại của người dùng" `{{preferences}}`) + `preference_shortcut`; `ai/preference_parser.py` + prompt `classification_preference_parse.v1.md`. Luồng chi tiết: [ai-architecture.md § 6](../architecture/ai-architecture.md#6-classification-memory-phase-3).
+  - **API:** `GET/POST /classification-preferences`, `POST /classification-preferences/parse`, `DELETE /classification-preferences/{id}`; `POST /transactions/parse` trả thêm `drafts[].matched_preference_id` (+ `model="classification_preference"` khi không gọi AI); `POST /transactions` trả `TransactionCreateResult` = `TransactionRead` + `learned_preference`.
+  - **Frontend:** `/settings` có tabs (shadcn `tabs`, `?tab=categories|preferences`): `PreferenceManager` = `PreferenceStatementBox` (câu → draft sửa được từ khoá/danh mục/loại → "Lưu sở thích") + bảng preference (từ khoá, ví dụ, danh mục, loại, số lần dùng, dùng gần nhất, xoá). Draft review: badge ✨ "Theo sở thích đã học" + reason; sau khi lưu, Quick add hiện "Đã học cách phân loại này: “giay” → Mua sắm · Thiết yếu. Xem / xoá". `gen:api` đã chạy lại.
+  - **Test:** 259 pass (không cần key) — `tests/unit/test_classification_text.py` (45), `tests/api/test_classification_preferences.py` (43: đủ 8 test case mục 6 + shortcut bị chặn khi có ngày / nhiều khoản / chiều tiền ngược / `t7`, danh mục đã ẩn, few-shot chỉ preference liên quan, ghi đè theo từng draft, income correction, hit_count, sửa draft từ preference cập nhật chính preference đó, CRUD/validate, explicit parse + retry 502). Fixture `fake_ai` chuyển sang `tests/api/conftest.py`.
+  - **Golden (`pytest -m ai -s`, `gpt-4o-mini`, 2026-10-19):** `test_classification_golden.py` 10 bước mục 6 — **exact 5/5 (100%)**, **model 6/6 (100%, ngưỡng 85%)**; bước 7: model tự đề xuất `food/non_essential` cho "Cafe với khách" nên không có correction, "cafe 2 lít" vẫn đúng qua model. Golden Phase 2 chạy lại với prompt v3: vẫn 100% mọi chỉ số (12/12 câu, 14/14 khoản). Prompt parse ~2.760 token/câu (v2 ~2.300) vì thêm mục sở thích.
+  - **Verify:** `ruff check`, `ruff format --check`, `pytest`, `pytest -m ai`, `npm run lint`, `npm run typecheck`, `npm run build` xanh. 4 kịch bản UI mục 6 chạy trên trình duyệt với OpenAI thật: (1) "Mua giày MLB 1.8 triệu" → sửa Thiết yếu → "Đã học cách phân loại này"; (2) "Mua giày Nike 2tr" → badge "Theo sở thích đã học", backend không gọi OpenAI, lưu → `hit_count` = 2; (3) `/settings` tab Sở thích thấy `giay`, xoá được; (4) "Tao coi giày là thiết yếu" → draft `giay`/Mua sắm/Thiết yếu → lưu → xuất hiện lại. Dữ liệu thử đã xoá khỏi DB dev.
 - **Lệch so với plan (và lý do):**
+  - **Mỗi pattern 1 preference** (unique `(user_id, pattern)`) thay vì `(user_id, pattern, category_id, spending_type)`: tránh 2 cách phân loại mâu thuẫn; user đổi ý → cập nhật, `hit_count` đếm lại từ đầu.
+  - **Shortcut không gọi OpenAI chỉ cho câu đơn giản** (1 khoản tiền, không nêu ngày, không có từ gợi ý chiều tiền ngược). Plan chỉ nói "không gọi LLM cho phần phân loại", nhưng ngày/số tiền/nhiều khoản vẫn cần model; câu phức tạp đi LLM rồi **hậu kiểm** từng draft exact-match theo preference (vẫn deterministic cho phần phân loại).
+  - **`hit_count` tăng khi user lưu** draft dùng preference mà không sửa (không tăng lúc parse) — giữ nguyên tắc endpoint AI không ghi DB (ADR-005). Correction tạo/cập nhật preference tính 1 lần; explicit preference mới có `hit_count = 0`.
+  - Correction trên draft **đã dùng preference** cập nhật chính preference đó (thay vì tạo keyword mới).
+  - `reason` khi khớp preference viết tiếng Việt ("Theo sở thích phân loại đã học: …") thay vì "matched user preference: …" vì UI hiển thị reason. Confidence = 0.95.
+  - `POST /transactions` trả `learned_preference` (schema `TransactionCreateResult`) để UI chỉ báo "Đã học" khi backend thực sự học (không phải cứ sửa là học — vd ghi chú không có từ khoá cụ thể). Thông báo là dòng trạng thái inline, không dùng toast (repo chưa có thư viện toast — như Phase 2).
+  - `PreferenceCreate` nhận `category_slug` như plan; `example_text` tuỳ chọn; `spending_type` bỏ trống → default của danh mục. `POST /classification-preferences/parse` trả thêm `category_id`, `reason`, `example_text`, `model`, `warnings` (độ tin cậy thấp / sẽ thay sở thích cũ).
+  - Không tạo `ClassificationFeedbackRead` (chưa có endpoint đọc feedback). Bảng tên `classification_feedback` (không thêm "s").
+  - Ngoài plan: khi chưa cấu hình AI, câu khớp shortcut vẫn parse được (kiểm tra `ensure_configured` chuyển xuống ngay trước lời gọi OpenAI; câu không có số tiền giờ trả `422 amount_missing` trước cả `503 AI_NOT_CONFIGURED`). Ô Quick add vẫn bị khoá khi `/health` báo chưa cấu hình AI.
 - **Nợ kỹ thuật / TODO để lại:**
+  - Bỏ dấu làm trùng từ: "sữa" (milk) và "sửa" (repair) cùng thành `sua`; "quà" và "qua" (đã là stopword) — preference "sua laptop" có thể khớp "sữa … laptop" (hiếm). Phase 15 (embedding) có thể giải quyết.
+  - Keyword từ correction là heuristic (từ có nghĩa đầu tiên): "MLB giày" → `mlb`; "Mua quà sinh nhật" → `sinh`. User xem/xoá ở `/settings` hoặc dạy lại bằng câu; chưa có sửa pattern tại chỗ (chỉ xoá + tạo lại).
+  - Sửa phân loại sau khi lưu (PATCH ở `/transactions`) chưa ghi feedback / không học.
+  - Few-shot chỉ lấy preference có token chung → không tổng quát hoá từ đồng nghĩa ("sneaker" vs `giay`) — đợi vector similarity (Phase 15).
+  - Golden Phase 3 chỉ 1 kịch bản 10 bước; golden NL parse vẫn toàn câu "đẹp" (chưa thêm câu không dấu / sai chính tả như gợi ý Phase 2).
+  - Xoá preference không hỏi xác nhận (dễ học lại).
+  - Chưa có test tự động frontend (Phase 18).
 - **Lệnh hữu ích:**
-- **Gợi ý cho phase tiếp theo:**
+  - `(cd backend && pytest tests/api/test_classification_preferences.py tests/unit/test_classification_text.py -q)`
+  - `(cd backend && pytest -m ai -s -k classification)` — golden Phase 3 (in bảng ✓/✗ từng bước)
+  - `curl -s localhost:8000/api/v1/classification-preferences`
+  - `curl -s -X POST localhost:8000/api/v1/classification-preferences/parse -H 'Content-Type: application/json' -d '{"text":"Tao coi giày là thiết yếu"}'`
+  - ⚠️ Sau `alembic revision --autogenerate` nhớ `alembic upgrade head` **trước** khi thử `alembic downgrade -1` — nếu DB chưa ở revision mới, `downgrade -1` sẽ hạ migration cũ hơn (xoá bảng `transactions`/`categories`).
+- **Gợi ý cho phase tiếp theo (Phase 4 — Budget engine):**
+  - Budget dùng `spending_type` của giao dịch; nhờ Phase 3 phân loại essential/non_essential ổn định hơn theo thói quen user.
+  - Có thể tái dùng `services/classification_text.normalize_text` nếu cần map tên hũ/nhóm từ câu tự nhiên.
+  - Mẫu "endpoint AI trả draft → user xác nhận → endpoint CRUD lưu" (parse explicit preference) dùng lại được cho wizard budget nếu có bước AI gợi ý.

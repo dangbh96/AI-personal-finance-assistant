@@ -21,6 +21,7 @@ flowchart TB
         client["openai_client<br/>(retry, timeout, logging)"]
         nlp["nl_transaction_parser"]
         cls["classifier<br/>+ preference memory"]
+        pref["preference_parser"]
         vis["receipt_vision"]
         emb["embeddings"]
         prompts["prompts/*.md"]
@@ -34,6 +35,7 @@ flowchart TB
 
     subgraph services ["services/ (deterministic)"]
         s_tx["transaction_service"]
+        s_pref["classification_preference_service<br/>(normalize, match, feedback)"]
         s_budget["budget_service<br/>(strategies)"]
         s_analytics["analytics_service<br/>(aggregate, variance, trend)"]
         s_advisor["advisor_rules"]

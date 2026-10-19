@@ -6,7 +6,6 @@ from datetime import date
 import pytest
 
 from app.ai import nl_transaction_parser, openai_client
-from app.ai.openai_client import ChatResult
 
 URL = "/api/v1/transactions"
 PARSE_URL = f"{URL}/parse"
@@ -28,27 +27,6 @@ def _draft(**overrides) -> dict:
 
 def _output(*drafts: dict, warnings: list[str] | None = None) -> str:
     return json.dumps({"transactions": list(drafts), "warnings": warnings or []})
-
-
-@pytest.fixture
-def fake_ai(monkeypatch):
-    """OpenAI giả: trả lần lượt các chuỗi JSON trong `responses`, ghi lại messages đã gửi."""
-    calls: list[dict] = []
-    responses: list[str] = []
-
-    def _fake(**kwargs):
-        calls.append(kwargs)
-        return ChatResult(
-            content=responses.pop(0),
-            refusal=None,
-            finish_reason="stop",
-            prompt_tokens=100,
-            completion_tokens=50,
-        )
-
-    monkeypatch.setattr(openai_client, "is_configured", lambda settings=None: True)
-    monkeypatch.setattr(openai_client, "_chat_json", _fake)
-    return calls, responses
 
 
 def test_parse_single_transaction(client, categories, fake_ai):

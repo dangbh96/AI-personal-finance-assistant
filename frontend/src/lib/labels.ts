@@ -30,3 +30,15 @@ export const SPENDING_TYPE_CLASSES: Record<SpendingType, string> = {
 export const SPENDING_TYPES = Object.keys(
   SPENDING_TYPE_LABELS,
 ) as SpendingType[];
+
+/** “giay” → Mua sắm · Thiết yếu */
+export function describePreference(preference: {
+  pattern: string;
+  category: { name: string };
+  spending_type?: SpendingType | null;
+}): string {
+  const type = preference.spending_type
+    ? ` · ${SPENDING_TYPE_LABELS[preference.spending_type]}`
+    : "";
+  return `“${preference.pattern}” → ${preference.category.name}${type}`;
+}

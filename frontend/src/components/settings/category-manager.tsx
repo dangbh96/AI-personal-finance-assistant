@@ -70,14 +70,10 @@ export function CategoryManager() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="font-heading text-2xl font-semibold">Cài đặt</h1>
-          <p className="text-sm text-muted-foreground">
-            Quản lý danh mục. Danh mục không xoá được — chỉ ẩn để giữ lịch sử
-            giao dịch.
-          </p>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <p className="text-sm text-muted-foreground">
+          Danh mục không xoá được — chỉ ẩn để giữ lịch sử giao dịch.
+        </p>
         <Button onClick={() => setForm({ open: true, category: null })}>
           <PlusIcon data-icon="inline-start" />
           Thêm danh mục

@@ -6,7 +6,7 @@ from datetime import date
 from sqlalchemy.orm import Session
 
 from app.core.errors import DomainError, NotFoundError
-from app.models import Category, Transaction
+from app.models import Category, ClassificationPreference, Transaction
 from app.models.enums import SPENDING_TYPES
 from app.repositories import category_repository, transaction_repository
 from app.repositories.transaction_repository import TransactionFilters
@@ -17,10 +17,12 @@ from app.schemas.transaction import (
     TransactionSummary,
     TransactionUpdate,
 )
+from app.services import classification_preference_service
 
 __all__ = [
     "TransactionFilters",
     "create_transaction",
+    "create_transaction_and_learn",
     "delete_transaction",
     "delete_transactions_in_range",
     "get_transaction",
@@ -85,6 +87,16 @@ def list_transactions(
 
 
 def create_transaction(db: Session, data: TransactionCreate) -> Transaction:
+    return create_transaction_and_learn(db, data)[0]
+
+
+def create_transaction_and_learn(
+    db: Session, data: TransactionCreate
+) -> tuple[Transaction, ClassificationPreference | None]:
+    """Tạo giao dịch; nếu có `ai_suggestion` thì học từ correction của user (cùng 1 commit).
+
+    Trả `(transaction, preference vừa học hoặc None)`.
+    """
     category = _resolve_category(db, data.category_id, data.direction)
     transaction = Transaction(
         direction=data.direction,
@@ -98,9 +110,12 @@ def create_transaction(db: Session, data: TransactionCreate) -> Transaction:
         ai_suggestion=data.ai_suggestion,
     )
     transaction_repository.add(db, transaction)
+    learned = classification_preference_service.record_feedback(db, transaction)
     db.commit()
     db.refresh(transaction)
-    return transaction
+    if learned is not None:
+        db.refresh(learned)
+    return transaction, learned
 
 
 def update_transaction(

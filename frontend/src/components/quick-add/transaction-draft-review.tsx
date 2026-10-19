@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckIcon, TriangleAlertIcon } from "lucide-react";
+import { CheckIcon, SparklesIcon, TriangleAlertIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import {
@@ -14,8 +14,9 @@ import {
   apiRequest,
   describeError,
   type Category,
-  type Transaction,
+  type Preference,
   type TransactionCreate,
+  type TransactionCreateResult,
   type TransactionDraft,
   type TransactionParseResponse,
 } from "@/lib/api";
@@ -35,6 +36,8 @@ type DraftItem = {
   status: DraftStatus;
   submitted: boolean;
   error: string | null;
+  /** Preference backend vừa học khi user sửa đề xuất của AI rồi lưu. */
+  learned: Preference | null;
 };
 
 function toValues(draft: TransactionDraft): TransactionFormValues {
@@ -50,7 +53,8 @@ function toValues(draft: TransactionDraft): TransactionFormValues {
 
 /**
  * Draft do AI tạo: user sửa rồi lưu từng cái hoặc "Lưu tất cả". Draft lỗi không chặn draft khác.
- * Gọi `onDone(savedCount)` khi mọi draft đã được lưu hoặc bỏ qua.
+ * Gọi `onDone(savedCount, learned)` khi mọi draft đã được lưu hoặc bỏ qua; `learned` là các
+ * preference backend vừa học từ những draft user đã sửa phân loại.
  */
 export function TransactionDraftReview({
   result,
@@ -59,7 +63,7 @@ export function TransactionDraftReview({
 }: {
   result: TransactionParseResponse;
   categories: Category[];
-  onDone: (savedCount: number) => void;
+  onDone: (savedCount: number, learned: Preference[]) => void;
 }) {
   const [items, setItems] = useState<DraftItem[]>(() =>
     result.drafts.map((draft, i) => ({
@@ -69,6 +73,7 @@ export function TransactionDraftReview({
       status: "pending",
       submitted: false,
       error: null,
+      learned: null,
     })),
   );
   const reported = useRef(false);
@@ -83,9 +88,12 @@ export function TransactionDraftReview({
   useEffect(() => {
     if (finished && !reported.current) {
       reported.current = true;
-      onDone(savedCount);
+      onDone(
+        savedCount,
+        items.flatMap((i) => (i.learned ? [i.learned] : [])),
+      );
     }
-  }, [finished, savedCount, onDone]);
+  }, [finished, savedCount, items, onDone]);
 
   function update(key: string, patch: Partial<DraftItem>) {
     setItems((prev) =>
@@ -101,13 +109,20 @@ export function TransactionDraftReview({
     }
     update(item.key, { status: "saving", submitted: true, error: null });
     try {
-      await apiRequest<Transaction>("POST", "/transactions", {
-        ...payload,
-        source: "nl",
-        raw_input: result.raw_input,
-        ai_suggestion: { ...item.draft, model: result.model },
-      } satisfies TransactionCreate);
-      update(item.key, { status: "saved" });
+      const saved = await apiRequest<TransactionCreateResult>(
+        "POST",
+        "/transactions",
+        {
+          ...payload,
+          source: "nl",
+          raw_input: result.raw_input,
+          ai_suggestion: { ...item.draft, model: result.model },
+        } satisfies TransactionCreate,
+      );
+      update(item.key, {
+        status: "saved",
+        learned: saved.learned_preference ?? null,
+      });
     } catch (err) {
       update(item.key, { status: "pending", error: describeError(err) });
     }
@@ -202,7 +217,8 @@ function DraftCard({
   }
 
   const { errors } = validateTransactionValues(values);
-  const lowConfidence = draft.confidence < LOW_CONFIDENCE;
+  const fromPreference = Boolean(draft.matched_preference_id);
+  const lowConfidence = !fromPreference && draft.confidence < LOW_CONFIDENCE;
 
   return (
     <section
@@ -219,7 +235,15 @@ function DraftCard({
             <p className="text-xs text-muted-foreground">💡 {draft.reason}</p>
           )}
         </div>
-        {lowConfidence ? (
+        {fromPreference ? (
+          <Badge
+            variant="outline"
+            className="border-violet-300 text-violet-700 dark:border-violet-800 dark:text-violet-300"
+          >
+            <SparklesIcon data-icon="inline-start" />
+            Theo sở thích đã học
+          </Badge>
+        ) : lowConfidence ? (
           <Badge
             variant="outline"
             className="border-amber-300 text-amber-700 dark:border-amber-800 dark:text-amber-300"

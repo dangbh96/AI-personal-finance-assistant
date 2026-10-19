@@ -13,6 +13,7 @@ Số không kèm đơn vị chỉ được tính khi >= 1.000 và không phải 
 """
 
 import re
+import unicodedata
 
 from app.core.text import strip_accents
 
@@ -76,12 +77,36 @@ def _to_amount(match: re.Match[str]) -> int | None:
     return value if value > 0 else None
 
 
+_CURRENCY_SUFFIX_RE = re.compile(r"\s*(?:vnd|dong|d)\b")
+
+
+def _matches(normalized: str) -> list[tuple[re.Match[str], int]]:
+    return [(m, a) for m in _AMOUNT_RE.finditer(normalized) if (a := _to_amount(m)) is not None]
+
+
 def extract_amounts(text: str) -> list[int]:
     """Các số tiền (đồng) xuất hiện trong câu, theo thứ tự xuất hiện."""
-    normalized = strip_accents(text).lower()
-    amounts = []
-    for match in _AMOUNT_RE.finditer(normalized):
-        amount = _to_amount(match)
-        if amount is not None:
-            amounts.append(amount)
-    return amounts
+    return [amount for _, amount in _matches(strip_accents(text).lower())]
+
+
+def amount_spans(normalized: str) -> list[tuple[int, int]]:
+    """Vị trí `[start, end)` của các số tiền (kèm "đ"/"vnđ" ngay sau) trong câu **đã** bỏ dấu +
+    lowercase."""
+    spans = []
+    for match, _ in _matches(normalized):
+        end = match.end()
+        if suffix := _CURRENCY_SUFFIX_RE.match(normalized, end):
+            end = suffix.end()
+        spans.append((match.start(), end))
+    return spans
+
+
+def remove_amounts(text: str) -> str:
+    """Bỏ các số tiền khỏi câu gốc (giữ dấu): "Mua giày Nike 2tr" → "Mua giày Nike"."""
+    original = unicodedata.normalize("NFC", text)
+    normalized = strip_accents(original).lower()
+    if len(normalized) != len(original):  # hiếm: ký tự không map 1-1 sau khi bỏ dấu
+        return " ".join(original.split())
+    for start, end in reversed(amount_spans(normalized)):
+        original = f"{original[:start]} {original[end:]}"
+    return " ".join(original.split())

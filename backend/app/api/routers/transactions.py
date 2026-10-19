@@ -8,9 +8,11 @@ from app.ai import nl_transaction_parser
 from app.core.db import DbSession
 from app.models.enums import Direction, SpendingType
 from app.schemas.ai import TransactionParseRequest, TransactionParseResponse
+from app.schemas.classification import PreferenceRead
 from app.schemas.common import ErrorResponse
 from app.schemas.transaction import (
     TransactionCreate,
+    TransactionCreateResult,
     TransactionList,
     TransactionRead,
     TransactionSummary,
@@ -73,12 +75,18 @@ def summarize_transactions(db: DbSession, filters: Filters):
 
 @router.post(
     "",
-    response_model=TransactionRead,
+    response_model=TransactionCreateResult,
     status_code=status.HTTP_201_CREATED,
     responses={422: {"model": ErrorResponse}},
 )
 def create_transaction(db: DbSession, data: TransactionCreate):
-    return transaction_service.create_transaction(db, data)
+    """Tạo giao dịch. Nếu có `ai_suggestion` và user đã sửa danh mục / loại chi tiêu so với đề
+    xuất → lưu feedback và học preference (`learned_preference`)."""
+    transaction, learned = transaction_service.create_transaction_and_learn(db, data)
+    result = TransactionCreateResult.model_validate(transaction)
+    if learned is not None:
+        result.learned_preference = PreferenceRead.model_validate(learned)
+    return result
 
 
 @router.post(

@@ -3,6 +3,7 @@
 ## 1. Nhập giao dịch bằng câu tự nhiên (Phase 2, 3)
 
 > Bước tra cứu `PREF` và lưu feedback/preference chỉ có từ **Phase 3**. Ở Phase 2 bỏ qua các bước này (classifier nhận danh sách preference rỗng).
+> Phase 3: nếu câu đơn giản (1 khoản tiền, không nêu ngày) khớp exact một preference thì API trả draft deterministic **không gọi OpenAI**; ngược lại gọi OpenAI với top-5 preference liên quan rồi hậu kiểm draft theo preference. Parse không ghi DB; `hit_count` chỉ tăng khi user lưu draft dùng preference mà không sửa.
 
 ```mermaid
 sequenceDiagram
@@ -16,22 +17,29 @@ sequenceDiagram
 
     U->>FE: "Hôm nay ăn phở 55k"
     FE->>API: POST /api/v1/transactions/parse {text}
-    API->>PREF: tìm preference liên quan
-    PREF-->>API: top-5 preference
-    API->>CLS: parse(text, categories, preferences)
-    CLS->>OAI: structured output (TransactionDraft)
-    OAI-->>CLS: JSON
-    CLS->>CLS: validate Pydantic + category_slug hợp lệ
-    CLS-->>API: TransactionDraft
+    API->>PREF: preference còn dùng (danh mục chưa ẩn)
+    PREF-->>API: preferences
+    alt câu đơn giản + exact match preference
+        API->>CLS: suggestion_from_preference
+        CLS-->>API: draft deterministic (matched_preference_id)
+    else
+        API->>CLS: parse(text, categories, top-5 preference liên quan)
+        CLS->>OAI: structured output (TransactionDraft)
+        OAI-->>CLS: JSON
+        CLS->>CLS: validate Pydantic + category_slug hợp lệ<br/>+ ghi đè phân loại cho draft exact-match preference
+        CLS-->>API: TransactionDraft
+    end
     API-->>FE: draft (chưa lưu)
     FE-->>U: hiển thị draft: 55.000đ, Ăn uống, Thiết yếu
     U->>FE: sửa spending_type nếu cần, bấm Lưu
     FE->>API: POST /api/v1/transactions {draft đã xác nhận, ai_suggestion}
     API->>TX: create()
-    TX-->>API: Transaction
     alt user đã sửa đề xuất AI
-        API->>PREF: lưu feedback + upsert preference
+        TX->>PREF: lưu feedback + upsert preference
+    else draft dùng preference, không sửa
+        TX->>PREF: hit_count + 1
     end
+    TX-->>API: Transaction (+ learned_preference)
     API-->>FE: 201 Created
 ```
 

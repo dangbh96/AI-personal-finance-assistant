@@ -66,19 +66,20 @@ erDiagram
     }
     CLASSIFICATION_PREFERENCE {
         uuid id PK
-        text pattern "từ khoá đã chuẩn hoá"
+        uuid user_id "nullable"
+        text pattern "từ khoá đã chuẩn hoá, UK (user_id, pattern)"
         text example_text
         uuid category_id FK
-        text spending_type
+        text spending_type "null nếu category income"
         int hit_count
         timestamptz last_used_at
     }
     CLASSIFICATION_FEEDBACK {
         uuid id PK
         uuid transaction_id FK
-        uuid ai_category_id
+        uuid ai_category_id FK "nullable"
         text ai_spending_type
-        uuid final_category_id
+        uuid final_category_id FK
         text final_spending_type
     }
     BUDGET {
@@ -236,7 +237,7 @@ Tên trong bảng dưới là **tên bảng thực tế** (số nhiều snake_ca
 |---|---|
 | 1 | `categories`, `transactions` (cột lõi + `source`, `raw_input`, `ai_suggestion` nullable), `app_settings` |
 | 2 | — (dùng `transactions.raw_input`, `transactions.ai_suggestion` đã tạo ở P1). Giao dịch nhập bằng câu: `source='nl'`, `raw_input` = câu gốc, `ai_suggestion` = draft AI **trước khi user sửa** (`TransactionDraft` + `model`) |
-| 3 | `classification_preferences`, `classification_feedback` |
+| 3 | `classification_preferences`, `classification_feedback` (tên bảng giữ dạng không đếm được `feedback`) |
 | 4 | `budgets`, `budget_allocations` (cột lõi) |
 | 5 | — (chỉ query/aggregate) |
 | 6 | `weekly_reviews`, `reflection_answers` |
@@ -269,3 +270,8 @@ Tên trong bảng dưới là **tên bảng thực tế** (số nhiều snake_ca
 - `transactions`: CHECK `amount > 0`, `direction`, `spending_type`, `source`, và cặp `direction`/`spending_type`; FK `category_id` `ON DELETE RESTRICT`. Khớp `category.kind = direction` kiểm tra ở `transaction_service`. API giới hạn `amount ≤ 10^15`.
 - `app_settings`: có `created_at`/`updated_at`; seed `week_start = "monday"`, `currency = "VND"`.
 - PK UUID: `server_default gen_random_uuid()` (PG ≥ 13) + `uuid4` phía Python.
+
+**Phase 3** (migration `20261019_06a6605af7ab_classification_learning`):
+- `classification_preferences`: **mỗi pattern 1 preference** — `UNIQUE (user_id, pattern) NULLS NOT DISTINCT` (PG ≥ 15) thay cho unique `(user_id, pattern, category_id, spending_type)` gợi ý trong plan, để không có 2 cách phân loại mâu thuẫn cho cùng từ khoá; user đổi ý thì cập nhật (và `hit_count` đếm lại). CHECK `spending_type` hợp lệ, `hit_count >= 0`, `length(pattern) >= 2`. FK `category_id` `ON DELETE CASCADE`. Index `pattern`, `last_used_at DESC`. Ràng buộc `spending_type IS NULL` ⇔ category income kiểm tra ở `classification_preference_service`.
+- `pattern` lưu dạng đã chuẩn hoá (`services/classification_text.normalize_pattern`: lowercase, bỏ dấu, bỏ số tiền, bỏ từ chung) — ví dụ `giay`, `sua laptop`, `tien upwork`. `hit_count` = số lần user **xác nhận** cách phân loại này (correction tạo/cập nhật = 1 lần; lưu draft dùng preference mà không sửa = +1); preference tường minh mới tạo có `hit_count = 0`.
+- `classification_feedback`: FK `transaction_id` `ON DELETE CASCADE`, `ai_category_id` `ON DELETE SET NULL`, `final_category_id` `ON DELETE RESTRICT`; CHECK hai cột spending_type. Index `transaction_id`. Chỉ ghi khi user sửa category/spending_type so với `transactions.ai_suggestion` lúc `POST /transactions` (sửa sau bằng PATCH chưa ghi).

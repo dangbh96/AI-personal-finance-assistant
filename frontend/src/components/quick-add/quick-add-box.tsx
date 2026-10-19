@@ -21,10 +21,12 @@ import {
   describeError,
   type Category,
   type HealthResponse,
+  type Preference,
   type TransactionParseRequest,
   type TransactionParseResponse,
 } from "@/lib/api";
 import { todayISO } from "@/lib/dates";
+import { describePreference } from "@/lib/labels";
 
 type ParseState = { id: number; result: TransactionParseResponse };
 
@@ -45,7 +47,10 @@ export function QuickAddBox() {
   const [error, setError] = useState<string | null>(null);
   const [notConfigured, setNotConfigured] = useState(false);
   const [parsed, setParsed] = useState<ParseState | null>(null);
-  const [notice, setNotice] = useState<{ saved: number } | null>(null);
+  const [notice, setNotice] = useState<{
+    saved: number;
+    learned: Preference[];
+  } | null>(null);
 
   const aiOff = notConfigured || health.data?.ai_configured === false;
 
@@ -79,11 +84,14 @@ export function QuickAddBox() {
     }
   }
 
-  const handleDone = useCallback((savedCount: number) => {
-    setParsed(null);
-    if (savedCount > 0) setText("");
-    setNotice({ saved: savedCount });
-  }, []);
+  const handleDone = useCallback(
+    (savedCount: number, learned: Preference[]) => {
+      setParsed(null);
+      if (savedCount > 0) setText("");
+      setNotice({ saved: savedCount, learned });
+    },
+    [],
+  );
 
   return (
     <Card className="w-full max-w-3xl">
@@ -133,21 +141,40 @@ export function QuickAddBox() {
         )}
 
         {notice && (
-          <p role="status" className="text-sm">
-            {notice.saved > 0 ? (
-              <>
-                Đã lưu {notice.saved} giao dịch.{" "}
-                <Link
-                  href="/transactions"
-                  className="text-muted-foreground underline underline-offset-3"
-                >
-                  Xem trong Giao dịch
-                </Link>
-              </>
-            ) : (
-              "Không có giao dịch nào được lưu."
-            )}
-          </p>
+          <div role="status" className="flex flex-col gap-1 text-sm">
+            <p>
+              {notice.saved > 0 ? (
+                <>
+                  Đã lưu {notice.saved} giao dịch.{" "}
+                  <Link
+                    href="/transactions"
+                    className="text-muted-foreground underline underline-offset-3"
+                  >
+                    Xem trong Giao dịch
+                  </Link>
+                </>
+              ) : (
+                "Không có giao dịch nào được lưu."
+              )}
+            </p>
+            {notice.learned.map((preference) => (
+              <p
+                key={preference.id}
+                className="flex items-center gap-1.5 text-violet-700 dark:text-violet-300"
+              >
+                <SparklesIcon className="size-3.5 shrink-0" aria-hidden />
+                <span>
+                  Đã học cách phân loại này: {describePreference(preference)}.{" "}
+                  <Link
+                    href="/settings?tab=preferences"
+                    className="text-muted-foreground underline underline-offset-3"
+                  >
+                    Xem / xoá
+                  </Link>
+                </span>
+              </p>
+            ))}
+          </div>
         )}
 
         {parsed && (

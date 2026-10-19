@@ -5,9 +5,9 @@
 
 ## Phase hiện tại
 
-**Tiếp theo: [Phase 3 — Classification learning](./phases/phase-03-classification-learning.md)**
+**Tiếp theo: [Phase 4 — Budget engine](./phases/phase-04-budget-engine.md)** · **M2 — Tracking loop hoàn chỉnh ✅**
 
-Handoff Phase 2: xem [phase-02-nl-entry.md § 9](./phases/phase-02-nl-entry.md#9-handoff-notes). Nhập bằng câu tự nhiên chạy được (draft → user xác nhận → lưu `source='nl'`, `raw_input`, `ai_suggestion`). Golden set NL parse (prompt v2, `gpt-4o-mini`) đạt 100% mọi chỉ số. Postgres vẫn ở **port 5433**.
+Handoff Phase 3: xem [phase-03-classification-learning.md § 9](./phases/phase-03-classification-learning.md#9-handoff-notes). AI học cách phân loại khi user sửa draft (feedback + preference theo từ khoá đã chuẩn hoá); câu đơn giản khớp preference được phân loại **không gọi OpenAI**; `/settings` có tab "Sở thích phân loại" (xem/xoá/dạy bằng câu). Golden Phase 3 đạt 100%, golden NL parse (prompt v3) vẫn 100%. Postgres vẫn ở **port 5433**.
 
 ## Bảng trạng thái
 
@@ -17,7 +17,7 @@ Handoff Phase 2: xem [phase-02-nl-entry.md § 9](./phases/phase-02-nl-entry.md#9
 | 0 | [Scaffolding](./phases/phase-00-scaffolding.md) | Done | 2026-10-08 | 2026-10-08 | | Next.js 16.4, shadcn base-nova, DB port 5433 |
 | 1 | [Core transactions](./phases/phase-01-transactions.md) | Done | 2026-10-08 | 2026-10-08 | M1 ✅ | 93 test; summary nhận thêm filter |
 | 2 | [AI natural language entry](./phases/phase-02-nl-entry.md) | Done | 2026-10-13 | 2026-10-15 | | 171 test (mock); golden 12 câu đạt 100% (prompt v2) |
-| 3 | [Classification learning](./phases/phase-03-classification-learning.md) | Not started | | | M2 | |
+| 3 | [Classification learning](./phases/phase-03-classification-learning.md) | Done | 2026-10-19 | 2026-10-19 | M2 ✅ | 259 test (mock); golden 10 bước đạt 100% |
 | 4 | [Budget engine](./phases/phase-04-budget-engine.md) | Not started | | | | |
 | 5 | [Budget vs Actual](./phases/phase-05-budget-vs-actual.md) | Not started | | | M3 | |
 | 6 | [Weekly review](./phases/phase-06-weekly-review.md) | Not started | | | | |
@@ -61,6 +61,10 @@ Handoff Phase 2: xem [phase-02-nl-entry.md § 9](./phases/phase-02-nl-entry.md#9
 | 2026-10-13 | 2 | Thêm `services/amount_text.extract_amounts` + lịch tham chiếu trong prompt + cảnh báo deterministic (amount/ngày) | Giảm sai số tiền/ngày, không tin hoàn toàn vào model (ADR-005) |
 | 2026-10-13 | 2 | Thông báo lưu là dòng trạng thái inline thay vì toast | Repo chưa có thư viện toast |
 | 2026-10-15 | 2 | Chạy golden test (trễ vì key cũ 401); prompt NL parse lên v2 (lịch mỗi ngày một dòng, đồ uống → ăn uống) | v1 đạt ngưỡng nhưng sai "thứ 7 tuần trước" và "cafe" → `other`; v2 đạt 100% |
+| 2026-10-19 | 3 | `classification_preferences` unique `(user_id, pattern)` (mỗi pattern 1 preference) thay vì kèm category/type | Tránh 2 cách phân loại mâu thuẫn cho cùng từ khoá |
+| 2026-10-19 | 3 | Shortcut không gọi OpenAI chỉ cho câu đơn giản (1 khoản tiền, không nêu ngày); câu khác gọi LLM rồi hậu kiểm phân loại theo preference | Ngày / nhiều khoản vẫn cần model; phần phân loại vẫn deterministic |
+| 2026-10-19 | 3 | `hit_count` tăng khi user lưu draft dùng preference (không tăng lúc parse); `POST /transactions` trả `learned_preference` | Endpoint AI không ghi DB (ADR-005); UI chỉ báo "Đã học" khi backend thực sự học |
+| 2026-10-19 | 3 | Prompt NL parse lên v3 (thêm mục sở thích phân loại); `/settings` dùng tabs (`?tab=`) | Few-shot preference; tab Sở thích cạnh Danh mục theo plan |
 
 ## Câu hỏi mở xuyên suốt
 

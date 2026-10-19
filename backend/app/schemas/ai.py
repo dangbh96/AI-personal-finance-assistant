@@ -59,6 +59,20 @@ class TransactionDraft(_DraftFields):
     """Draft gửi cho frontend: như output của model + `category_id` đã resolve."""
 
     category_id: uuid.UUID
+    matched_preference_id: uuid.UUID | None = Field(
+        default=None,
+        description="Có giá trị khi danh mục/loại chi tiêu lấy theo sở thích phân loại đã học",
+    )
+
+
+class ClassificationSuggestion(BaseModel):
+    """Đề xuất phân loại cho một khoản (từ preference đã học hoặc từ model)."""
+
+    category_slug: str
+    spending_type: SpendingType | None
+    confidence: float = Field(ge=0, le=1)
+    reason: str
+    matched_preference_id: uuid.UUID | None = None
 
 
 class TransactionParseRequest(BaseModel):
@@ -82,6 +96,38 @@ class TransactionParseRequest(BaseModel):
 
 class TransactionParseResponse(BaseModel):
     drafts: list[TransactionDraft]
-    model: str
+    model: str = Field(
+        description="Model đã dùng; `classification_preference` khi draft tạo hoàn toàn từ sở "
+        "thích đã học (không gọi AI)"
+    )
     raw_input: str
+    warnings: list[str]
+
+
+class PreferenceDraftOutput(BaseModel):
+    """Structured output của model khi parse câu sở thích ("Tao coi giày là thiết yếu")."""
+
+    pattern: str = Field(
+        max_length=100, description="Từ khoá ngắn chỉ loại món, vd 'giày', 'sửa laptop'"
+    )
+    category_slug: str = Field(description="Slug thuộc danh sách danh mục gửi kèm")
+    spending_type: SpendingType | None = Field(
+        description="Loại chi tiêu user muốn; null nếu danh mục thu nhập"
+    )
+    confidence: float = Field(ge=0, le=1)
+    reason: str = Field(max_length=300)
+
+
+class PreferenceDraft(BaseModel):
+    """Draft sở thích phân loại — chưa lưu; user xác nhận rồi mới gọi
+    `POST /classification-preferences`."""
+
+    pattern: str = Field(description="Đã chuẩn hoá (bỏ dấu, lowercase)")
+    category_slug: str
+    category_id: uuid.UUID
+    spending_type: SpendingType | None
+    confidence: float
+    reason: str
+    example_text: str
+    model: str
     warnings: list[str]

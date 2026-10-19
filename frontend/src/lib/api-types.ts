@@ -66,7 +66,11 @@ export interface paths {
         /** List Transactions */
         get: operations["list_transactions_api_v1_transactions_get"];
         put?: never;
-        /** Create Transaction */
+        /**
+         * Create Transaction
+         * @description Tạo giao dịch. Nếu có `ai_suggestion` và user đã sửa danh mục / loại chi tiêu so với đề
+         *     xuất → lưu feedback và học preference (`learned_preference`).
+         */
         post: operations["create_transaction_api_v1_transactions_post"];
         delete?: never;
         options?: never;
@@ -129,6 +133,64 @@ export interface paths {
         head?: never;
         /** Update Transaction */
         patch: operations["update_transaction_api_v1_transactions__transaction_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/classification-preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Preferences */
+        get: operations["list_preferences_api_v1_classification_preferences_get"];
+        put?: never;
+        /**
+         * Create Preference
+         * @description Lưu sở thích user đã xác nhận. Trùng pattern (sau chuẩn hoá) → cập nhật cái cũ.
+         */
+        post: operations["create_preference_api_v1_classification_preferences_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/classification-preferences/parse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Parse Preference
+         * @description Phân tích câu sở thích ("Tao coi giày là thiết yếu") thành draft. **Không lưu DB**.
+         */
+        post: operations["parse_preference_api_v1_classification_preferences_parse_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/classification-preferences/{preference_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Preference */
+        delete: operations["delete_preference_api_v1_classification_preferences__preference_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
 }
@@ -270,6 +332,106 @@ export interface components {
             /** Version */
             version: string;
         };
+        /**
+         * PreferenceCreate
+         * @description Preference user đã xác nhận (thường từ draft của `POST /classification-preferences/parse`).
+         *
+         *     Trùng pattern thì cập nhật preference cũ.
+         */
+        PreferenceCreate: {
+            /** Pattern */
+            pattern: string;
+            /** Category Slug */
+            category_slug: string;
+            /**
+             * Spending Type
+             * @description Chỉ cho danh mục chi tiêu; bỏ trống thì dùng default_spending_type
+             */
+            spending_type?: ("essential" | "non_essential" | "irregular") | null;
+            /** Example Text */
+            example_text?: string | null;
+        };
+        /**
+         * PreferenceDraft
+         * @description Draft sở thích phân loại — chưa lưu; user xác nhận rồi mới gọi
+         *     `POST /classification-preferences`.
+         */
+        PreferenceDraft: {
+            /**
+             * Pattern
+             * @description Đã chuẩn hoá (bỏ dấu, lowercase)
+             */
+            pattern: string;
+            /** Category Slug */
+            category_slug: string;
+            /**
+             * Category Id
+             * Format: uuid
+             */
+            category_id: string;
+            /** Spending Type */
+            spending_type: ("essential" | "non_essential" | "irregular") | null;
+            /** Confidence */
+            confidence: number;
+            /** Reason */
+            reason: string;
+            /** Example Text */
+            example_text: string;
+            /** Model */
+            model: string;
+            /** Warnings */
+            warnings: string[];
+        };
+        /** PreferenceList */
+        PreferenceList: {
+            /** Items */
+            items: components["schemas"]["PreferenceRead"][];
+        };
+        /** PreferenceParseRequest */
+        PreferenceParseRequest: {
+            /** Text */
+            text: string;
+        };
+        /** PreferenceRead */
+        PreferenceRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Pattern
+             * @description Từ khoá đã chuẩn hoá (bỏ dấu, lowercase)
+             */
+            pattern: string;
+            /** Example Text */
+            example_text: string;
+            /**
+             * Category Id
+             * Format: uuid
+             */
+            category_id: string;
+            category: components["schemas"]["CategoryBrief"];
+            /** Spending Type */
+            spending_type: ("essential" | "non_essential" | "irregular") | null;
+            /**
+             * Hit Count
+             * @description Số lần user xác nhận cách phân loại này
+             */
+            hit_count: number;
+            /** Last Used At */
+            last_used_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
         /** SpendingTypeTotals */
         SpendingTypeTotals: {
             /**
@@ -331,6 +493,61 @@ export interface components {
             } | null;
         };
         /**
+         * TransactionCreateResult
+         * @description Kết quả `POST /transactions`: giao dịch + preference vừa học (nếu user đã sửa đề xuất AI).
+         */
+        TransactionCreateResult: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "income" | "expense";
+            /** Amount */
+            amount: number;
+            /**
+             * Occurred On
+             * Format: date
+             */
+            occurred_on: string;
+            /** Note */
+            note: string | null;
+            /**
+             * Category Id
+             * Format: uuid
+             */
+            category_id: string;
+            category: components["schemas"]["CategoryBrief"];
+            /** Spending Type */
+            spending_type: ("essential" | "non_essential" | "irregular") | null;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "manual" | "nl" | "receipt" | "import" | "recurring";
+            /** Raw Input */
+            raw_input: string | null;
+            /** Ai Suggestion */
+            ai_suggestion: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            learned_preference?: components["schemas"]["PreferenceRead"] | null;
+        };
+        /**
          * TransactionDraft
          * @description Draft gửi cho frontend: như output của model + `category_id` đã resolve.
          */
@@ -377,6 +594,11 @@ export interface components {
              * Format: uuid
              */
             category_id: string;
+            /**
+             * Matched Preference Id
+             * @description Có giá trị khi danh mục/loại chi tiêu lấy theo sở thích phân loại đã học
+             */
+            matched_preference_id?: string | null;
         };
         /** TransactionList */
         TransactionList: {
@@ -408,7 +630,10 @@ export interface components {
         TransactionParseResponse: {
             /** Drafts */
             drafts: components["schemas"]["TransactionDraft"][];
-            /** Model */
+            /**
+             * Model
+             * @description Model đã dùng; `classification_preference` khi draft tạo hoàn toàn từ sở thích đã học (không gọi AI)
+             */
             model: string;
             /** Raw Input */
             raw_input: string;
@@ -735,7 +960,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TransactionRead"];
+                    "application/json": components["schemas"]["TransactionCreateResult"];
                 };
             };
             /** @description Unprocessable Content */
@@ -957,6 +1182,162 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_preferences_api_v1_classification_preferences_get: {
+        parameters: {
+            query?: {
+                /** @description Tìm trong pattern / câu ví dụ */
+                q?: string | null;
+                category_id?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreferenceList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_preference_api_v1_classification_preferences_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreferenceCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreferenceRead"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    parse_preference_api_v1_classification_preferences_parse_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreferenceParseRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreferenceDraft"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description AI trả kết quả không hợp lệ */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description AI chưa cấu hình / không khả dụng */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_preference_api_v1_classification_preferences__preference_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                preference_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

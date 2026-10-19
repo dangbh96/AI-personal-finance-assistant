@@ -13,6 +13,7 @@ from pydantic import (
 
 from app.models.enums import Direction, SpendingType, TransactionSource
 from app.schemas.category import CategoryBrief
+from app.schemas.classification import PreferenceRead
 
 MAX_AMOUNT = 10**15
 
@@ -83,6 +84,12 @@ class TransactionRead(BaseModel):
     ai_suggestion: dict[str, Any] | None
     created_at: datetime
     updated_at: datetime
+
+
+class TransactionCreateResult(TransactionRead):
+    """Kết quả `POST /transactions`: giao dịch + preference vừa học (nếu user đã sửa đề xuất AI)."""
+
+    learned_preference: PreferenceRead | None = None
 
 
 class TransactionList(BaseModel):

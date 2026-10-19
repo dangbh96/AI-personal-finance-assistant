@@ -38,9 +38,9 @@ flowchart LR
 
 | Route | Phase | Thành phần chính |
 |---|---|---|
-| `/` | 0 → mở rộng dần | Health status (P0), Quick add NL (P2: `QuickAddBox` → `TransactionDraftReview`), thẻ tóm tắt tháng (P5) |
+| `/` | 0 → mở rộng dần | Health status (P0), Quick add NL (P2: `QuickAddBox` → `TransactionDraftReview`; P3: badge "Theo sở thích đã học", thông báo "Đã học cách phân loại này"), thẻ tóm tắt tháng (P5) |
 | `/transactions` | 1 | `TransactionTable`, `TransactionForm`, filter tháng/category/type |
-| `/settings` | 1, 3 | Quản lý category, danh sách preference đã học |
+| `/settings` | 1, 3 | Tab "Danh mục" (`CategoryManager`) và "Sở thích phân loại" (`PreferenceManager`: dạy AI bằng câu → draft → xác nhận, bảng preference đã học + xoá); tab lưu ở `?tab=categories\|preferences` |
 | `/budget/new` | 4 | `BudgetWizard` (chọn strategy → nhập số → preview) |
 | `/budget` | 5, 9 | `BudgetVsActualTable`, drill-down giao dịch, badge zone |
 | `/reviews/weekly/[week]` | 6 | `ReviewNarrative`, `ReflectionForm` |
@@ -56,7 +56,7 @@ flowchart LR
 ## Quy ước
 
 - `src/lib/api.ts`: client fetch typed, base URL từ `NEXT_PUBLIC_API_BASE_URL`. Type sinh từ OpenAPI của FastAPI (`openapi-typescript`, `npm run gen:api` → `src/lib/api-types.ts`, commit file sinh ra).
-- `src/hooks/use-api-data.ts`: đọc dữ liệu phía client (`useApiData(path)` → `{data, error, loading, reload}`). Trang là Server Component mỏng bọc Client Component; nếu component đọc thời gian hiện tại (vd. tháng mặc định) thì gọi `use(io())` và bọc `<Suspense>` (Next 16 Cache Components).
+- `src/hooks/use-api-data.ts`: đọc dữ liệu phía client (`useApiData(path)` → `{data, error, loading, reload}`). Trang là Server Component mỏng bọc Client Component; nếu component đọc thời gian hiện tại (vd. tháng mặc định) thì gọi `use(io())` và bọc `<Suspense>` (Next 16 Cache Components). Component dùng `useSearchParams` (vd. `SettingsTabs`) cũng phải bọc `<Suspense>`.
 - `src/lib/format.ts`: `formatVND(amount)` dùng `Intl.NumberFormat('vi-VN', {style:'currency', currency:'VND'})`.
 - `src/lib/amount.ts`: `parseAmountInput("1tr5")` — tiện ích gõ tắt số tiền trong form, backend vẫn nhận số nguyên.
 - `src/components/transactions/transaction-fields.tsx`: `TransactionFields` + `validateTransactionValues` — bộ ô nhập giao dịch dùng chung cho dialog tạo/sửa (P1) và card draft AI (P2); truyền `className` để đổi layout (vd. lưới 2 cột).
