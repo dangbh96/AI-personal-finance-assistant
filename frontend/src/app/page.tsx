@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { Suspense } from "react";
 
+import { HomeBudgetCta } from "@/components/budget/home-budget-cta";
 import { QuickAddBox } from "@/components/quick-add/quick-add-box";
 import { SystemStatusCard } from "@/components/system-status-card";
 
@@ -17,6 +19,9 @@ export default function HomePage() {
         </p>
       </div>
       <QuickAddBox />
+      <Suspense fallback={null}>
+        <HomeBudgetCta />
+      </Suspense>
       <SystemStatusCard />
     </div>
   );

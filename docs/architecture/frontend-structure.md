@@ -38,11 +38,11 @@ flowchart LR
 
 | Route | Phase | Thành phần chính |
 |---|---|---|
-| `/` | 0 → mở rộng dần | Health status (P0), Quick add NL (P2: `QuickAddBox` → `TransactionDraftReview`; P3: badge "Theo sở thích đã học", thông báo "Đã học cách phân loại này"), thẻ tóm tắt tháng (P5) |
+| `/` | 0 → mở rộng dần | Health status (P0), Quick add NL (P2: `QuickAddBox` → `TransactionDraftReview`; P3: badge "Theo sở thích đã học", thông báo "Đã học cách phân loại này"), CTA "Tạo budget tháng này" khi tháng hiện tại chưa có budget (P4: `HomeBudgetCta`), thẻ tóm tắt tháng (P5) |
 | `/transactions` | 1 | `TransactionTable`, `TransactionForm`, filter tháng/category/type |
 | `/settings` | 1, 3 | Tab "Danh mục" (`CategoryManager`) và "Sở thích phân loại" (`PreferenceManager`: dạy AI bằng câu → draft → xác nhận, bảng preference đã học + xoá); tab lưu ở `?tab=categories\|preferences` |
-| `/budget/new` | 4 | `BudgetWizard` (chọn strategy → nhập số → preview) |
-| `/budget` | 5, 9 | `BudgetVsActualTable`, drill-down giao dịch, badge zone |
+| `/budget/new` | 4 | `BudgetWizard` (`?month=YYYY-MM`): tháng + thu nhập + chọn strategy (PYF: savings trước) hoặc "Copy tháng trước" → `AllocationPreviewTable` sửa từng dòng (tổng/cảnh báo/so sánh 50/30/20 do `POST /budgets/preview` tính, hook `useBudgetPreview`) → "Lưu nháp" / "Lưu & kích hoạt" |
+| `/budget` | 4, 5, 9 | P4: chọn tháng (`?month=`), `BudgetEditor` (sửa planned, kích hoạt/đóng/xoá nháp) hoặc `BudgetEmptyState` (CTA tạo / copy tháng trước). P5: `BudgetVsActualTable`, drill-down giao dịch; P9: badge zone |
 | `/reviews/weekly/[week]` | 6 | `ReviewNarrative`, `ReflectionForm` |
 | `/reviews/monthly/[month]` | 7 | Breakdown chart, narrative, reflection |
 | `/budget/advice` | 8 | Thẻ advice: evidence + verdict + accept/dismiss |

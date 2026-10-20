@@ -5,9 +5,9 @@
 
 ## Phase hiện tại
 
-**Tiếp theo: [Phase 4 — Budget engine](./phases/phase-04-budget-engine.md)** · **M2 — Tracking loop hoàn chỉnh ✅**
+**Tiếp theo: [Phase 5 — Budget vs Actual](./phases/phase-05-budget-vs-actual.md)** · M2 — Tracking loop hoàn chỉnh ✅
 
-Handoff Phase 3: xem [phase-03-classification-learning.md § 9](./phases/phase-03-classification-learning.md#9-handoff-notes). AI học cách phân loại khi user sửa draft (feedback + preference theo từ khoá đã chuẩn hoá); câu đơn giản khớp preference được phân loại **không gọi OpenAI**; `/settings` có tab "Sở thích phân loại" (xem/xoá/dạy bằng câu). Golden Phase 3 đạt 100%, golden NL parse (prompt v3) vẫn 100%. Postgres vẫn ở **port 5433**.
+Handoff Phase 4: xem [phase-04-budget-engine.md § 9](./phases/phase-04-budget-engine.md#9-handoff-notes). Có `budgets` / `budget_allocations`, `budget_service` deterministic với 3 chiến lược (Envelope 52/12/8/20/8, 50/30/20, PYF savings trước rồi 60/30/10), preview / lưu / sửa / copy tháng trước; `/budget/new` (wizard) và `/budget` (xem/sửa/kích hoạt). Quy tắc khớp giao dịch cho Phase 5 nằm ở `budget_service.allocation_scope`: dòng danh mục → danh mục; hũ envelope → danh mục trong `budget_jar_category_map`; dòng nhóm (50/30/20, PYF) → `spending_type`. Postgres vẫn ở **port 5433**.
 
 ## Bảng trạng thái
 
@@ -18,7 +18,7 @@ Handoff Phase 3: xem [phase-03-classification-learning.md § 9](./phases/phase-0
 | 1 | [Core transactions](./phases/phase-01-transactions.md) | Done | 2026-10-08 | 2026-10-08 | M1 ✅ | 93 test; summary nhận thêm filter |
 | 2 | [AI natural language entry](./phases/phase-02-nl-entry.md) | Done | 2026-10-13 | 2026-10-15 | | 171 test (mock); golden 12 câu đạt 100% (prompt v2) |
 | 3 | [Classification learning](./phases/phase-03-classification-learning.md) | Done | 2026-10-19 | 2026-10-19 | M2 ✅ | 259 test (mock); golden 10 bước đạt 100% |
-| 4 | [Budget engine](./phases/phase-04-budget-engine.md) | Not started | | | | |
+| 4 | [Budget engine](./phases/phase-04-budget-engine.md) | Done | 2026-10-19 | 2026-10-19 | | 333 test; dòng nhóm khớp theo spending_type |
 | 5 | [Budget vs Actual](./phases/phase-05-budget-vs-actual.md) | Not started | | | M3 | |
 | 6 | [Weekly review](./phases/phase-06-weekly-review.md) | Not started | | | | |
 | 7 | [Monthly review](./phases/phase-07-monthly-review.md) | Not started | | | M4 (MVP) | |
@@ -65,6 +65,8 @@ Handoff Phase 3: xem [phase-03-classification-learning.md § 9](./phases/phase-0
 | 2026-10-19 | 3 | Shortcut không gọi OpenAI chỉ cho câu đơn giản (1 khoản tiền, không nêu ngày); câu khác gọi LLM rồi hậu kiểm phân loại theo preference | Ngày / nhiều khoản vẫn cần model; phần phân loại vẫn deterministic |
 | 2026-10-19 | 3 | `hit_count` tăng khi user lưu draft dùng preference (không tăng lúc parse); `POST /transactions` trả `learned_preference` | Endpoint AI không ghi DB (ADR-005); UI chỉ báo "Đã học" khi backend thực sự học |
 | 2026-10-19 | 3 | Prompt NL parse lên v3 (thêm mục sở thích phân loại); `/settings` dùng tabs (`?tab=`) | Few-shot preference; tab Sở thích cạnh Danh mục theo plan |
+| 2026-10-19 | 4 | Dòng nhóm của 50/30/20 / PYF lưu `jar_name = group`, actual (Phase 5) khớp theo `spending_type`; service chặn phân bổ chồng lấn (`overlapping_allocations`) | Plan chưa nói dòng nhóm khớp giao dịch thế nào; tránh đếm actual 2 lần |
+| 2026-10-19 | 4 | Mỗi tháng 1 budget bất kể status (409 `budget_exists`); vượt thu nhập cần `confirm_over_income`; `savings_target` = tổng nhóm savings do service tự tính; thêm `budget_allocations.position`, `GET /budgets/jars`, preview nhận `allocations` đã chỉnh | Khớp UNIQUE `period_month`; frontend không tự cộng tiền; giữ thứ tự dòng |
 
 ## Câu hỏi mở xuyên suốt
 

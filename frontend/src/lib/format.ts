@@ -8,6 +8,13 @@ export function formatVND(amount: number): string {
   return vndFormatter.format(amount);
 }
 
+const plainFormatter = new Intl.NumberFormat("vi-VN");
+
+/** 1500000 → "1.500.000" (giá trị ban đầu cho ô nhập số tiền). */
+export function formatAmountPlain(amount: number): string {
+  return plainFormatter.format(amount);
+}
+
 /** "2026-10-07" → "07/10/2026" (không qua Date để tránh lệch múi giờ). */
 export function formatDate(isoDate: string): string {
   const [y, m, d] = isoDate.split("-");

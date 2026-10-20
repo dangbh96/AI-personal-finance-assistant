@@ -44,10 +44,10 @@ Mọi code, API, DB, prompt và tài liệu **phải** dùng đúng tên trong c
 | Ngân sách | Budget | `Budget` (1 budget / tháng, `period_month` = ngày 1 của tháng) |
 | Phân bổ | Allocation | `BudgetAllocation` |
 | Chiến lược ngân sách | Budget strategy | `strategy` |
-| Phương pháp hũ / phong bì | Envelope / Jars | `strategy = "envelope"`, `jar_name` |
+| Phương pháp hũ / phong bì | Envelope / Jars | `strategy = "envelope"`, `jar_name` (preset: `Essential` Thiết yếu, `Fun` Vui chơi, `Shopping` Mua sắm, `Saving` Tiết kiệm, `Unexpected` Dự phòng) |
 | 50/30/20 | 50/30/20 rule | `strategy = "fifty_thirty_twenty"` |
 | Trả cho mình trước | Pay Yourself First | `strategy = "pyf"` |
-| Nhóm ngân sách | Allocation group | `group`: `essential`, `wants`, `savings`, `irregular` |
+| Nhóm ngân sách | Allocation group | `group`: `essential` (Thiết yếu), `wants` (Mong muốn), `savings` (Tiết kiệm), `irregular` (Bất thường) |
 | Thực tế | Actual | `actual` |
 | Chênh lệch | Variance | `variance = actual - planned` (dương = vượt) |
 | Vùng an toàn | Comfort zone | `comfort_low`, `comfort_high` |

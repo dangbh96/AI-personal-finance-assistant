@@ -4,6 +4,7 @@ Tiền là số nguyên đồng. Mọi phép làm tròn tiền dùng `round_vnd`
 """
 
 import calendar
+from collections.abc import Sequence
 from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from fractions import Fraction
@@ -49,3 +50,40 @@ def add_months(d: date, months: int) -> date:
     year, month = divmod(month_index, 12)
     last_day = calendar.monthrange(year, month + 1)[1]
     return date(year, month + 1, min(d.day, last_day))
+
+
+def allocate_by_weights(total: int, weights: Sequence[int], step: int = 1) -> list[int]:
+    """Chia `total` đồng theo tỉ lệ `weights`, mỗi phần là bội số của `step`; tổng luôn đúng
+    bằng `total`.
+
+    Phần lẻ tới `step` chia theo phần dư lớn nhất (bằng nhau → phần đứng trước); phần lẻ dưới
+    `step` (khi `total` không chia hết cho `step`) cộng vào phần có trọng số lớn nhất.
+
+    >>> allocate_by_weights(25_000_000, [50, 30, 20], 1000)
+    [12500000, 7500000, 5000000]
+    >>> allocate_by_weights(10_000, [1, 1, 1], 1000)
+    [4000, 3000, 3000]
+    """
+    if total < 0:
+        raise ValueError("total phải >= 0")
+    if step <= 0:
+        raise ValueError("step phải > 0")
+    if not weights or any(w < 0 for w in weights) or sum(weights) == 0:
+        raise ValueError("weights phải không âm và có tổng > 0")
+    weight_sum = sum(weights)
+    units, sub_step = divmod(total, step)
+    exact = [Fraction(units * w, weight_sum) for w in weights]
+    shares = [int(x) for x in exact]
+    leftover = units - sum(shares)
+    by_remainder = sorted(range(len(weights)), key=lambda i: (-(exact[i] - shares[i]), i))
+    for i in by_remainder[:leftover]:
+        shares[i] += 1
+    amounts = [s * step for s in shares]
+    amounts[max(range(len(weights)), key=lambda i: (weights[i], -i))] += sub_step
+    return amounts
+
+
+def format_vnd(amount: int) -> str:
+    """`2000000` → `2.000.000 ₫` (dùng trong thông báo lỗi; frontend tự format số)."""
+    sign = "-" if amount < 0 else ""
+    return f"{sign}{abs(amount):,}".replace(",", ".") + " ₫"

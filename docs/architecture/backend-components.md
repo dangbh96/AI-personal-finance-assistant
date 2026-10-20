@@ -89,7 +89,7 @@ Hệ quả: toàn bộ `services/` test được **không cần OpenAI key**. Te
 - Prefix `/api/v1`. JSON, `snake_case`.
 - Tiền trả về dạng số nguyên (đồng). Frontend format.
 - Ngày dạng ISO `YYYY-MM-DD`.
-- Lỗi: `{"detail": "...", "code": "..."}` (`app/core/errors.py`: `DomainError` → 422, `NotFoundError` → 404). Lỗi validate request giữ `detail` dạng danh sách của FastAPI, `code = "validation_error"`.
+- Lỗi: `{"detail": "...", "code": "..."}` (`app/core/errors.py`: `DomainError` → 422, `NotFoundError` → 404, `ConflictError` → 409 — vd. tháng đã có budget). Lỗi validate request giữ `detail` dạng danh sách của FastAPI, `code = "validation_error"`.
 - PATCH: chỉ field được gửi mới cập nhật; field không cho sửa / không tồn tại → 422 (`extra="forbid"`).
 - Danh sách có phân trang trả `{items, total, page, page_size}`.
 - Endpoint AI trả **draft**, không ghi DB; ghi DB qua endpoint CRUD thường sau khi user xác nhận.

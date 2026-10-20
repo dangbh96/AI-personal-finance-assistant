@@ -95,8 +95,9 @@ erDiagram
         uuid budget_id FK
         text group "essential | wants | savings | irregular"
         uuid category_id FK "nullable"
-        text jar_name "nullable, cho envelope"
+        text jar_name "nullable, hũ envelope hoặc tên nhóm"
         bigint planned_amount
+        int position "thứ tự hiển thị"
         bigint comfort_low "P9, nullable"
         bigint comfort_high "P9, nullable"
         bigint warning_threshold "P9, nullable"
@@ -238,7 +239,7 @@ Tên trong bảng dưới là **tên bảng thực tế** (số nhiều snake_ca
 | 1 | `categories`, `transactions` (cột lõi + `source`, `raw_input`, `ai_suggestion` nullable), `app_settings` |
 | 2 | — (dùng `transactions.raw_input`, `transactions.ai_suggestion` đã tạo ở P1). Giao dịch nhập bằng câu: `source='nl'`, `raw_input` = câu gốc, `ai_suggestion` = draft AI **trước khi user sửa** (`TransactionDraft` + `model`) |
 | 3 | `classification_preferences`, `classification_feedback` (tên bảng giữ dạng không đếm được `feedback`) |
-| 4 | `budgets`, `budget_allocations` (cột lõi) |
+| 4 | `budgets`, `budget_allocations` (cột lõi + `position`), `app_settings.budget_jar_category_map` |
 | 5 | — (chỉ query/aggregate) |
 | 6 | `weekly_reviews`, `reflection_answers` |
 | 7 | `monthly_reviews` |
@@ -259,7 +260,7 @@ Tên trong bảng dưới là **tên bảng thực tế** (số nhiều snake_ca
 - `transaction.spending_type IS NULL` khi `direction = 'income'`; bắt buộc khi `direction = 'expense'`.
 - `budget.period_month`, `budget_advice.month`, `monthly_review.month` luôn là ngày 1 (CHECK `extract(day from ...) = 1`).
 - `weekly_review.week_start` luôn là Thứ Hai (CHECK `extract(isodow from week_start) = 1`).
-- `budget_allocation`: phải có `category_id` **hoặc** `jar_name` (strategy envelope có thể dùng jar gom nhiều category — mapping jar → categories lưu ở `app_setting` hoặc bảng `jar_category` nếu cần, quyết định ở Phase 4).
+- `budget_allocation`: phải có `category_id` **hoặc** `jar_name` (đúng một trong hai). Mapping hũ → danh mục lưu ở `app_settings.budget_jar_category_map` (quyết định ở Phase 4).
 - Index: `transaction(occurred_on)`, `transaction(category_id, occurred_on)`, HNSW index trên các cột `vector`.
 
 ## Ghi chú triển khai thực tế
@@ -275,3 +276,17 @@ Tên trong bảng dưới là **tên bảng thực tế** (số nhiều snake_ca
 - `classification_preferences`: **mỗi pattern 1 preference** — `UNIQUE (user_id, pattern) NULLS NOT DISTINCT` (PG ≥ 15) thay cho unique `(user_id, pattern, category_id, spending_type)` gợi ý trong plan, để không có 2 cách phân loại mâu thuẫn cho cùng từ khoá; user đổi ý thì cập nhật (và `hit_count` đếm lại). CHECK `spending_type` hợp lệ, `hit_count >= 0`, `length(pattern) >= 2`. FK `category_id` `ON DELETE CASCADE`. Index `pattern`, `last_used_at DESC`. Ràng buộc `spending_type IS NULL` ⇔ category income kiểm tra ở `classification_preference_service`.
 - `pattern` lưu dạng đã chuẩn hoá (`services/classification_text.normalize_pattern`: lowercase, bỏ dấu, bỏ số tiền, bỏ từ chung) — ví dụ `giay`, `sua laptop`, `tien upwork`. `hit_count` = số lần user **xác nhận** cách phân loại này (correction tạo/cập nhật = 1 lần; lưu draft dùng preference mà không sửa = +1); preference tường minh mới tạo có `hit_count = 0`.
 - `classification_feedback`: FK `transaction_id` `ON DELETE CASCADE`, `ai_category_id` `ON DELETE SET NULL`, `final_category_id` `ON DELETE RESTRICT`; CHECK hai cột spending_type. Index `transaction_id`. Chỉ ghi khi user sửa category/spending_type so với `transactions.ai_suggestion` lúc `POST /transactions` (sửa sau bằng PATCH chưa ghi).
+
+**Phase 4** (migration `20261019_2af9a678b445_budget_engine`):
+- `budgets`: `UNIQUE (period_month)` — **mỗi tháng 1 budget bất kể status**; CHECK `extract(day from period_month) = 1`, `strategy`, `status IN (draft, active, closed)`, `expected_income >= 0`, `savings_target >= 0`. `savings_target` = tổng `planned_amount` nhóm `savings`, do `budget_service` đồng bộ khi lưu (không nhận từ request tạo/sửa).
+- `budget_allocations`: CHECK `"group" IN (essential, wants, savings, irregular)`, `planned_amount >= 0`, `(category_id IS NOT NULL) <> (jar_name IS NOT NULL)`; FK `budget_id` `ON DELETE CASCADE`, `category_id` `ON DELETE RESTRICT`; index `budget_id`, `category_id`. Thêm cột **`position INT`** (thứ tự hiển thị). Không có `user_id` (thuộc budget).
+- `app_settings.budget_jar_category_map` (seed trong migration): `{"Essential": [housing, food, transport, utilities, health, education], "Fun": [entertainment, gifts], "Shopping": [shopping, electronics], "Saving": [], "Unexpected": [other]}` (slug danh mục chi).
+- **Cách một dòng phân bổ khớp giao dịch chi** (`budget_service.allocation_scope`, Phase 5 dùng để tính actual):
+
+  | Dòng | Khớp giao dịch `direction = expense` có |
+  |---|---|
+  | `category_id` khác null (mọi strategy) | `category_id` đó |
+  | `jar_name` của budget `envelope` (hũ) | `category_id` thuộc danh sách slug của hũ trong `budget_jar_category_map` |
+  | `jar_name` của budget `fifty_thirty_twenty` / `pyf` (dòng nhóm, `jar_name = group`) | `spending_type`: `essential` → nhóm essential, `non_essential` → wants, `irregular` → irregular; nhóm `savings` không khớp chi tiêu (actual = 0 tới Phase 11) |
+
+  Service chặn các dòng chồng lấn trong 1 budget (cùng danh mục ở 2 dòng / vừa dòng nhóm vừa dòng danh mục → 422 `overlapping_allocations`) nên cộng actual theo dòng không bị đếm trùng.

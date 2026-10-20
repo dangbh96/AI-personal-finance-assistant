@@ -22,6 +22,13 @@ class NotFoundError(DomainError):
         super().__init__(detail, code)
 
 
+class ConflictError(DomainError):
+    status_code = 409
+
+    def __init__(self, detail: str, code: str = "conflict") -> None:
+        super().__init__(detail, code)
+
+
 def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(DomainError)
     async def _domain_error(_: Request, exc: DomainError) -> JSONResponse:

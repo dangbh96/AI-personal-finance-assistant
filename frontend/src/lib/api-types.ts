@@ -193,10 +193,403 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/budgets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Budgets
+         * @description Danh sách ngân sách, tháng mới nhất trước.
+         */
+        get: operations["list_budgets_api_v1_budgets_get"];
+        put?: never;
+        /**
+         * Create Budget
+         * @description Lưu ngân sách (draft hoặc active). Mỗi tháng 1 ngân sách — trùng tháng → 409.
+         */
+        post: operations["create_budget_api_v1_budgets_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/budgets/jars": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Jars
+         * @description Hũ của strategy envelope và danh mục thuộc mỗi hũ (`budget_jar_category_map`).
+         */
+        get: operations["list_jars_api_v1_budgets_jars_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/budgets/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Budget
+         * @description Tính phân bổ theo strategy (hoặc kiểm tra phân bổ đã chỉnh), tổng, cảnh báo và so sánh
+         *     tham khảo 50/30/20. **Không lưu DB**.
+         */
+        post: operations["preview_budget_api_v1_budgets_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/budgets/copy-from-previous": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Copy From Previous
+         * @description Copy ngân sách tháng trước (hoặc `from_month`) sang `to_month`, trạng thái draft.
+         */
+        post: operations["copy_from_previous_api_v1_budgets_copy_from_previous_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/budgets/{budget_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Budget */
+        get: operations["get_budget_api_v1_budgets__budget_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Budget
+         * @description Chỉ xoá được ngân sách draft.
+         */
+        delete: operations["delete_budget_api_v1_budgets__budget_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Budget
+         * @description Sửa thu nhập dự kiến / trạng thái / phân bổ (gửi `allocations` = thay toàn bộ).
+         */
+        patch: operations["update_budget_api_v1_budgets__budget_id__patch"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** BudgetAllocationDraft */
+        BudgetAllocationDraft: {
+            /**
+             * Group
+             * @enum {string}
+             */
+            group: "essential" | "wants" | "savings" | "irregular";
+            /** Category Id */
+            category_id: string | null;
+            category?: components["schemas"]["CategoryBrief"] | null;
+            /** Jar Name */
+            jar_name: string | null;
+            /** Planned Amount */
+            planned_amount: number;
+        };
+        /**
+         * BudgetAllocationInput
+         * @description Một dòng phân bổ: `category_id` **hoặc** `jar_name` (đúng một trong hai).
+         *
+         *     - Strategy `envelope`: `jar_name` là tên hũ trong `app_settings.budget_jar_category_map`.
+         *     - Strategy `fifty_thirty_twenty` / `pyf`: dòng theo nhóm có `jar_name` = `group`; actual
+         *       (Phase 5) khớp theo `spending_type` của giao dịch.
+         */
+        BudgetAllocationInput: {
+            /**
+             * Group
+             * @enum {string}
+             */
+            group: "essential" | "wants" | "savings" | "irregular";
+            /** Category Id */
+            category_id?: string | null;
+            /** Jar Name */
+            jar_name?: string | null;
+            /**
+             * Planned Amount
+             * @description Số nguyên đồng, >= 0
+             */
+            planned_amount: number;
+        };
+        /** BudgetAllocationRead */
+        BudgetAllocationRead: {
+            /**
+             * Group
+             * @enum {string}
+             */
+            group: "essential" | "wants" | "savings" | "irregular";
+            /** Category Id */
+            category_id: string | null;
+            category?: components["schemas"]["CategoryBrief"] | null;
+            /** Jar Name */
+            jar_name: string | null;
+            /** Planned Amount */
+            planned_amount: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Position */
+            position: number;
+        };
+        /** BudgetCopyRequest */
+        BudgetCopyRequest: {
+            /**
+             * From Month
+             * @description Mặc định: tháng trước
+             */
+            from_month?: string | null;
+            /**
+             * To Month
+             * Format: date
+             * @description Ngày 1 của tháng, vd. 2026-10-01
+             */
+            to_month: string;
+        };
+        /** BudgetCreate */
+        BudgetCreate: {
+            /**
+             * Period Month
+             * Format: date
+             * @description Ngày 1 của tháng, vd. 2026-10-01
+             */
+            period_month: string;
+            /**
+             * Strategy
+             * @enum {string}
+             */
+            strategy: "envelope" | "fifty_thirty_twenty" | "pyf";
+            /**
+             * Expected Income
+             * @description Số nguyên đồng, >= 0
+             */
+            expected_income: number;
+            /**
+             * Status
+             * @description draft | active
+             * @default draft
+             * @enum {string}
+             */
+            status?: "draft" | "active" | "closed";
+            /** Allocations */
+            allocations: components["schemas"]["BudgetAllocationInput"][];
+            /**
+             * Confirm Over Income
+             * @description Bắt buộc true nếu tổng planned > expected_income
+             * @default false
+             */
+            confirm_over_income?: boolean;
+        };
+        /** BudgetDraft */
+        BudgetDraft: {
+            /**
+             * Period Month
+             * Format: date
+             */
+            period_month: string;
+            /**
+             * Strategy
+             * @enum {string}
+             */
+            strategy: "envelope" | "fifty_thirty_twenty" | "pyf";
+            /** Expected Income */
+            expected_income: number;
+            /** Savings Target */
+            savings_target: number;
+            /** Allocations */
+            allocations: components["schemas"]["BudgetAllocationDraft"][];
+            totals: components["schemas"]["BudgetTotals"];
+        };
+        /** BudgetJarList */
+        BudgetJarList: {
+            /** Items */
+            items: components["schemas"]["BudgetJarRead"][];
+        };
+        /** BudgetJarRead */
+        BudgetJarRead: {
+            /** Name */
+            name: string;
+            /**
+             * Group
+             * @description Nhóm của hũ trong preset (nếu có)
+             */
+            group: ("essential" | "wants" | "savings" | "irregular") | null;
+            /**
+             * Default Percent
+             * @description % thu nhập mặc định trong preset
+             */
+            default_percent: number | null;
+            /** Categories */
+            categories: components["schemas"]["CategoryBrief"][];
+        };
+        /** BudgetList */
+        BudgetList: {
+            /** Items */
+            items: components["schemas"]["BudgetRead"][];
+        };
+        /**
+         * BudgetPreviewRequest
+         * @description Không gửi `allocations` → tính phân bổ mặc định theo strategy. Có `allocations` (đã chỉnh)
+         *     → chỉ tính lại tổng, cảnh báo, so sánh 50/30/20.
+         */
+        BudgetPreviewRequest: {
+            /**
+             * Period Month
+             * Format: date
+             * @description Ngày 1 của tháng, vd. 2026-10-01
+             */
+            period_month: string;
+            /**
+             * Strategy
+             * @enum {string}
+             */
+            strategy: "envelope" | "fifty_thirty_twenty" | "pyf";
+            /**
+             * Expected Income
+             * @description Số nguyên đồng, >= 0
+             */
+            expected_income: number;
+            /**
+             * Savings Target
+             * @description Bắt buộc với strategy pyf
+             */
+            savings_target?: number | null;
+            /** Allocations */
+            allocations?: components["schemas"]["BudgetAllocationInput"][] | null;
+        };
+        /** BudgetPreviewResponse */
+        BudgetPreviewResponse: {
+            budget: components["schemas"]["BudgetDraft"];
+            reference_50_30_20: components["schemas"]["FiftyThirtyTwentyReference"];
+            /** Warnings */
+            warnings: components["schemas"]["BudgetWarning"][];
+        };
+        /** BudgetRead */
+        BudgetRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Period Month
+             * Format: date
+             */
+            period_month: string;
+            /**
+             * Strategy
+             * @enum {string}
+             */
+            strategy: "envelope" | "fifty_thirty_twenty" | "pyf";
+            /** Expected Income */
+            expected_income: number;
+            /**
+             * Savings Target
+             * @description Tổng planned nhóm savings
+             */
+            savings_target: number | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "active" | "closed";
+            /** Allocations */
+            allocations: components["schemas"]["BudgetAllocationRead"][];
+            totals: components["schemas"]["BudgetTotals"];
+            reference_50_30_20: components["schemas"]["FiftyThirtyTwentyReference"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** BudgetTotals */
+        BudgetTotals: {
+            /** Planned Total */
+            planned_total: number;
+            /**
+             * Unallocated
+             * @description expected_income - planned_total (âm = vượt thu nhập)
+             */
+            unallocated: number;
+            by_group: components["schemas"]["GroupTotals"];
+        };
+        /**
+         * BudgetUpdate
+         * @description PATCH: chỉ field được gửi mới cập nhật. `allocations` gửi lên thay thế toàn bộ.
+         */
+        BudgetUpdate: {
+            /**
+             * Expected Income
+             * @description Số nguyên đồng, >= 0
+             */
+            expected_income?: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status?: "draft" | "active" | "closed";
+            /** Allocations */
+            allocations?: components["schemas"]["BudgetAllocationInput"][];
+            /**
+             * Confirm Over Income
+             * @default false
+             */
+            confirm_over_income?: boolean;
+        };
+        /** BudgetWarning */
+        BudgetWarning: {
+            /**
+             * Code
+             * @description planned_exceeds_income | budget_exists | categories_not_in_jar
+             */
+            code: string;
+            /** Message */
+            message: string;
+            /** Amount */
+            amount?: number | null;
+        };
         /** CategoryBrief */
         CategoryBrief: {
             /**
@@ -309,6 +702,43 @@ export interface components {
             }[];
             /** Code */
             code: string;
+        };
+        /**
+         * FiftyThirtyTwentyReference
+         * @description 50/30/20 chỉ là **tham khảo**, không phải luật.
+         */
+        FiftyThirtyTwentyReference: {
+            /** Essential */
+            essential: number;
+            /** Wants */
+            wants: number;
+            /** Savings */
+            savings: number;
+            /** Comparison */
+            comparison: components["schemas"]["ReferenceComparison"][];
+        };
+        /** GroupTotals */
+        GroupTotals: {
+            /**
+             * Essential
+             * @default 0
+             */
+            essential?: number;
+            /**
+             * Wants
+             * @default 0
+             */
+            wants?: number;
+            /**
+             * Savings
+             * @default 0
+             */
+            savings?: number;
+            /**
+             * Irregular
+             * @default 0
+             */
+            irregular?: number;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -431,6 +861,27 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /** ReferenceComparison */
+        ReferenceComparison: {
+            /**
+             * Group
+             * @description essential | wants | savings
+             * @enum {string}
+             */
+            group: "essential" | "wants" | "savings" | "irregular";
+            /**
+             * Planned
+             * @description Tổng planned của nhóm (nhóm wants gồm cả irregular)
+             */
+            planned: number;
+            /** Reference */
+            reference: number;
+            /**
+             * Difference
+             * @description planned - reference (dương = nhiều hơn tham khảo)
+             */
+            difference: number;
         };
         /** SpendingTypeTotals */
         SpendingTypeTotals: {
@@ -1338,6 +1789,335 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_budgets_api_v1_budgets_get: {
+        parameters: {
+            query?: {
+                /** @description Từ tháng (bao gồm) */
+                from?: string | null;
+                /** @description Đến tháng (bao gồm) */
+                to?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetList"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_budget_api_v1_budgets_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BudgetCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetRead"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_jars_api_v1_budgets_jars_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetJarList"];
+                };
+            };
+        };
+    };
+    preview_budget_api_v1_budgets_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BudgetPreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetPreviewResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    copy_from_previous_api_v1_budgets_copy_from_previous_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BudgetCopyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetRead"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_budget_api_v1_budgets__budget_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                budget_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetRead"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_budget_api_v1_budgets__budget_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                budget_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_budget_api_v1_budgets__budget_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                budget_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BudgetUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetRead"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };

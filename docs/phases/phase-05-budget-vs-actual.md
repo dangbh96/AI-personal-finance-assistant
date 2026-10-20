@@ -67,9 +67,10 @@ Nếu cần performance về sau có thể thêm materialized view, nhưng Phase
 
 Service:
 - `analytics_service.get_budget_status(budget_id, today)` tính start/end tháng, day progress.
-- Allocation matching:
+- Allocation matching (quy tắc chốt ở Phase 4 — dùng `budget_service.allocation_scope`, xem [data-model.md § Phase 4](../architecture/data-model.md#ghi-chú-triển-khai-thực-tế)):
   - Nếu `category_id` khác null: actual = expense transactions cùng category trong tháng.
-  - Nếu `jar_name` khác null: map jar → category slugs từ `app_settings`; actual = expense transactions thuộc các categories đó.
+  - Nếu `jar_name` khác null và budget `envelope`: map jar → category slugs từ `app_settings`; actual = expense transactions thuộc các categories đó.
+  - Nếu `jar_name` khác null và budget `fifty_thirty_twenty` / `pyf` (dòng nhóm, `jar_name = group`): actual = expense transactions có `spending_type` tương ứng (`essential` → essential, `non_essential` → wants, `irregular` → irregular).
   - `group='savings'` không có actual expense ở Phase 5; actual = 0 cho tới Phase 11 hoặc nếu có category saving riêng sau này.
 - Income actual = tổng transactions `direction='income'` trong tháng.
 - Top contributor: chỉ xét allocation có `actual > planned`; `overspend = actual - planned`; tìm transaction lớn nhất trong scope; nếu `largest.amount / overspend >= 0.6` thì trả `top_contributor`.
