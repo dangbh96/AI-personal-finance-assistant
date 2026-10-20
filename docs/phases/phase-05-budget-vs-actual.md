@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **ID** | `phase-05-budget-vs-actual` |
-| **Trạng thái** | Not started |
+| **Trạng thái** | Done |
 | **Phụ thuộc** | Phase 4 |
 | **Mở khoá** | Phase 6, 9 |
 | **Milestone** | **M3 — Budget loop hoàn chỉnh** |
@@ -96,18 +96,18 @@ Không dùng AI trong Phase 5. Các số liệu actual, variance, top contributo
 
 ## 5. Task breakdown
 
-- [ ] T1 Thiết kế schemas `BudgetStatusRead`, `AllocationStatusRead`, `TopContributorRead`, `MonthSummaryRead`
-- [ ] T2 Implement SQL aggregate actual theo category allocation
-- [ ] T3 Implement jar allocation matching từ `budget_jar_category_map`
-- [ ] T4 Implement income vs expected, totals, variance, used_percent
-- [ ] T5 Implement top contributor detection với threshold 60% overspend
-- [ ] T6 Implement pro-rata month progress + pace_status testable bằng `today`
-- [ ] T7 API routes `/budgets/{id}/status`, `/budgets/current/status`, `/budget-allocations/{id}/transactions`, `/dashboard/month-summary`
-- [ ] T8 Seed scenario fixture/script cho budget tháng 10/2026 + transactions cố định
-- [ ] T9 Unit/API tests exact numbers, including overspend 1,200,000 và contributor 900,000
-- [ ] T10 UI home month summary cards
-- [ ] T11 UI `/budget` table + drill-down transactions; gen OpenAPI types
-- [ ] T12 Cập nhật docs/PROGRESS/handoff + commit `phase-05: budget vs actual`
+- [x] T1 Thiết kế schemas `BudgetStatusRead`, `AllocationStatusRead`, `TopContributorRead`, `MonthSummaryRead`
+- [x] T2 Implement SQL aggregate actual theo category allocation
+- [x] T3 Implement jar allocation matching từ `budget_jar_category_map`
+- [x] T4 Implement income vs expected, totals, variance, used_percent
+- [x] T5 Implement top contributor detection với threshold 60% overspend
+- [x] T6 Implement pro-rata month progress + pace_status testable bằng `today`
+- [x] T7 API routes `/budgets/{id}/status`, `/budgets/current/status`, `/budget-allocations/{id}/transactions`, `/dashboard/month-summary`
+- [x] T8 Seed scenario fixture/script cho budget tháng 10/2026 + transactions cố định
+- [x] T9 Unit/API tests exact numbers, including overspend 1,200,000 và contributor 900,000
+- [x] T10 UI home month summary cards
+- [x] T11 UI `/budget` table + drill-down transactions; gen OpenAPI types
+- [x] T12 Cập nhật docs/PROGRESS/handoff + commit `phase-05: budget vs actual`
 
 ## 6. Verify / Acceptance criteria
 
@@ -118,6 +118,7 @@ alembic upgrade head
 ruff check .
 pytest tests/unit/test_budget_status.py tests/api/test_budget_status.py
 python -m app.scripts.seed_demo --months 3
+python -m app.scripts.seed_scenario --reset
 pytest
 
 cd ../frontend
@@ -158,14 +159,14 @@ npm run dev
 
 ## 7. Definition of Done
 
-- [ ] Tất cả task mục 5 xong, verify mục 6 pass
-- [ ] `pytest`, `ruff check`, `npm run lint` xanh
-- [ ] API status không dùng AI và mọi số tiền là integer VND
-- [ ] Home summary cards và `/budget` dùng dữ liệu backend, không tự tính ở frontend
-- [ ] Seed scenario test chứng minh top contributor đúng
-- [ ] [PROGRESS.md](../PROGRESS.md) cập nhật đánh dấu **M3 — Budget loop hoàn chỉnh**
-- [ ] Mục 9 Handoff notes đã điền
-- [ ] Commit với message `phase-05: budget vs actual`
+- [x] Tất cả task mục 5 xong, verify mục 6 pass
+- [x] `pytest`, `ruff check`, `npm run lint` xanh
+- [x] API status không dùng AI và mọi số tiền là integer VND
+- [x] Home summary cards và `/budget` dùng dữ liệu backend, không tự tính ở frontend
+- [x] Seed scenario test chứng minh top contributor đúng
+- [x] [PROGRESS.md](../PROGRESS.md) cập nhật đánh dấu **M3 — Budget loop hoàn chỉnh**
+- [x] Mục 9 Handoff notes đã điền
+- [x] Commit với message `phase-05: budget vs actual`
 
 ## 8. Rủi ro / câu hỏi mở
 
@@ -176,11 +177,37 @@ npm run dev
 
 ## 9. Handoff notes
 
-> Điền khi kết thúc phase.
-
-- **Ngày hoàn thành:**
+- **Ngày hoàn thành:** 2026-10-20
 - **Đã làm:**
+  - **Không có migration.** `transaction_repository`: `totals_by_direction`, `expense_totals_by_category_and_spending_type` (1 aggregate gộp `(category_id, spending_type)` cho cả tháng), `largest_in_scope`, `list_in_scope` (giao dịch chi trong kỳ thuộc danh mục **hoặc** spending_type cho trước). `budget_repository.get_allocation`.
+  - **`services/analytics_service.py`** (deterministic, không import `ai`): hàm thuần `month_progress` (ngày đã qua **tính cả hôm nay**; tháng chưa tới = 0, đã qua = đủ ngày), `used_percent` (1 chữ số), `expected_to_date` (`round_vnd(planned × progress)`), `pace_status` (dung sai 10 điểm %, đúng biên vẫn `on_track`), `tracking_status`, `top_contributor_share` (≥ 60%, tối đa 1), `scope_actual`, `evaluate_allocation`, `effective_scope` (= `budget_service.allocation_scope`, riêng nhóm `savings` rỗng); hàm DB `get_budget_status`, `get_budget_status_by_id`, `get_current_status`, `get_month_summary`, `list_allocation_transactions`. Tỉ lệ tính bằng `Fraction`, làm tròn half-up khi trả về.
+  - **Schemas** `schemas/analytics.py`: `BudgetStatusRead` (`progress`, `totals`, `allocations`), `AllocationStatusRead` (planned/actual/variance/remaining/used_percent/transaction_count/expected_to_date/pace_status/status/top_contributor + `scope` gồm danh mục / spending_type), `BudgetStatusTotals`, `TopContributorRead`, `MonthProgressRead`, `MonthSummaryRead`.
+  - **API:** `GET /budgets/{id}/status?today=`, `GET /budgets/current/status?month=&today=`, `GET /budget-allocations/{id}/transactions?page=&page_size=` (trả `TransactionList`), `GET /dashboard/month-summary?month=&today=`. `today` mặc định ngày của server; `month` nhận ngày bất kỳ trong tháng.
+  - **Seed scenario** `app/scripts/seed_scenario.py` (`python -m app.scripts.seed_scenario [--reset]`): budget active 10/2026 (`fifty_thirty_twenty`, 5 dòng theo danh mục đúng bảng mục 6) + 59 giao dịch cố định 01–20/10; dữ liệu khai báo trong module, test dùng lại `seed(db, reset=True)`. Ăn uống được dựng từ nhiều khoản ≤ 250.000 để vượt 500.000 mà **không** có top contributor.
+  - **Frontend:** `/budget` có tabs **Theo dõi** (`BudgetTracking` → `MonthSummaryCards` + `MonthProgressCard` + `BudgetVsActualTable` với badge trạng thái, thanh % đã dùng + vạch % tháng, cột Nhịp, "900.000 ₫ từ 1 giao dịch"; bấm dòng mở `AllocationDrillDown` có phân trang, tô giao dịch top contributor) và **Kế hoạch** (`BudgetEditor` Phase 4); `?tab=track|plan`, `?today=YYYY-MM-DD` để thử pro-rata. Trang chủ: `HomeDashboard` (= `QuickAddBox` + `HomeMonthSummary`, lưu xong tự tải lại tóm tắt) thay `HomeBudgetCta` (đã xoá). `lib/format`: `formatSignedVND`, `formatPercent`. `gen:api` đã chạy lại.
+  - **Test:** 369 pass (+36): `tests/unit/test_budget_status.py` (17, hàm thuần) và `tests/api/test_budget_status.py` (19: đủ 9 test case mục 6 + dưới ngưỡng 60%, dòng nhóm PYF theo spending_type, chi ngoài ngân sách, giao dịch ngoài tháng, `current/status` theo `month` + budget closed, 404, phân trang drill-down, seed scenario cuối tháng / giữa tháng / cần `--reset`).
+  - **Verify:** `alembic upgrade head`, `ruff check`, `ruff format --check`, `pytest`, `npm run lint`, `npm run typecheck`, `npm run build` xanh. 5 kịch bản UI mục 6 đã chạy trên trình duyệt (trang chủ, bảng 5 dòng, Mua sắm "900.000 ₫ từ 1 giao dịch", drill-down chỉ giao dịch mua sắm 10/2026, `?today=2026-10-15` → Ăn uống "Nhanh hơn nhịp") + tab Kế hoạch, tháng trống.
+  - **DB dev hiện có:** kịch bản tháng 10/2026 (`seed_scenario`) + dữ liệu demo 06–09/2026 (`seed_demo --months 3 --end 2026-09-30`, 211 giao dịch, chưa có budget) — đủ lịch sử cho Phase 6–8.
 - **Lệch so với plan (và lý do):**
+  - Thêm trạng thái dòng **`not_tracked`** cho nhóm `savings` (actual 0, không pace, không tính vượt) bên cạnh `on_track` / `ahead_of_pace` / `over_budget`; dòng savings có `category_id` cũng actual = 0 (chi tiêu danh mục đó rơi vào `unbudgeted_actual`).
+  - `status` dòng: `over_budget` nếu actual > planned (planned = 0 mà có chi cũng là vượt), ngược lại `ahead_of_pace` nếu pace = `ahead`, còn lại `on_track`. `pace_status = null` khi planned = 0.
+  - `top_contributor.share` = `min(1, amount / overspend)` — giao dịch lớn hơn cả phần vượt được tính là gây ra toàn bộ phần vượt (plan không nói trường hợp share > 1).
+  - Totals thêm `expense_actual` (= **mọi** giao dịch chi trong tháng), `allocated_actual`, `unbudgeted_actual` (chi không thuộc dòng nào, vd danh mục chưa vào hũ), `expense_used_percent`, `savings_planned`, `over_budget_count`; `expense_variance = expense_actual − expense_planned`.
+  - `/budgets/current/status` và phần `budget` của month-summary nhận budget **active hoặc closed** (tháng đã đóng vẫn xem được); nháp → 404 `budget_not_active`, chưa có → 404 `budget_not_found`. Month-summary trả thêm `budget_status` để trang chủ biết "chưa có" (CTA) hay "nháp" (nhắc kích hoạt). `/budgets/{id}/status` dùng được cho mọi trạng thái (tab Theo dõi hiện cả với nháp).
+  - Drill-down trả `TransactionList` (`items/total/page/page_size`) như `/transactions`.
+  - Script seed scenario riêng (`seed_scenario.py`) thay vì gộp vào `seed_demo`; lệnh Verify thêm `python -m app.scripts.seed_scenario --reset`. Strategy của kịch bản là `fifty_thirty_twenty` với dòng theo danh mục (plan không chỉ định).
+  - UI dùng tabs Theo dõi / Kế hoạch (gợi ý trong handoff Phase 4) thay vì gộp cột actual vào bảng planned.
 - **Nợ kỹ thuật / TODO để lại:**
+  - Pro-rata tuyến tính nên khoản cố định trả đầu tháng (tiền nhà) bị báo "Chi nhanh hơn nhịp" giữa tháng (seed scenario ngày 20: Nhà ở vàng) — Phase 9 (zones) / Phase 12 (lịch khoản định kỳ) nên xử lý.
+  - Ngưỡng 60% có thể gắn top contributor cho khoản thường xuyên khi phần vượt nhỏ (vd vượt 100.000 với 1 lần đi chợ 300.000). Phase 8 nên kết hợp `spending_type = irregular` / lịch sử trước khi kết luận "one-off".
+  - `today` mặc định theo giờ server; frontend luôn gửi `today` của trình duyệt.
+  - Chưa có test tự động frontend (Phase 18). Unique `period_month` vẫn cần `(user_id, period_month)` khi có auth.
 - **Lệnh hữu ích:**
-- **Gợi ý cho phase tiếp theo:**
+  - `(cd backend && pytest tests/unit/test_budget_status.py tests/api/test_budget_status.py -q)`
+  - `(cd backend && python -m app.scripts.seed_scenario --reset)`
+  - `curl -s "localhost:8000/api/v1/budgets/current/status?month=2026-10-01&today=2026-10-15"`
+  - `curl -s "localhost:8000/api/v1/dashboard/month-summary?today=2026-10-20"`
+- **Gợi ý cho phase tiếp theo (Phase 6 — Weekly review):**
+  - Evidence cho AI lấy từ `analytics_service.get_budget_status(db, budget, today)`: mỗi dòng có `variance`, `used_percent`, `pace_status`, `expected_to_date`, `top_contributor` (giao dịch + `share`); tổng ở `totals`. Narrative chỉ được dùng số có trong các metrics này (ADR-005).
+  - Tổng hợp theo tuần chưa có: thêm hàm kiểu `transaction_repository.expense_totals_by_category_and_spending_type(db, week_start, week_end)` (đã nhận khoảng ngày bất kỳ) + `money.week_range`.
+  - DB dev có 4 tháng demo (06–09) + kịch bản 10/2026 để thử review tuần.

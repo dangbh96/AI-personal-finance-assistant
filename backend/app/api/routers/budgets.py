@@ -5,6 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Query, Response, status
 
 from app.core.db import DbSession
+from app.schemas.analytics import BudgetStatusRead
 from app.schemas.budget import (
     BudgetCopyRequest,
     BudgetCreate,
@@ -16,12 +17,19 @@ from app.schemas.budget import (
     BudgetUpdate,
 )
 from app.schemas.common import ErrorResponse
-from app.services import budget_service
+from app.services import analytics_service, budget_service
 
 router = APIRouter(prefix="/budgets", tags=["budgets"])
 
 ERRORS = {404: {"model": ErrorResponse}, 422: {"model": ErrorResponse}}
 CONFLICT = {409: {"model": ErrorResponse}}
+
+TodayQuery = Annotated[
+    date | None, Query(description="Ngày tính tiến độ tháng (mặc định hôm nay của server)")
+]
+MonthQuery = Annotated[
+    date | None, Query(description="Một ngày trong tháng cần xem, vd. 2026-10-01")
+]
 
 
 @router.get("", response_model=BudgetList, responses={422: {"model": ErrorResponse}})
@@ -76,9 +84,23 @@ def copy_from_previous(db: DbSession, data: BudgetCopyRequest):
     return budget_service.to_read(budget)
 
 
+@router.get("/current/status", response_model=BudgetStatusRead, responses=ERRORS)
+def get_current_status(db: DbSession, month: MonthQuery = None, today: TodayQuery = None):
+    """Planned vs actual của ngân sách **active/closed** của tháng (mặc định tháng chứa `today`).
+    Tháng chưa có ngân sách → 404 `budget_not_found`; ngân sách nháp → 404 `budget_not_active`."""
+    return analytics_service.get_current_status(db, today or date.today(), month)
+
+
 @router.get("/{budget_id}", response_model=BudgetRead, responses=ERRORS)
 def get_budget(db: DbSession, budget_id: uuid.UUID):
     return budget_service.to_read(budget_service.get_budget(db, budget_id))
+
+
+@router.get("/{budget_id}/status", response_model=BudgetStatusRead, responses=ERRORS)
+def get_budget_status(db: DbSession, budget_id: uuid.UUID, today: TodayQuery = None):
+    """Planned / actual / variance / used % / pace / top contributor từng dòng phân bổ và tổng
+    tháng. Deterministic, không dùng AI."""
+    return analytics_service.get_budget_status_by_id(db, budget_id, today or date.today())
 
 
 @router.patch("/{budget_id}", response_model=BudgetRead, responses={**ERRORS, **CONFLICT})

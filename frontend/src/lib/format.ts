@@ -15,6 +15,21 @@ export function formatAmountPlain(amount: number): string {
   return plainFormatter.format(amount);
 }
 
+/** 1500000 → "+1.500.000 ₫", -300000 → "−300.000 ₫", 0 → "0 ₫" */
+export function formatSignedVND(amount: number): string {
+  if (amount === 0) return formatVND(0);
+  return `${amount > 0 ? "+" : "−"}${formatVND(Math.abs(amount))}`;
+}
+
+const percentFormatter = new Intl.NumberFormat("vi-VN", {
+  maximumFractionDigits: 1,
+});
+
+/** 112.5 → "112,5%" (giá trị đã là phần trăm do backend tính). */
+export function formatPercent(value: number): string {
+  return `${percentFormatter.format(value)}%`;
+}
+
 /** "2026-10-07" → "07/10/2026" (không qua Date để tránh lệch múi giờ). */
 export function formatDate(isoDate: string): string {
   const [y, m, d] = isoDate.split("-");

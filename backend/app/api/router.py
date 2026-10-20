@@ -1,9 +1,11 @@
 from fastapi import APIRouter
 
 from app.api.routers import (
+    budget_allocations,
     budgets,
     categories,
     classification_preferences,
+    dashboard,
     health,
     transactions,
 )
@@ -14,3 +16,5 @@ api_router.include_router(categories.router)
 api_router.include_router(transactions.router)
 api_router.include_router(classification_preferences.router)
 api_router.include_router(budgets.router)
+api_router.include_router(budget_allocations.router)
+api_router.include_router(dashboard.router)

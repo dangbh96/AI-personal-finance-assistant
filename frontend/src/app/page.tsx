@@ -1,8 +1,6 @@
 import Link from "next/link";
-import { Suspense } from "react";
 
-import { HomeBudgetCta } from "@/components/budget/home-budget-cta";
-import { QuickAddBox } from "@/components/quick-add/quick-add-box";
+import { HomeDashboard } from "@/components/home-dashboard";
 import { SystemStatusCard } from "@/components/system-status-card";
 
 export default function HomePage() {
@@ -18,10 +16,7 @@ export default function HomePage() {
           . Các tính năng khác sẽ được thêm dần theo từng phase.
         </p>
       </div>
-      <QuickAddBox />
-      <Suspense fallback={null}>
-        <HomeBudgetCta />
-      </Suspense>
+      <HomeDashboard />
       <SystemStatusCard />
     </div>
   );

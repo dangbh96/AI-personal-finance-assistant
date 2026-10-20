@@ -290,3 +290,5 @@ Tên trong bảng dưới là **tên bảng thực tế** (số nhiều snake_ca
   | `jar_name` của budget `fifty_thirty_twenty` / `pyf` (dòng nhóm, `jar_name = group`) | `spending_type`: `essential` → nhóm essential, `non_essential` → wants, `irregular` → irregular; nhóm `savings` không khớp chi tiêu (actual = 0 tới Phase 11) |
 
   Service chặn các dòng chồng lấn trong 1 budget (cùng danh mục ở 2 dòng / vừa dòng nhóm vừa dòng danh mục → 422 `overlapping_allocations`) nên cộng actual theo dòng không bị đếm trùng.
+
+**Phase 5** (không có migration): actual tính trực tiếp bằng SQL aggregate (`transaction_repository.expense_totals_by_category_and_spending_type` — 1 truy vấn gộp theo `(category_id, spending_type)` cho cả tháng, `analytics_service` cộng theo phạm vi từng dòng), dùng index `transactions(occurred_on)` / `(category_id, occurred_on)` có sẵn. Mọi dòng thuộc nhóm `savings` (kể cả dòng có `category_id`) có actual = 0 tới Phase 11. Chưa cần materialized view / cache.

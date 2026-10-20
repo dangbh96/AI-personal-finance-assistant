@@ -278,6 +278,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/budgets/current/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Current Status
+         * @description Planned vs actual của ngân sách **active/closed** của tháng (mặc định tháng chứa `today`).
+         *     Tháng chưa có ngân sách → 404 `budget_not_found`; ngân sách nháp → 404 `budget_not_active`.
+         */
+        get: operations["get_current_status_api_v1_budgets_current_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/budgets/{budget_id}": {
         parameters: {
             query?: never;
@@ -303,10 +324,148 @@ export interface paths {
         patch: operations["update_budget_api_v1_budgets__budget_id__patch"];
         trace?: never;
     };
+    "/api/v1/budgets/{budget_id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Budget Status
+         * @description Planned / actual / variance / used % / pace / top contributor từng dòng phân bổ và tổng
+         *     tháng. Deterministic, không dùng AI.
+         */
+        get: operations["get_budget_status_api_v1_budgets__budget_id__status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/budget-allocations/{allocation_id}/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Allocation Transactions
+         * @description Drill-down: giao dịch chi thuộc dòng phân bổ trong tháng của ngân sách, mới nhất trước.
+         *     Dòng nhóm `savings` không có giao dịch.
+         */
+        get: operations["list_allocation_transactions_api_v1_budget_allocations__allocation_id__transactions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/month-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Month Summary
+         * @description Thẻ tóm tắt tháng ở trang chủ: thu/chi/net thực tế (luôn có) và tiến độ ngân sách nếu
+         *     tháng có ngân sách active/closed.
+         */
+        get: operations["month_summary_api_v1_dashboard_month_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AllocationScopeRead */
+        AllocationScopeRead: {
+            /**
+             * Kind
+             * @description category: theo danh mục · jar: hũ envelope · group: theo spending_type
+             * @enum {string}
+             */
+            kind: "category" | "jar" | "group";
+            /** Categories */
+            categories: components["schemas"]["CategoryBrief"][];
+            /** Spending Types */
+            spending_types: ("essential" | "non_essential" | "irregular")[];
+        };
+        /** AllocationStatusRead */
+        AllocationStatusRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Position */
+            position: number;
+            /**
+             * Group
+             * @enum {string}
+             */
+            group: "essential" | "wants" | "savings" | "irregular";
+            /** Category Id */
+            category_id: string | null;
+            category: components["schemas"]["CategoryBrief"] | null;
+            /** Jar Name */
+            jar_name: string | null;
+            scope: components["schemas"]["AllocationScopeRead"];
+            /** Planned */
+            planned: number;
+            /**
+             * Actual
+             * @description Tổng chi khớp dòng trong tháng (nhóm savings luôn 0)
+             */
+            actual: number;
+            /**
+             * Variance
+             * @description actual - planned (dương = vượt)
+             */
+            variance: number;
+            /**
+             * Remaining
+             * @description planned - actual (âm = đã vượt)
+             */
+            remaining: number;
+            /**
+             * Used Percent
+             * @description actual / planned × 100 (1 chữ số); null nếu planned = 0
+             */
+            used_percent: number | null;
+            /** Transaction Count */
+            transaction_count: number;
+            /**
+             * Expected To Date
+             * @description planned × month_progress, làm tròn tới đồng
+             */
+            expected_to_date: number;
+            /**
+             * Pace Status
+             * @description So used % với % tháng đã qua, dung sai 10 điểm %; null nếu planned = 0 hoặc dòng savings
+             */
+            pace_status: ("ahead" | "on_track" | "under") | null;
+            /**
+             * Status
+             * @description over_budget nếu actual > planned; ahead_of_pace nếu pace = ahead; not_tracked cho nhóm savings (nối Goals/PYF ở Phase 11)
+             * @enum {string}
+             */
+            status: "on_track" | "ahead_of_pace" | "over_budget" | "not_tracked";
+            top_contributor: components["schemas"]["TopContributorRead"] | null;
+        };
         /** BudgetAllocationDraft */
         BudgetAllocationDraft: {
             /**
@@ -544,6 +703,81 @@ export interface components {
              */
             updated_at: string;
         };
+        /** BudgetStatusRead */
+        BudgetStatusRead: {
+            /**
+             * Budget Id
+             * Format: uuid
+             */
+            budget_id: string;
+            /**
+             * Period Month
+             * Format: date
+             */
+            period_month: string;
+            /**
+             * Strategy
+             * @enum {string}
+             */
+            strategy: "envelope" | "fifty_thirty_twenty" | "pyf";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "active" | "closed";
+            progress: components["schemas"]["MonthProgressRead"];
+            totals: components["schemas"]["BudgetStatusTotals"];
+            /** Allocations */
+            allocations: components["schemas"]["AllocationStatusRead"][];
+        };
+        /** BudgetStatusTotals */
+        BudgetStatusTotals: {
+            /** Income Expected */
+            income_expected: number;
+            /** Income Actual */
+            income_actual: number;
+            /**
+             * Income Variance
+             * @description income_actual - income_expected
+             */
+            income_variance: number;
+            /**
+             * Expense Planned
+             * @description Tổng planned các dòng chi (không gồm savings)
+             */
+            expense_planned: number;
+            /**
+             * Expense Actual
+             * @description Tổng mọi giao dịch chi trong tháng
+             */
+            expense_actual: number;
+            /**
+             * Expense Variance
+             * @description expense_actual - expense_planned
+             */
+            expense_variance: number;
+            /** Expense Used Percent */
+            expense_used_percent: number | null;
+            /**
+             * Allocated Actual
+             * @description Tổng actual các dòng phân bổ
+             */
+            allocated_actual: number;
+            /**
+             * Unbudgeted Actual
+             * @description Chi tiêu không thuộc dòng phân bổ nào (expense_actual - allocated_actual)
+             */
+            unbudgeted_actual: number;
+            /** Savings Planned */
+            savings_planned: number;
+            /**
+             * Net Actual
+             * @description income_actual - expense_actual
+             */
+            net_actual: number;
+            /** Over Budget Count */
+            over_budget_count: number;
+        };
         /** BudgetTotals */
         BudgetTotals: {
             /** Planned Total */
@@ -762,6 +996,67 @@ export interface components {
             /** Version */
             version: string;
         };
+        /** MonthProgressRead */
+        MonthProgressRead: {
+            /**
+             * Today
+             * Format: date
+             */
+            today: string;
+            /**
+             * Date From
+             * Format: date
+             * @description Ngày đầu tháng
+             */
+            date_from: string;
+            /**
+             * Date To
+             * Format: date
+             * @description Ngày cuối tháng
+             */
+            date_to: string;
+            /**
+             * Elapsed Days
+             * @description Số ngày đã qua, tính cả hôm nay (0 nếu tháng chưa tới)
+             */
+            elapsed_days: number;
+            /** Days In Month */
+            days_in_month: number;
+            /**
+             * Month Progress
+             * @description elapsed_days / days_in_month (0–1, 4 chữ số)
+             */
+            month_progress: number;
+        };
+        /**
+         * MonthSummaryRead
+         * @description Thẻ tóm tắt tháng ở trang chủ. Phần `budget` chỉ có khi tháng có budget active/closed.
+         */
+        MonthSummaryRead: {
+            /**
+             * Month
+             * Format: date
+             * @description Ngày 1 của tháng
+             */
+            month: string;
+            progress: components["schemas"]["MonthProgressRead"];
+            /** Income Actual */
+            income_actual: number;
+            /** Expense Actual */
+            expense_actual: number;
+            /** Net Actual */
+            net_actual: number;
+            /** Budget Id */
+            budget_id: string | null;
+            /**
+             * Budget Status
+             * @description null nếu tháng chưa có budget
+             */
+            budget_status: ("draft" | "active" | "closed") | null;
+            budget: components["schemas"]["BudgetStatusTotals"] | null;
+            /** @description Dòng vượt nhiều nhất (nếu có) */
+            top_over: components["schemas"]["AllocationStatusRead"] | null;
+        };
         /**
          * PreferenceCreate
          * @description Preference user đã xác nhận (thường từ draft của `POST /classification-preferences/parse`).
@@ -900,6 +1195,39 @@ export interface components {
              * @default 0
              */
             irregular?: number;
+        };
+        /**
+         * TopContributorRead
+         * @description Giao dịch lớn nhất của dòng đang vượt, khi nó chiếm ≥ 60% phần vượt.
+         */
+        TopContributorRead: {
+            /**
+             * Transaction Id
+             * Format: uuid
+             */
+            transaction_id: string;
+            /**
+             * Occurred On
+             * Format: date
+             */
+            occurred_on: string;
+            /** Note */
+            note: string | null;
+            category: components["schemas"]["CategoryBrief"];
+            /** Spending Type */
+            spending_type: ("essential" | "non_essential" | "irregular") | null;
+            /** Amount */
+            amount: number;
+            /**
+             * Overspend
+             * @description actual - planned của dòng
+             */
+            overspend: number;
+            /**
+             * Share
+             * @description min(1, amount / overspend), 4 chữ số
+             */
+            share: number;
         };
         /** TransactionCreate */
         TransactionCreate: {
@@ -1982,6 +2310,49 @@ export interface operations {
             };
         };
     };
+    get_current_status_api_v1_budgets_current_status_get: {
+        parameters: {
+            query?: {
+                /** @description Một ngày trong tháng cần xem, vd. 2026-10-01 */
+                month?: string | null;
+                /** @description Ngày tính tiến độ tháng (mặc định hôm nay của server) */
+                today?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetStatusRead"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     get_budget_api_v1_budgets__budget_id__get: {
         parameters: {
             query?: never;
@@ -2109,6 +2480,126 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_budget_status_api_v1_budgets__budget_id__status_get: {
+        parameters: {
+            query?: {
+                /** @description Ngày tính tiến độ tháng (mặc định hôm nay của server) */
+                today?: string | null;
+            };
+            header?: never;
+            path: {
+                budget_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetStatusRead"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_allocation_transactions_api_v1_budget_allocations__allocation_id__transactions_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                allocation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransactionList"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    month_summary_api_v1_dashboard_month_summary_get: {
+        parameters: {
+            query?: {
+                /** @description Một ngày trong tháng, mặc định tháng chứa `today` */
+                month?: string | null;
+                /** @description Ngày tính tiến độ tháng (mặc định hôm nay của server) */
+                today?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonthSummaryRead"];
                 };
             };
             /** @description Unprocessable Content */

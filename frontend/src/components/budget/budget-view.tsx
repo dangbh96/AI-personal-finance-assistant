@@ -7,8 +7,10 @@ import { use } from "react";
 
 import { BudgetEditor } from "@/components/budget/budget-editor";
 import { BudgetEmptyState } from "@/components/budget/budget-empty-state";
+import { BudgetTracking } from "@/components/budget/budget-tracking";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useApiData } from "@/hooks/use-api-data";
 import {
   describeError,
@@ -17,18 +19,30 @@ import {
   type BudgetList,
 } from "@/lib/api";
 import { monthToPeriod } from "@/lib/budget";
-import { currentMonth, shiftMonth } from "@/lib/dates";
+import { currentMonth, shiftMonth, todayISO } from "@/lib/dates";
 import { formatMonthLabel } from "@/lib/format";
 
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
+const DATE_PATTERN = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+const TABS = ["track", "plan"] as const;
+type Tab = (typeof TABS)[number];
 
-/** `/budget`: ngân sách của tháng đang chọn (`?month=YYYY-MM`). Budget vs Actual ở Phase 5. */
+/**
+ * `/budget`: ngân sách của tháng đang chọn (`?month=YYYY-MM`). Tab "Theo dõi" (Budget vs
+ * Actual) và "Kế hoạch" (sửa planned) lưu ở `?tab=`; `?today=YYYY-MM-DD` đổi ngày tính tiến độ
+ * tháng (để thử pro-rata).
+ */
 export function BudgetView() {
   use(io());
   const router = useRouter();
   const pathname = usePathname();
-  const param = useSearchParams().get("month");
-  const month = param && MONTH_PATTERN.test(param) ? param : currentMonth();
+  const params = useSearchParams();
+  const monthParam = params.get("month");
+  const month =
+    monthParam && MONTH_PATTERN.test(monthParam) ? monthParam : currentMonth();
+  const todayParam = params.get("today");
+  const today =
+    todayParam && DATE_PATTERN.test(todayParam) ? todayParam : todayISO();
   const period = monthToPeriod(month);
 
   const list = useApiData<BudgetList>(
@@ -36,9 +50,21 @@ export function BudgetView() {
   );
   const jars = useApiData<BudgetJarList>("/budgets/jars");
   const budget = list.data?.items[0];
+  const tabParam = params.get("tab");
+  const tab: Tab = TABS.includes(tabParam as Tab)
+    ? (tabParam as Tab)
+    : budget?.status === "draft"
+      ? "plan"
+      : "track";
+
+  function navigate(changes: Record<string, string>) {
+    const next = new URLSearchParams(params.toString());
+    for (const [key, value] of Object.entries(changes)) next.set(key, value);
+    router.replace(`${pathname}?${next.toString()}`, { scroll: false });
+  }
 
   function goTo(next: string) {
-    router.replace(`${pathname}?month=${next}`, { scroll: false });
+    navigate({ month: next });
   }
 
   return (
@@ -47,8 +73,8 @@ export function BudgetView() {
         <div>
           <h1 className="font-heading text-2xl font-semibold">Ngân sách</h1>
           <p className="text-sm text-muted-foreground">
-            {formatMonthLabel(month)} · kế hoạch chi tiêu và tiết kiệm. So sánh
-            với chi tiêu thực tế sẽ có ở Phase 5.
+            {formatMonthLabel(month)} · kế hoạch chi tiêu và tiết kiệm so với
+            thực tế.
           </p>
         </div>
         <div className="flex items-center gap-1">
@@ -87,13 +113,32 @@ export function BudgetView() {
       {list.loading && !list.data ? (
         <p className="text-sm text-muted-foreground">Đang tải…</p>
       ) : budget ? (
-        <BudgetEditor
-          key={`${budget.id}-${budget.updated_at}`}
-          budget={budget}
-          jars={jars.data?.items}
-          onChanged={list.reload}
-          onDeleted={list.reload}
-        />
+        <Tabs
+          value={tab}
+          onValueChange={(value) => navigate({ tab: String(value) })}
+          className="gap-4"
+        >
+          <TabsList>
+            <TabsTrigger value="track">Theo dõi</TabsTrigger>
+            <TabsTrigger value="plan">Kế hoạch</TabsTrigger>
+          </TabsList>
+          <TabsContent value="track">
+            <BudgetTracking
+              key={`${budget.id}-${budget.updated_at}`}
+              budgetId={budget.id}
+              today={today}
+            />
+          </TabsContent>
+          <TabsContent value="plan">
+            <BudgetEditor
+              key={`${budget.id}-${budget.updated_at}`}
+              budget={budget}
+              jars={jars.data?.items}
+              onChanged={list.reload}
+              onDeleted={list.reload}
+            />
+          </TabsContent>
+        </Tabs>
       ) : (
         list.data && (
           <BudgetEmptyState month={month} onCopied={() => list.reload()} />

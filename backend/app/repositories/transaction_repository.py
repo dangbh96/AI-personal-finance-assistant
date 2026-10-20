@@ -1,8 +1,9 @@
 import uuid
+from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import date
 
-from sqlalchemy import ColumnElement, func, select
+from sqlalchemy import ColumnElement, false, func, or_, select
 from sqlalchemy import delete as sa_delete
 from sqlalchemy.orm import Session
 
@@ -84,6 +85,102 @@ def totals_by_category(
         .order_by(total.desc(), Category.name)
     )
     return [(cid, name, kind, icon, int(t)) for cid, name, kind, icon, t in db.execute(stmt)]
+
+
+def totals_by_direction(db: Session, date_from: date, date_to: date) -> dict[str, int]:
+    stmt = (
+        select(Transaction.direction, func.sum(Transaction.amount))
+        .where(Transaction.occurred_on >= date_from, Transaction.occurred_on <= date_to)
+        .group_by(Transaction.direction)
+    )
+    return {direction: int(total) for direction, total in db.execute(stmt)}
+
+
+def expense_totals_by_category_and_spending_type(
+    db: Session, date_from: date, date_to: date
+) -> list[tuple[uuid.UUID, str, int, int]]:
+    """Chi tiêu trong kỳ gộp theo `(category_id, spending_type)` → `(…, tổng, số giao dịch)`."""
+    stmt = (
+        select(
+            Transaction.category_id,
+            Transaction.spending_type,
+            func.sum(Transaction.amount),
+            func.count(),
+        )
+        .where(
+            Transaction.direction == "expense",
+            Transaction.occurred_on >= date_from,
+            Transaction.occurred_on <= date_to,
+        )
+        .group_by(Transaction.category_id, Transaction.spending_type)
+    )
+    return [(cid, st, int(total), int(count)) for cid, st, total, count in db.execute(stmt)]
+
+
+def _scope_conditions(
+    date_from: date,
+    date_to: date,
+    category_ids: Collection[uuid.UUID],
+    spending_types: Collection[str],
+) -> list[ColumnElement[bool]]:
+    """Giao dịch chi trong kỳ, thuộc một trong các danh mục **hoặc** loại chi tiêu cho trước."""
+    matches: list[ColumnElement[bool]] = []
+    if category_ids:
+        matches.append(Transaction.category_id.in_(category_ids))
+    if spending_types:
+        matches.append(Transaction.spending_type.in_(spending_types))
+    return [
+        Transaction.direction == "expense",
+        Transaction.occurred_on >= date_from,
+        Transaction.occurred_on <= date_to,
+        or_(*matches) if matches else false(),
+    ]
+
+
+def largest_in_scope(
+    db: Session,
+    date_from: date,
+    date_to: date,
+    category_ids: Collection[uuid.UUID],
+    spending_types: Collection[str],
+) -> Transaction | None:
+    """Giao dịch chi lớn nhất trong phạm vi (bằng nhau → giao dịch mới hơn)."""
+    stmt = (
+        select(Transaction)
+        .where(*_scope_conditions(date_from, date_to, category_ids, spending_types))
+        .order_by(
+            Transaction.amount.desc(),
+            Transaction.occurred_on.desc(),
+            Transaction.created_at.desc(),
+            Transaction.id.desc(),
+        )
+        .limit(1)
+    )
+    return db.scalar(stmt)
+
+
+def list_in_scope(
+    db: Session,
+    date_from: date,
+    date_to: date,
+    category_ids: Collection[uuid.UUID],
+    spending_types: Collection[str],
+    *,
+    offset: int,
+    limit: int,
+) -> tuple[list[Transaction], int]:
+    conds = _scope_conditions(date_from, date_to, category_ids, spending_types)
+    total = db.scalar(select(func.count()).select_from(Transaction).where(*conds)) or 0
+    stmt = (
+        select(Transaction)
+        .where(*conds)
+        .order_by(
+            Transaction.occurred_on.desc(), Transaction.created_at.desc(), Transaction.id.desc()
+        )
+        .offset(offset)
+        .limit(limit)
+    )
+    return list(db.scalars(stmt)), total
 
 
 def add(db: Session, transaction: Transaction) -> Transaction:

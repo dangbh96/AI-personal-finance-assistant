@@ -4,11 +4,15 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Budget
+from app.models import Budget, BudgetAllocation
 
 
 def get(db: Session, budget_id: uuid.UUID) -> Budget | None:
     return db.get(Budget, budget_id)
+
+
+def get_allocation(db: Session, allocation_id: uuid.UUID) -> BudgetAllocation | None:
+    return db.get(BudgetAllocation, allocation_id)
 
 
 def get_by_month(db: Session, period_month: date) -> Budget | None:

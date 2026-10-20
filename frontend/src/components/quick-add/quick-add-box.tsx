@@ -39,7 +39,7 @@ function browserTimeZone(): string | undefined {
 }
 
 /** Nhập giao dịch bằng câu tự nhiên → AI tạo draft → user sửa/xác nhận rồi mới lưu. */
-export function QuickAddBox() {
+export function QuickAddBox({ onSaved }: { onSaved?: () => void } = {}) {
   const health = useApiData<HealthResponse>("/health");
   const categories = useApiData<Category[]>("/categories");
   const [text, setText] = useState("");
@@ -87,10 +87,13 @@ export function QuickAddBox() {
   const handleDone = useCallback(
     (savedCount: number, learned: Preference[]) => {
       setParsed(null);
-      if (savedCount > 0) setText("");
+      if (savedCount > 0) {
+        setText("");
+        onSaved?.();
+      }
       setNotice({ saved: savedCount, learned });
     },
-    [],
+    [onSaved],
   );
 
   return (

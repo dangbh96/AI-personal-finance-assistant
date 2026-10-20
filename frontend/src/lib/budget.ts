@@ -1,9 +1,11 @@
 import type {
   AllocationGroup,
+  AllocationTrackingStatus,
   BudgetAllocationDraft,
   BudgetAllocationInput,
   BudgetStatus,
   BudgetStrategy,
+  PaceStatus,
 } from "@/lib/api";
 import { parseAmountInput } from "@/lib/amount";
 import { formatAmountPlain } from "@/lib/format";
@@ -42,6 +44,30 @@ export const GROUP_LABELS: Record<AllocationGroup, string> = {
   wants: "Mong muốn",
   savings: "Tiết kiệm",
   irregular: "Bất thường",
+};
+
+export const TRACKING_STATUS_LABELS: Record<AllocationTrackingStatus, string> =
+  {
+    on_track: "Trong kế hoạch",
+    ahead_of_pace: "Chi nhanh hơn nhịp",
+    over_budget: "Vượt ngân sách",
+    not_tracked: "Chưa theo dõi",
+  };
+
+export const TRACKING_STATUS_CLASSES: Record<AllocationTrackingStatus, string> =
+  {
+    on_track:
+      "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
+    ahead_of_pace:
+      "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
+    over_budget: "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300",
+    not_tracked: "bg-muted text-muted-foreground",
+  };
+
+export const PACE_LABELS: Record<PaceStatus, string> = {
+  ahead: "Nhanh hơn nhịp",
+  on_track: "Đúng nhịp",
+  under: "Chậm hơn nhịp",
 };
 
 /** Tên hũ preset (lưu tiếng Anh trong `jar_name`) → tên hiển thị. */

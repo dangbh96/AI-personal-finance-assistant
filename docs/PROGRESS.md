@@ -5,9 +5,9 @@
 
 ## Phase hiện tại
 
-**Tiếp theo: [Phase 5 — Budget vs Actual](./phases/phase-05-budget-vs-actual.md)** · M2 — Tracking loop hoàn chỉnh ✅
+**Tiếp theo: [Phase 6 — Weekly review](./phases/phase-06-weekly-review.md)** · M3 — Budget loop hoàn chỉnh ✅
 
-Handoff Phase 4: xem [phase-04-budget-engine.md § 9](./phases/phase-04-budget-engine.md#9-handoff-notes). Có `budgets` / `budget_allocations`, `budget_service` deterministic với 3 chiến lược (Envelope 52/12/8/20/8, 50/30/20, PYF savings trước rồi 60/30/10), preview / lưu / sửa / copy tháng trước; `/budget/new` (wizard) và `/budget` (xem/sửa/kích hoạt). Quy tắc khớp giao dịch cho Phase 5 nằm ở `budget_service.allocation_scope`: dòng danh mục → danh mục; hũ envelope → danh mục trong `budget_jar_category_map`; dòng nhóm (50/30/20, PYF) → `spending_type`. Postgres vẫn ở **port 5433**.
+Handoff Phase 5: xem [phase-05-budget-vs-actual.md § 9](./phases/phase-05-budget-vs-actual.md#9-handoff-notes). `analytics_service` (deterministic) tính planned / actual / variance / used % / pro-rata pace / top contributor (≥ 60% phần vượt) cho từng dòng phân bổ + tổng tháng; API `/budgets/{id}/status`, `/budgets/current/status`, `/budget-allocations/{id}/transactions`, `/dashboard/month-summary`. `/budget` có tab Theo dõi / Kế hoạch, trang chủ có thẻ tóm tắt tháng. Evidence cho review AI lấy từ `get_budget_status`. DB dev: kịch bản cố định 10/2026 (`seed_scenario`) + demo 06–09/2026. Postgres vẫn ở **port 5433**.
 
 ## Bảng trạng thái
 
@@ -19,7 +19,7 @@ Handoff Phase 4: xem [phase-04-budget-engine.md § 9](./phases/phase-04-budget-e
 | 2 | [AI natural language entry](./phases/phase-02-nl-entry.md) | Done | 2026-10-13 | 2026-10-15 | | 171 test (mock); golden 12 câu đạt 100% (prompt v2) |
 | 3 | [Classification learning](./phases/phase-03-classification-learning.md) | Done | 2026-10-19 | 2026-10-19 | M2 ✅ | 259 test (mock); golden 10 bước đạt 100% |
 | 4 | [Budget engine](./phases/phase-04-budget-engine.md) | Done | 2026-10-19 | 2026-10-19 | | 333 test; dòng nhóm khớp theo spending_type |
-| 5 | [Budget vs Actual](./phases/phase-05-budget-vs-actual.md) | Not started | | | M3 | |
+| 5 | [Budget vs Actual](./phases/phase-05-budget-vs-actual.md) | Done | 2026-10-20 | 2026-10-20 | M3 ✅ | 369 test; thêm `not_tracked` (savings), `unbudgeted_actual` |
 | 6 | [Weekly review](./phases/phase-06-weekly-review.md) | Not started | | | | |
 | 7 | [Monthly review](./phases/phase-07-monthly-review.md) | Not started | | | M4 (MVP) | |
 | 8 | [Budget adjustment advisor](./phases/phase-08-budget-advisor.md) | Not started | | | | |
@@ -67,6 +67,9 @@ Handoff Phase 4: xem [phase-04-budget-engine.md § 9](./phases/phase-04-budget-e
 | 2026-10-19 | 3 | Prompt NL parse lên v3 (thêm mục sở thích phân loại); `/settings` dùng tabs (`?tab=`) | Few-shot preference; tab Sở thích cạnh Danh mục theo plan |
 | 2026-10-19 | 4 | Dòng nhóm của 50/30/20 / PYF lưu `jar_name = group`, actual (Phase 5) khớp theo `spending_type`; service chặn phân bổ chồng lấn (`overlapping_allocations`) | Plan chưa nói dòng nhóm khớp giao dịch thế nào; tránh đếm actual 2 lần |
 | 2026-10-19 | 4 | Mỗi tháng 1 budget bất kể status (409 `budget_exists`); vượt thu nhập cần `confirm_over_income`; `savings_target` = tổng nhóm savings do service tự tính; thêm `budget_allocations.position`, `GET /budgets/jars`, preview nhận `allocations` đã chỉnh | Khớp UNIQUE `period_month`; frontend không tự cộng tiền; giữ thứ tự dòng |
+| 2026-10-20 | 5 | Trạng thái dòng thêm `not_tracked` (mọi dòng nhóm savings, actual 0); `top_contributor.share` tối đa 1; totals thêm `expense_actual` (mọi khoản chi tháng), `allocated_actual`, `unbudgeted_actual`, `over_budget_count` | Plan chưa nói cách hiển thị savings, share > 1, và chi tiêu không thuộc dòng nào |
+| 2026-10-20 | 5 | `/budgets/current/status` + month-summary nhận budget active **hoặc closed** (nháp → 404 `budget_not_active`); month-summary trả `budget_status`; drill-down trả `TransactionList` | Tháng đã đóng vẫn cần xem; trang chủ phân biệt "chưa có" và "nháp" |
+| 2026-10-20 | 5 | Script riêng `seed_scenario` (kịch bản cố định 10/2026, `--reset`) thay vì gộp vào `seed_demo`; `/budget` tách tab Theo dõi / Kế hoạch; trang chủ `HomeDashboard` thay `HomeBudgetCta` | Số liệu kịch bản phải chính xác để test/UI; giữ editor Phase 4 nguyên vẹn |
 
 ## Câu hỏi mở xuyên suốt
 
