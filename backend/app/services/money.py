@@ -38,6 +38,17 @@ def month_range(d: date) -> tuple[date, date]:
     return d.replace(day=1), d.replace(day=last_day)
 
 
+def elapsed_days(month: date, today: date) -> int:
+    """Số ngày đã qua của tháng chứa `month` tính tới `today` (tính cả hôm nay): tháng chưa tới
+    → 0, tháng đã qua → đủ số ngày (pro-rata Phase 5, 9)."""
+    start, end = month_range(month)
+    if today < start:
+        return 0
+    if today > end:
+        return end.day
+    return today.day
+
+
 def week_range(d: date) -> tuple[date, date]:
     """Thứ Hai và Chủ Nhật (bao gồm) của tuần chứa `d` — tuần bắt đầu Thứ Hai."""
     start = d - timedelta(days=d.weekday())

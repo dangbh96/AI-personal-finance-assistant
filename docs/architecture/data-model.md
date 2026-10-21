@@ -98,10 +98,10 @@ erDiagram
         text jar_name "nullable, hũ envelope hoặc tên nhóm"
         bigint planned_amount
         int position "thứ tự hiển thị"
-        bigint comfort_low "P9, nullable"
+        bigint comfort_low "P9, nullable (auto chưa tính)"
         bigint comfort_high "P9, nullable"
         bigint warning_threshold "P9, nullable"
-        text zone_mode "P9: manual | auto"
+        text zone_mode "P9: manual | auto (mặc định auto)"
     }
     BUDGET_ADVICE {
         uuid id PK
@@ -248,7 +248,7 @@ Tên trong bảng dưới là **tên bảng thực tế** (số nhiều snake_ca
 | 6 | `weekly_reviews`, `reflection_answers` |
 | 7 | `monthly_reviews` |
 | 8 | `budget_advice` (tên bảng giữ dạng không đếm được `advice`), `app_settings.budget_advisor` |
-| 9 | `budget_allocations.comfort_low/comfort_high/warning_threshold/zone_mode` |
+| 9 | `budget_allocations.comfort_low/comfort_high/warning_threshold/zone_mode` (+ CHECK `zone_mode`) |
 | 10 | `chat_sessions`, `chat_messages` |
 | 11 | `goals`, `goal_contributions` |
 | 12 | `recurring_transactions`, `transactions.recurring_id` |
@@ -310,3 +310,9 @@ Tên trong bảng dưới là **tên bảng thực tế** (số nhiều snake_ca
 - `evidence` JSONB = `BudgetAdviceEvidence` (do `services/advisor_rules` tính): `allocation_label`, `group`, `category_slug`, `month`, `as_of`, `month_complete`, `planned_amount`, `actual_amount`, `variance`, `comfort_high` (Phase 9), `comfort_high_used`, `threshold_amount`, `over_amount`, `transaction_count`, `largest_transaction`, `single_transaction_share(_pct)`, `irregular_total`, `irregular_share(_pct)`, `irregular_transaction`, `one_off_transaction`, `history_actuals[{month, actual, transaction_count, has_data, over_planned}]` (`min_history_months` tháng, tính cả tháng xét, cũ nhất trước), `history_months`, `min_history_months`, `all_over_planned`, `cv`/`cv_pct` (population std / mean), `history_median`, `proposed_planned_amount` (chỉ `adjust_budget`), `one_off_share_threshold_pct`, `stable_cv_threshold_pct`, `budget_rounding_step`, `rule` (`within_plan | one_off_irregular | one_off_single_transaction | insufficient_history | stable_overspend | unstable_overspend`).
 - `app_settings.budget_advisor` (seed trong migration): `{"one_off_share_threshold": 0.6, "stable_cv_threshold": 0.15, "min_history_months": 3, "budget_rounding_step": 100000}`; key thiếu / giá trị sai kiểu → service dùng mặc định.
 - Accept ghi vào `budget_allocations` của tháng đích qua `budget_service.set_allocation_planned` — sửa `planned_amount` **tại chỗ** (giữ id dòng), thiếu dòng thì thêm dòng cuối; tháng đích chưa có budget → tạo nháp copy từ tháng của advice (cùng commit).
+
+**Phase 9** (migration `20261022_b151e98b6b47_flexible_budget_zones`):
+- `budget_allocations` thêm `comfort_low BIGINT NULL`, `comfort_high BIGINT NULL`, `warning_threshold BIGINT NULL`, `zone_mode TEXT NOT NULL DEFAULT 'auto'` + CHECK `ck_budget_allocations_zone_mode` (`zone_mode IN ('manual', 'auto')`). Không có bảng `budget_zones`. Dòng cũ sau migration: `auto`, ngưỡng NULL.
+- Ý nghĩa: `manual` → 3 ngưỡng user nhập, `zone_service` bắt buộc đủ và `comfort_low <= comfort_high <= warning_threshold` (CHECK thứ tự **không** đặt ở DB). `auto` → ngưỡng là **cache** do `zone_service` tính (NULL = chưa tính — UI hiện "Chưa tính vùng", advisor so với `planned`); chỉ ghi khi user bấm tính lại (`POST /budgets/{id}/zones/recalculate`) hoặc chuyển sang auto (`PATCH /budget-allocations/{id}/zone`). Dòng nhóm `savings` không có vùng (ngưỡng luôn NULL).
+- Giữ ngưỡng khi dòng được ghi lại (`budget_service`): PATCH budget thay toàn bộ phân bổ → dòng cùng danh mục / hũ giữ `zone_mode` + ngưỡng manual, giữ cache auto nếu `planned_amount` không đổi (đổi → NULL); copy sang tháng mới → giữ manual, bỏ cache auto (lịch sử khác tháng); `set_allocation_planned` (accept advice) đổi planned của dòng auto → bỏ cache.
+- `budget_advice.evidence` thêm `zone` (`ZoneEvidence`: `zone_mode`, `planned_amount`, `comfort_low`, `comfort_high`, `warning_threshold`, `actual_amount`, `zone`, `early_warning`) khi dòng đã có ngưỡng; `comfort_high` lấy từ cột đã lưu.

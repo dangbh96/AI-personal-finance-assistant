@@ -4,11 +4,30 @@ from typing import Annotated
 from fastapi import APIRouter, Query
 
 from app.core.db import DbSession
+from app.schemas.budget import BudgetAllocationRead
 from app.schemas.common import ErrorResponse
 from app.schemas.transaction import TransactionList, TransactionRead
-from app.services import analytics_service
+from app.schemas.zone import ZoneUpdate
+from app.services import analytics_service, zone_service
 
 router = APIRouter(prefix="/budget-allocations", tags=["budgets"])
+
+
+@router.patch(
+    "/{allocation_id}/zone",
+    response_model=BudgetAllocationRead,
+    responses={
+        404: {"model": ErrorResponse},
+        409: {"model": ErrorResponse},
+        422: {"model": ErrorResponse},
+    },
+)
+def update_zone(db: DbSession, allocation_id: uuid.UUID, data: ZoneUpdate):
+    """Đổi chế độ vùng linh hoạt của dòng: `manual` cần đủ `comfort_low <= comfort_high <=
+    warning_threshold` (sai → 422 `invalid_zone_thresholds` / `zone_thresholds_required`);
+    `auto` không nhận ngưỡng, backend tính lại ngay từ lịch sử 3–6 tháng (thiếu → % dự phòng).
+    Dòng savings → 422 `allocation_not_tracked`; ngân sách đã đóng → 409 `budget_closed`."""
+    return zone_service.update_zone(db, allocation_id, data)
 
 
 @router.get(

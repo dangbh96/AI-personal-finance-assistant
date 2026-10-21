@@ -3,7 +3,8 @@
 Đúng sơ đồ trong docs/architecture/budget-adjustment.md § 1, ngưỡng lấy từ
 `app_settings.budget_advisor` (mặc định 60% / 15% / 3 tháng / làm tròn 100.000đ):
 
-1. `actual <= comfort_high` (hoặc `planned` nếu dòng chưa có zone) → `on_track`.
+1. `actual <= comfort_high` (vùng linh hoạt Phase 9 đã lưu; dòng chưa có vùng → `planned`)
+   → `on_track`.
 2. Giao dịch `irregular` (cộng lại) **hoặc** một giao dịch đơn lẻ chiếm `>= 60%` phần vượt
    → `one_off` (chỉ ra giao dịch ngoại lệ, không đề xuất planned mới).
 3. Chưa đủ `3` tháng có dữ liệu (tính cả tháng đang xét) → `adjust_behavior`.
@@ -30,6 +31,7 @@ from app.schemas.budget_advice import (
     AdvisorSettings,
     BudgetAdviceEvidence,
 )
+from app.schemas.zone import ZoneEvidence
 from app.services.money import round_vnd
 
 DEFAULT_SETTINGS = AdvisorSettings(
@@ -94,6 +96,8 @@ class AdviceInput:
     transactions: Sequence[ScopeTransaction]
     history: Sequence[MonthActual]
     """Các tháng gần nhất, cũ nhất trước, **tính cả** tháng đang xét (phần tử cuối)."""
+    zone: ZoneEvidence | None = None
+    """Vùng linh hoạt của dòng (Phase 9) nếu đã có ngưỡng — chỉ đưa vào evidence."""
 
 
 @dataclass(frozen=True)
@@ -279,5 +283,6 @@ def evaluate(inp: AdviceInput, thresholds: Thresholds = DEFAULT_THRESHOLDS) -> A
             stable_cv_threshold_pct=_pct(thresholds.stable_cv),
             budget_rounding_step=thresholds.rounding_step,
             rule=rule,
+            zone=inp.zone,
         ),
     )

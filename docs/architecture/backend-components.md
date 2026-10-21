@@ -44,7 +44,7 @@ flowchart TB
         s_analytics["analytics_service<br/>(budget vs actual, pro-rata,<br/>top contributor, review metrics,<br/>budget summary cho review tháng)"]
         s_review["review_metrics / review_narrative<br/>(highlights, metrics tháng, validate, fallback)<br/>review_service (weekly / monthly, reflection)"]
         s_advisor["advisor_rules (decision tree)<br/>advice_narrative (validate, template)<br/>budget_advice_service (evidence, accept/dismiss)"]
-        s_zone["zone_service"]
+        s_zone["zone_service<br/>(ngưỡng manual / auto / fallback,<br/>zone, pro-rata early warning)"]
         s_goal["goal_service / pyf"]
         s_fc["forecast_service"]
         s_imp["import_service"]
@@ -91,6 +91,7 @@ Hệ quả: toàn bộ `services/` test được **không cần OpenAI key**. Te
 - Structured output dùng Chat Completions `response_format=json_schema` (strict) sinh từ Pydantic (bỏ keyword strict mode không hỗ trợ như `maxLength`, `default`), `temperature=0`. Seam để test: `openai_client._chat_json` (monkeypatch trả JSON giả).
 - Log mỗi lời gọi AI: tác vụ, model, token, latency (không log API key).
 - Budget advice (Phase 8): router `budget_advice` gọi `budget_advice_service.prepare_advice` (verdict + evidence deterministic) → `ai/advice_writer.write_explanations` (chỉ viết văn bản; AI lỗi / output sai → template, **không** trả 503) → `budget_advice_service.save_advice`. Thay đổi ngân sách chỉ qua `POST /budget/advice/{id}/accept` với `confirm: true` → `budget_service`.
+- Flexible zones (Phase 9): **không có AI**. `zone_service` (phụ thuộc `budget_service` + repositories) tính ngưỡng và zone; `analytics_service` gắn `zone` vào từng dòng Budget vs Actual và dựng `GET /budgets/{id}/zones`; `budget_advice_service` đọc `comfort_high` đã lưu + `zone_service.zone_evidence` cho advisor. `budget_service` không import `zone_service` (tránh vòng) — chỉ giữ / xoá cột vùng khi ghi lại dòng phân bổ.
 
 ## API conventions
 

@@ -5,6 +5,8 @@ import { Fragment, useState } from "react";
 
 import { AllocationDrillDown } from "@/components/budget/allocation-drill-down";
 import { TopContributorText } from "@/components/budget/month-summary-cards";
+import { EarlyWarningLine, ZoneTooltip } from "@/components/budget/zone-badge";
+import { ZoneSettingsDialog } from "@/components/budget/zone-settings-dialog";
 import {
   Table,
   TableBody,
@@ -18,6 +20,7 @@ import type {
   AllocationStatus,
   AllocationTrackingStatus,
   BudgetStatusReport,
+  BudgetZone,
 } from "@/lib/api";
 import {
   GROUP_LABELS,
@@ -106,8 +109,19 @@ function RemainingCell({ allocation }: { allocation: AllocationStatus }) {
   return <span>Còn {formatVND(allocation.remaining)}</span>;
 }
 
-/** Bảng planned vs actual từng dòng; bấm một dòng để xem giao dịch của dòng đó. */
-export function BudgetVsActualTable({ status }: { status: BudgetStatusReport }) {
+/** Bảng planned vs actual từng dòng; bấm một dòng để xem giao dịch của dòng đó. Cột "Vùng"
+ * (Phase 9) lấy từ `GET /budgets/{id}/zones` — ngưỡng và trạng thái do backend tính. */
+export function BudgetVsActualTable({
+  status,
+  zones,
+  zonesEditable = false,
+  onZoneChanged,
+}: {
+  status: BudgetStatusReport;
+  zones?: Record<string, BudgetZone>;
+  zonesEditable?: boolean;
+  onZoneChanged?: () => void;
+}) {
   const [openId, setOpenId] = useState<string | null>(null);
   const { totals, progress } = status;
 
@@ -120,6 +134,7 @@ export function BudgetVsActualTable({ status }: { status: BudgetStatusReport }) 
           <TableHead className="text-right">Thực tế</TableHead>
           <TableHead className="text-right">Còn lại / Vượt</TableHead>
           <TableHead className="text-right">Đã dùng</TableHead>
+          <TableHead>Vùng</TableHead>
           <TableHead>Nhịp</TableHead>
           <TableHead>Giao dịch gây vượt</TableHead>
         </TableRow>
@@ -127,6 +142,7 @@ export function BudgetVsActualTable({ status }: { status: BudgetStatusReport }) 
       <TableBody>
         {status.allocations.map((a) => {
           const open = openId === a.id;
+          const zone = zones?.[a.id];
           return (
             <Fragment key={a.id}>
               <TableRow
@@ -147,6 +163,7 @@ export function BudgetVsActualTable({ status }: { status: BudgetStatusReport }) 
                         {GROUP_LABELS[a.group]}
                         <TrackingStatusBadge status={a.status} />
                       </span>
+                      {zone && <EarlyWarningLine zone={zone} />}
                     </div>
                   </div>
                 </TableCell>
@@ -164,6 +181,20 @@ export function BudgetVsActualTable({ status }: { status: BudgetStatusReport }) 
                     allocation={a}
                     monthProgress={progress.month_progress}
                   />
+                </TableCell>
+                <TableCell>
+                  {zone ? (
+                    <div className="flex items-center gap-0.5">
+                      <ZoneTooltip zone={zone} />
+                      <ZoneSettingsDialog
+                        zone={zone}
+                        disabled={!zonesEditable}
+                        onSaved={() => onZoneChanged?.()}
+                      />
+                    </div>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
                 </TableCell>
                 <TableCell
                   className="text-sm"
@@ -200,7 +231,7 @@ export function BudgetVsActualTable({ status }: { status: BudgetStatusReport }) 
               </TableRow>
               {open && (
                 <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={7} className="bg-muted/30 whitespace-normal">
+                  <TableCell colSpan={8} className="bg-muted/30 whitespace-normal">
                     <AllocationDrillDown allocation={a} />
                   </TableCell>
                 </TableRow>
@@ -233,7 +264,7 @@ export function BudgetVsActualTable({ status }: { status: BudgetStatusReport }) 
               ? "—"
               : formatPercent(totals.expense_used_percent)}
           </TableCell>
-          <TableCell colSpan={2} />
+          <TableCell colSpan={3} />
         </TableRow>
         {totals.unbudgeted_actual > 0 && (
           <TableRow>
@@ -246,7 +277,7 @@ export function BudgetVsActualTable({ status }: { status: BudgetStatusReport }) 
             <TableCell className="text-right font-normal tabular-nums text-muted-foreground">
               {formatVND(totals.unbudgeted_actual)}
             </TableCell>
-            <TableCell colSpan={4} />
+            <TableCell colSpan={5} />
           </TableRow>
         )}
       </TableFooter>

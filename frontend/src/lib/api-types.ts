@@ -333,8 +333,8 @@ export interface paths {
         };
         /**
          * Get Budget Status
-         * @description Planned / actual / variance / used % / pace / top contributor từng dòng phân bổ và tổng
-         *     tháng. Deterministic, không dùng AI.
+         * @description Planned / actual / variance / used % / pace / top contributor / vùng linh hoạt từng dòng
+         *     phân bổ và tổng tháng. Deterministic, không dùng AI.
          */
         get: operations["get_budget_status_api_v1_budgets__budget_id__status_get"];
         put?: never;
@@ -343,6 +343,72 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/budgets/{budget_id}/zones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Budget Zones
+         * @description Vùng linh hoạt (🟢 normal / 🟡 attention / 🔴 review_needed) + cảnh báo pro-rata của mọi dòng
+         *     chi tiêu; dòng auto kèm cách tính ngưỡng (lịch sử 3–6 tháng, không tính khoản bất thường).
+         *     Deterministic, không dùng AI.
+         */
+        get: operations["get_budget_zones_api_v1_budgets__budget_id__zones_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/budgets/{budget_id}/zones/recalculate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Recalculate Zones
+         * @description Tính lại và lưu ngưỡng các dòng auto (`allocation_ids = null` → mọi dòng chi tiêu); dòng
+         *     manual giữ nguyên. Idempotent. Ngân sách đã đóng → 409 `budget_closed`.
+         */
+        post: operations["recalculate_zones_api_v1_budgets__budget_id__zones_recalculate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/budget-allocations/{allocation_id}/zone": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Zone
+         * @description Đổi chế độ vùng linh hoạt của dòng: `manual` cần đủ `comfort_low <= comfort_high <=
+         *     warning_threshold` (sai → 422 `invalid_zone_thresholds` / `zone_thresholds_required`);
+         *     `auto` không nhận ngưỡng, backend tính lại ngay từ lịch sử 3–6 tháng (thiếu → % dự phòng).
+         *     Dòng savings → 422 `allocation_not_tracked`; ngân sách đã đóng → 409 `budget_closed`.
+         */
+        patch: operations["update_zone_api_v1_budget_allocations__allocation_id__zone_patch"];
         trace?: never;
     };
     "/api/v1/budget-allocations/{allocation_id}/transactions": {
@@ -870,6 +936,42 @@ export interface components {
              */
             status: "on_track" | "ahead_of_pace" | "over_budget" | "not_tracked";
             top_contributor: components["schemas"]["TopContributorRead"] | null;
+            /** @description Vùng linh hoạt (Phase 9); null với nhóm savings */
+            zone: components["schemas"]["AllocationZoneRead"] | null;
+        };
+        /**
+         * AllocationZoneRead
+         * @description Vùng của một dòng phân bổ trong tháng (gắn vào Budget vs Actual).
+         */
+        AllocationZoneRead: {
+            /**
+             * Zone Mode
+             * @enum {string}
+             */
+            zone_mode: "manual" | "auto";
+            /** Comfort Low */
+            comfort_low: number | null;
+            /** Comfort High */
+            comfort_high: number | null;
+            /** Warning Threshold */
+            warning_threshold: number | null;
+            /**
+             * Calculated
+             * @description false nếu dòng auto chưa được tính vùng (ngưỡng null, zone null)
+             */
+            calculated: boolean;
+            /**
+             * Zone
+             * @description normal: actual <= comfort_high · attention: <= warning_threshold · review_needed: > warning_threshold
+             */
+            zone: ("normal" | "attention" | "review_needed") | null;
+            /**
+             * Early Warning
+             * @description Tháng đang chạy và % đã dùng vượt % tháng đã qua hơn 10 điểm % (pro-rata); không đổi `zone`
+             */
+            early_warning: boolean;
+            /** Early Warning Message */
+            early_warning_message: string | null;
         };
         /** AppliedBudgetRead */
         AppliedBudgetRead: {
@@ -893,6 +995,51 @@ export interface components {
              * @description true nếu vừa tạo nháp (copy từ tháng của advice)
              */
             created: boolean;
+        };
+        /**
+         * AutoZoneDetailRead
+         * @description Cách auto mode tính ngưỡng (tính lại khi đọc, để giải thích và phát hiện ngưỡng cũ).
+         */
+        AutoZoneDetailRead: {
+            /**
+             * Basis
+             * @description history: >= 3 tháng dữ liệu · fallback: % cố định theo planned
+             * @enum {string}
+             */
+            basis: "history" | "fallback";
+            /** Fallback Reason */
+            fallback_reason: ("insufficient_history" | "irregular_group") | null;
+            /** Min History Months */
+            min_history_months: number;
+            /** Max History Months */
+            max_history_months: number;
+            /**
+             * History Months
+             * @description Số tháng có dữ liệu được dùng
+             */
+            history_months: number;
+            /**
+             * History
+             * @description Các tháng trước tháng ngân sách (tối đa max_history_months), cũ nhất trước
+             */
+            history: components["schemas"]["ZoneHistoryMonthRead"][];
+            /**
+             * Mean
+             * @description Trung bình (làm tròn tới đồng) — chỉ khi basis=history
+             */
+            mean: number | null;
+            /**
+             * Std
+             * @description Độ lệch chuẩn tổng thể (làm tròn tới đồng)
+             */
+            std: number | null;
+            /** @description Ngưỡng auto tính từ dữ liệu hiện tại */
+            suggested: components["schemas"]["ZoneThresholdsRead"];
+            /**
+             * Stale
+             * @description Ngưỡng đã lưu khác ngưỡng tính từ dữ liệu hiện tại
+             */
+            stale: boolean;
         };
         /** BudgetAdviceAcceptRequest */
         BudgetAdviceAcceptRequest: {
@@ -1050,6 +1197,8 @@ export interface components {
              * @enum {string}
              */
             rule: "within_plan" | "one_off_irregular" | "one_off_single_transaction" | "insufficient_history" | "stable_overspend" | "unstable_overspend";
+            /** @description Vùng linh hoạt (Phase 9) của dòng trong tháng xét, nếu dòng đã có ngưỡng */
+            zone?: components["schemas"]["ZoneEvidence"] | null;
         };
         /** BudgetAdviceGenerateRequest */
         BudgetAdviceGenerateRequest: {
@@ -1210,6 +1359,21 @@ export interface components {
             id: string;
             /** Position */
             position: number;
+            /**
+             * Zone Mode
+             * @description Vùng linh hoạt (Phase 9): manual | auto
+             * @enum {string}
+             */
+            zone_mode: "manual" | "auto";
+            /**
+             * Comfort Low
+             * @description null = dòng auto chưa được tính vùng
+             */
+            comfort_low: number | null;
+            /** Comfort High */
+            comfort_high: number | null;
+            /** Warning Threshold */
+            warning_threshold: number | null;
         };
         /** BudgetCopyRequest */
         BudgetCopyRequest: {
@@ -1544,6 +1708,94 @@ export interface components {
             message: string;
             /** Amount */
             amount?: number | null;
+        };
+        /**
+         * BudgetZoneList
+         * @description Vùng của mọi dòng chi tiêu (nhóm savings không có vùng).
+         */
+        BudgetZoneList: {
+            /**
+             * Budget Id
+             * Format: uuid
+             */
+            budget_id: string;
+            /**
+             * Period Month
+             * Format: date
+             */
+            period_month: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "active" | "closed";
+            progress: components["schemas"]["MonthProgressRead"];
+            /** Items */
+            items: components["schemas"]["BudgetZoneRead"][];
+        };
+        /** BudgetZoneRead */
+        BudgetZoneRead: {
+            /**
+             * Zone Mode
+             * @enum {string}
+             */
+            zone_mode: "manual" | "auto";
+            /** Comfort Low */
+            comfort_low: number | null;
+            /** Comfort High */
+            comfort_high: number | null;
+            /** Warning Threshold */
+            warning_threshold: number | null;
+            /**
+             * Calculated
+             * @description false nếu dòng auto chưa được tính vùng (ngưỡng null, zone null)
+             */
+            calculated: boolean;
+            /**
+             * Zone
+             * @description normal: actual <= comfort_high · attention: <= warning_threshold · review_needed: > warning_threshold
+             */
+            zone: ("normal" | "attention" | "review_needed") | null;
+            /**
+             * Early Warning
+             * @description Tháng đang chạy và % đã dùng vượt % tháng đã qua hơn 10 điểm % (pro-rata); không đổi `zone`
+             */
+            early_warning: boolean;
+            /** Early Warning Message */
+            early_warning_message: string | null;
+            /**
+             * Allocation Id
+             * Format: uuid
+             */
+            allocation_id: string;
+            /** Position */
+            position: number;
+            /**
+             * Group
+             * @enum {string}
+             */
+            group: "essential" | "wants" | "savings" | "irregular";
+            category: components["schemas"]["CategoryBrief"] | null;
+            /** Jar Name */
+            jar_name: string | null;
+            /** Label */
+            label: string;
+            /** Planned */
+            planned: number;
+            /**
+             * Actual
+             * @description Tổng chi khớp dòng trong tháng (kể cả khoản bất thường)
+             */
+            actual: number;
+            /** Used Percent */
+            used_percent: number | null;
+            /**
+             * Expected To Date
+             * @description planned × % tháng đã qua (pro-rata)
+             */
+            expected_to_date: number;
+            /** @description Chỉ có với zone_mode = auto */
+            auto: components["schemas"]["AutoZoneDetailRead"] | null;
         };
         /** CategoryBrief */
         CategoryBrief: {
@@ -2972,6 +3224,99 @@ export interface components {
              */
             updated_at: string;
         };
+        /**
+         * ZoneEvidence
+         * @description Vùng của dòng trong tháng advisor xét (phase-09 § 4.3) — chỉ để AI trích số đã tính.
+         */
+        ZoneEvidence: {
+            /**
+             * Zone Mode
+             * @enum {string}
+             */
+            zone_mode: "manual" | "auto";
+            /** Planned Amount */
+            planned_amount: number;
+            /** Comfort Low */
+            comfort_low: number;
+            /** Comfort High */
+            comfort_high: number;
+            /** Warning Threshold */
+            warning_threshold: number;
+            /** Actual Amount */
+            actual_amount: number;
+            /**
+             * Zone
+             * @enum {string}
+             */
+            zone: "normal" | "attention" | "review_needed";
+            /** Early Warning */
+            early_warning: boolean;
+        };
+        /** ZoneHistoryMonthRead */
+        ZoneHistoryMonthRead: {
+            /**
+             * Month
+             * Format: date
+             */
+            month: string;
+            /**
+             * Actual
+             * @description Chi trong phạm vi dòng, KHÔNG tính giao dịch irregular
+             */
+            actual: number;
+            /**
+             * Irregular Excluded
+             * @description Tổng giao dịch irregular đã loại ra
+             */
+            irregular_excluded: number;
+            /** Transaction Count */
+            transaction_count: number;
+            /**
+             * Has Data
+             * @description Tháng có ít nhất 1 giao dịch chi trong phạm vi
+             */
+            has_data: boolean;
+            /**
+             * Used
+             * @description Tháng được dùng để tính mean / std
+             */
+            used: boolean;
+        };
+        /** ZoneRecalculateRequest */
+        ZoneRecalculateRequest: {
+            /**
+             * Allocation Ids
+             * @description null = mọi dòng auto (trừ nhóm savings); dòng manual được bỏ qua
+             */
+            allocation_ids?: string[] | null;
+        };
+        /** ZoneThresholdsRead */
+        ZoneThresholdsRead: {
+            /** Comfort Low */
+            comfort_low: number;
+            /** Comfort High */
+            comfort_high: number;
+            /** Warning Threshold */
+            warning_threshold: number;
+        };
+        /**
+         * ZoneUpdate
+         * @description `manual` → bắt buộc đủ 3 ngưỡng, `comfort_low <= comfort_high <= warning_threshold`.
+         *     `auto` → không gửi ngưỡng; backend tính lại ngay từ lịch sử (hoặc % dự phòng).
+         */
+        ZoneUpdate: {
+            /**
+             * Zone Mode
+             * @enum {string}
+             */
+            zone_mode: "manual" | "auto";
+            /** Comfort Low */
+            comfort_low?: number | null;
+            /** Comfort High */
+            comfort_high?: number | null;
+            /** Warning Threshold */
+            warning_threshold?: number | null;
+        };
     };
     responses: never;
     parameters: never;
@@ -3958,6 +4303,158 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_budget_zones_api_v1_budgets__budget_id__zones_get: {
+        parameters: {
+            query?: {
+                /** @description Ngày tính tiến độ tháng (mặc định hôm nay của server) */
+                today?: string | null;
+            };
+            header?: never;
+            path: {
+                budget_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetZoneList"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    recalculate_zones_api_v1_budgets__budget_id__zones_recalculate_post: {
+        parameters: {
+            query?: {
+                /** @description Ngày tính tiến độ tháng (mặc định hôm nay của server) */
+                today?: string | null;
+            };
+            header?: never;
+            path: {
+                budget_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ZoneRecalculateRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetZoneList"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_zone_api_v1_budget_allocations__allocation_id__zone_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                allocation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ZoneUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetAllocationRead"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

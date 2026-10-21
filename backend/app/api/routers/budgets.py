@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Query, Response, status
 
 from app.core.db import DbSession
-from app.schemas.analytics import BudgetStatusRead
+from app.schemas.analytics import BudgetStatusRead, BudgetZoneList
 from app.schemas.budget import (
     BudgetCopyRequest,
     BudgetCreate,
@@ -17,7 +17,8 @@ from app.schemas.budget import (
     BudgetUpdate,
 )
 from app.schemas.common import ErrorResponse
-from app.services import analytics_service, budget_service
+from app.schemas.zone import ZoneRecalculateRequest
+from app.services import analytics_service, budget_service, zone_service
 
 router = APIRouter(prefix="/budgets", tags=["budgets"])
 
@@ -98,9 +99,35 @@ def get_budget(db: DbSession, budget_id: uuid.UUID):
 
 @router.get("/{budget_id}/status", response_model=BudgetStatusRead, responses=ERRORS)
 def get_budget_status(db: DbSession, budget_id: uuid.UUID, today: TodayQuery = None):
-    """Planned / actual / variance / used % / pace / top contributor từng dòng phân bổ và tổng
-    tháng. Deterministic, không dùng AI."""
+    """Planned / actual / variance / used % / pace / top contributor / vùng linh hoạt từng dòng
+    phân bổ và tổng tháng. Deterministic, không dùng AI."""
     return analytics_service.get_budget_status_by_id(db, budget_id, today or date.today())
+
+
+@router.get("/{budget_id}/zones", response_model=BudgetZoneList, responses=ERRORS)
+def get_budget_zones(db: DbSession, budget_id: uuid.UUID, today: TodayQuery = None):
+    """Vùng linh hoạt (🟢 normal / 🟡 attention / 🔴 review_needed) + cảnh báo pro-rata của mọi dòng
+    chi tiêu; dòng auto kèm cách tính ngưỡng (lịch sử 3–6 tháng, không tính khoản bất thường).
+    Deterministic, không dùng AI."""
+    return analytics_service.get_budget_zones(db, budget_id, today or date.today())
+
+
+@router.post(
+    "/{budget_id}/zones/recalculate",
+    response_model=BudgetZoneList,
+    responses={**ERRORS, **CONFLICT},
+)
+def recalculate_zones(
+    db: DbSession,
+    budget_id: uuid.UUID,
+    data: ZoneRecalculateRequest | None = None,
+    today: TodayQuery = None,
+):
+    """Tính lại và lưu ngưỡng các dòng auto (`allocation_ids = null` → mọi dòng chi tiêu); dòng
+    manual giữ nguyên. Idempotent. Ngân sách đã đóng → 409 `budget_closed`."""
+    ids = data.allocation_ids if data else None
+    zone_service.recalculate_auto_zones(db, budget_id, ids)
+    return analytics_service.get_budget_zones(db, budget_id, today or date.today())
 
 
 @router.patch("/{budget_id}", response_model=BudgetRead, responses={**ERRORS, **CONFLICT})

@@ -12,6 +12,9 @@ Cách mỗi dòng phân bổ khớp giao dịch (Phase 5 dùng `allocation_scope
 - dòng `jar_name` của budget `fifty_thirty_twenty` / `pyf` (dòng nhóm, `jar_name = group`) →
   giao dịch chi có `spending_type` tương ứng nhóm (`GROUP_SPENDING_TYPES`); `savings` không khớp
   giao dịch chi nào.
+
+Vùng linh hoạt (Phase 9) do `zone_service` tính; ở đây chỉ giữ / xoá cột vùng khi ghi lại dòng
+phân bổ (`_zone_fields`, `set_allocation_planned`).
 """
 
 import uuid
@@ -514,9 +517,43 @@ def _ensure_month_free(db: Session, period_month: date) -> None:
         )
 
 
+def _zone_fields(
+    source: BudgetAllocation | None, planned_amount: int, *, keep_auto_cache: bool
+) -> dict[str, object]:
+    """Cột vùng linh hoạt (Phase 9) mang sang dòng mới từ dòng cũ cùng danh mục / hũ.
+
+    Ngưỡng `manual` (user nhập) luôn giữ. Ngưỡng `auto` là cache tính theo planned và lịch sử
+    trước tháng ngân sách — chỉ giữ khi cùng tháng và planned không đổi, ngược lại để NULL (chưa
+    tính, user bấm tính lại).
+    """
+    if source is None:
+        return {}
+    keep = source.zone_mode == "manual" or (
+        keep_auto_cache and source.planned_amount == planned_amount
+    )
+    return {
+        "zone_mode": source.zone_mode,
+        "comfort_low": source.comfort_low if keep else None,
+        "comfort_high": source.comfort_high if keep else None,
+        "warning_threshold": source.warning_threshold if keep else None,
+    }
+
+
 def _set_allocations(
-    budget: Budget, allocations: Sequence[BudgetAllocationInput | BudgetAllocation]
+    budget: Budget,
+    allocations: Sequence[BudgetAllocationInput | BudgetAllocation],
+    *,
+    keep_auto_cache: bool = True,
 ) -> None:
+    """Thay toàn bộ dòng phân bổ. Vùng linh hoạt lấy từ dòng cũ cùng danh mục / hũ (sửa budget)
+    hoặc từ chính dòng nguồn (copy tháng)."""
+    previous = list(budget.allocations)
+
+    def source_of(a: BudgetAllocationInput | BudgetAllocation) -> BudgetAllocation | None:
+        if isinstance(a, BudgetAllocation):
+            return a
+        return next((p for p in previous if _same_line(p, a)), None)
+
     budget.allocations = [
         BudgetAllocation(
             group=a.group,
@@ -524,6 +561,7 @@ def _set_allocations(
             jar_name=a.jar_name,
             planned_amount=a.planned_amount,
             position=position,
+            **_zone_fields(source_of(a), a.planned_amount, keep_auto_cache=keep_auto_cache),
         )
         for position, a in enumerate(allocations)
     ]
@@ -632,6 +670,7 @@ def _copy_budget(db: Session, to_month: date, from_month: date | None = None) ->
     _set_allocations(
         budget,
         [a for a in source.allocations if a.category is None or not a.category.is_archived],
+        keep_auto_cache=False,
     )
     budget_repository.add(db, budget)
     return budget
@@ -706,6 +745,9 @@ def set_allocation_planned(
         )
         budget.allocations.append(match)
     else:
+        if match.zone_mode == "auto" and match.planned_amount != planned_amount:
+            # Ngưỡng auto tính theo planned cũ → bỏ cache, chờ tính lại (Phase 9).
+            match.comfort_low = match.comfort_high = match.warning_threshold = None
         match.planned_amount = planned_amount
     budget.savings_target = savings_total(inputs)
     budget.updated_at = func.now()

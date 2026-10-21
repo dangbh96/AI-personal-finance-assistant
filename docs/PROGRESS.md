@@ -5,9 +5,9 @@
 
 ## Phase hiện tại
 
-**Tiếp theo: [Phase 9 — Flexible budget zones](./phases/phase-09-flexible-zones.md)** · **M4 (MVP) đã đạt** sau Phase 7
+**Tiếp theo: [Phase 10 — Financial Coach](./phases/phase-10-financial-coach.md)** · **M4 (MVP) đã đạt** sau Phase 7 · Phase 10 mở M5
 
-Handoff Phase 8: xem [phase-08-budget-advisor.md § 9](./phases/phase-08-budget-advisor.md#9-handoff-notes). Budget advisor deterministic (`services/advisor_rules` — decision tree 60% / CV 15% population / 3 tháng tính cả tháng xét / làm tròn 100.000, ngưỡng ở `app_settings.budget_advisor`), bảng `budget_advice` (1 advice `open` / dòng / tháng), AI (`OPENAI_MODEL_FAST`) chỉ viết explanation 3 tầng từ evidence, sai/lỗi → template. API `/budget/advice*` (generate / list / accept cần `confirm: true` → sửa dòng tháng sau qua `budget_service`, tạo nháp nếu chưa có / dismiss / settings), UI `/budget/advice` + CTA "Tạo tư vấn điều chỉnh" ở review tháng. Phase 9: advisor đọc `getattr(allocation, "comfort_high", None)` — thêm cột là advisor tự so với `comfort_high`; nhớ copy/tính lại cột zone khi copy budget và khi accept đổi planned. Postgres vẫn ở **port 5433**.
+Handoff Phase 9: xem [phase-09-flexible-zones.md § 9](./phases/phase-09-flexible-zones.md#9-handoff-notes). Vùng linh hoạt deterministic (`services/zone_service`, không AI): cột `comfort_low` / `comfort_high` / `warning_threshold` / `zone_mode` trên `budget_allocations`; auto = 6 tháng **trước** tháng ngân sách, ≥ 3 tháng có dữ liệu, bỏ giao dịch `irregular`, `max(planned, mean + 0.5·std)` / `max(1.1·planned, mean + std)` / `0.875·planned` (thiếu dữ liệu → 0,875 / 1,125 / 1,25 × planned), làm tròn tới đồng; ngưỡng auto chỉ lưu khi user bấm "Tính vùng tự động" / chuyển sang auto (NULL = chưa có zone → advisor so với planned). Pro-rata early warning (> 10 điểm %) không đổi zone. API `GET /budgets/{id}/zones`, `POST …/zones/recalculate`, `PATCH /budget-allocations/{id}/zone`; `/status` có `zone` từng dòng; advisor dùng `comfort_high` đã lưu + `evidence.zone`. UI `/budget` cột Vùng (badge + tooltip + dialog). Phase 10: coach đọc `analytics_service.get_budget_zones` / `get_budget_status` qua tool read-only; ghi vùng cần user xác nhận. Postgres vẫn ở **port 5433**.
 
 ## Bảng trạng thái
 
@@ -23,7 +23,7 @@ Handoff Phase 8: xem [phase-08-budget-advisor.md § 9](./phases/phase-08-budget-
 | 6 | [Weekly review](./phases/phase-06-weekly-review.md) | Done | 2026-10-20 | 2026-10-21 | | 440 test; golden AI 2/2 (gpt-4o); LangGraph 1.2 |
 | 7 | [Monthly review](./phases/phase-07-monthly-review.md) | Done | 2026-10-21 | 2026-10-21 | M4 (MVP) ✅ | 491 test; golden AI 2/2 (gpt-4o); Recharts 3 |
 | 8 | [Budget adjustment advisor](./phases/phase-08-budget-advisor.md) | Done | 2026-10-21 | 2026-10-21 | | 547 test; golden AI 4/4 (gpt-4o-mini) |
-| 9 | [Flexible budget zones](./phases/phase-09-flexible-zones.md) | Not started | | | | |
+| 9 | [Flexible budget zones](./phases/phase-09-flexible-zones.md) | Done | 2026-10-21 | 2026-10-22 | | 589 test; không có AI mới (golden advisor 4/4 chạy lại) |
 | 10 | [Financial Coach](./phases/phase-10-financial-coach.md) | Not started | | | M5 | |
 | 11 | [Goals + Pay Yourself First](./phases/phase-11-goals-pyf.md) | Not started | | | | |
 | 12 | [Calendar & cashflow forecast](./phases/phase-12-calendar-forecast.md) | Not started | | | | |
@@ -79,6 +79,8 @@ Handoff Phase 8: xem [phase-08-budget-advisor.md § 9](./phases/phase-08-budget-
 | 2026-10-21 | 8 | Bước 2 decision tree = **tổng** giao dịch `irregular` hoặc 1 giao dịch đơn lẻ ≥ 60% phần vượt; lịch sử 3 tháng **tính cả tháng đang xét** (tháng có dữ liệu = có giao dịch trong phạm vi dòng); CV population; advice cho mọi dòng trừ nhóm `savings` (kể cả hũ / dòng nhóm, theo `allocation_scope` Phase 4) | Plan chưa định nghĩa "có giao dịch irregular" (1 khoản nhỏ không nên biến cả dòng thành one_off) và "lịch sử"; mapping hũ đã rõ từ Phase 4 |
 | 2026-10-21 | 8 | `budget_advice` thêm `narrative` JSONB, `model`, `applied_month`, `dismiss_reason`; evidence thêm `rule`, `*_pct`, `one_off_transaction`, `history_median`…; generate nhận `regenerate`/`today`, yêu cầu budget active/closed, không tạo lại advice đã accepted/dismissed; accept thêm `confirm_over_income`, trả thêm `budget{created}`; `on_track` dùng template (không gọi AI) | UI cần 3 tầng + nguồn văn bản + kết quả quyết định; AI/template chỉ được trích số có sẵn; tái dùng quy tắc vượt thu nhập Phase 4 |
 | 2026-10-21 | 8 | Accept sửa dòng tháng đích **tại chỗ** (`budget_service.set_allocation_planned`, giữ id) thay vì PATCH thay toàn bộ phân bổ; `copy_from_previous_month` tách `_copy_budget` (không commit) để tạo nháp + sửa dòng + đánh dấu advice trong 1 commit | Atomic, không làm mất advice (FK cascade) của tháng đích |
+| 2026-10-22 | 9 | Zone gắn vào `GET /budgets/{id}/status` (plan ghi `/actuals` — endpoint Phase 5 thực tế là `/status`); ngưỡng auto chỉ lưu khi user bấm tính lại / chuyển sang auto (NULL = chưa có zone, không tự tính khi tạo/copy/đọc); history = 6 tháng trước tháng ngân sách, cần ≥ 3 tháng có giao dịch trong phạm vi; nhóm `irregular` luôn % dự phòng; early warning dung sai 10 điểm % như `pace_status`, độc lập với zone | Giữ nguyên hành vi advisor Phase 8 khi chưa bật vùng ("planned nếu chưa có zone"), GET không ghi DB; plan chưa định nghĩa "đáng kể" / tháng trống |
+| 2026-10-22 | 9 | Response thêm `calculated`, `early_warning_message`, `expected_to_date`, `auto{basis, history, mean, std, suggested, stale}`; PATCH auto không nhận ngưỡng (422), budget đã đóng → 409; sửa/copy budget giữ vùng manual, giữ cache auto khi planned không đổi; evidence advisor thêm `zone`; thêm UI `tooltip` (shadcn) | UI giải thích được ngưỡng và biết khi nào cần tính lại; không mất cấu hình vùng khi sửa planned (PATCH thay toàn bộ dòng) |
 
 ## Câu hỏi mở xuyên suốt
 

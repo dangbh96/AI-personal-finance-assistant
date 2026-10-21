@@ -4,6 +4,8 @@ Luồng tạo advice (router `budget_advice`): `prepare_advice` (evidence + verd
 `advisor_rules`) → `ai/advice_writer` viết explanation (AI hoặc template) → `save_advice`.
 
 - Chỉ tạo cho tháng có budget active / closed; bỏ qua dòng nhóm `savings` (không theo dõi actual).
+- Dòng đã có vùng linh hoạt (Phase 9, ngưỡng đã lưu) → so `actual` với `comfort_high` và đưa
+  `zone` (`zone_service.zone_evidence`) vào evidence; chưa có → so với `planned` như cũ.
 - Mỗi `(dòng, tháng)` tối đa 1 advice `open`. Dòng đã có advice accepted / dismissed của tháng
   thì không tạo lại (user đã quyết định). Advice `open` chỉ tính lại khi `regenerate`.
 - Accept: bắt buộc `confirm = true`, chỉ verdict `adjust_budget` đang `open`; áp dụng
@@ -40,9 +42,15 @@ from app.schemas.budget_advice import (
     BudgetAdviceRead,
 )
 from app.schemas.category import CategoryBrief
-from app.services import advice_narrative, advisor_rules, analytics_service, budget_service
+from app.services import (
+    advice_narrative,
+    advisor_rules,
+    analytics_service,
+    budget_service,
+    zone_service,
+)
 from app.services.advisor_rules import AdviceInput, MonthActual, ScopeTransaction, Thresholds
-from app.services.money import add_months, month_range
+from app.services.money import add_months, elapsed_days, month_range
 
 SETTINGS_KEY = "budget_advisor"
 
@@ -148,6 +156,7 @@ def compute_evidence(
     }
     start, end = month_range(month)
     as_of = min(today, end)
+    elapsed = elapsed_days(month, today)
     results = []
     for allocation in allocations:
         scope = scope_of(allocation)
@@ -155,6 +164,7 @@ def compute_evidence(
         transactions = transaction_repository.all_in_scope(
             db, start, end, scope.category_ids, scope.spending_types
         )
+        actual = history[-1].actual
         inp = AdviceInput(
             label=budget_service.allocation_label(
                 allocation.category.name if allocation.category else None, allocation.jar_name
@@ -165,10 +175,11 @@ def compute_evidence(
             as_of=as_of,
             month_complete=today >= end,
             planned=allocation.planned_amount,
-            actual=history[-1].actual,
-            comfort_high=getattr(allocation, "comfort_high", None),
+            actual=actual,
+            comfort_high=allocation.comfort_high,
             transactions=[_scope_transaction(t) for t in transactions],
             history=history,
+            zone=zone_service.zone_evidence(allocation, actual, elapsed, end.day),
         )
         results.append((allocation, advisor_rules.evaluate(inp, thresholds)))
     return results

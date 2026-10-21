@@ -20,6 +20,7 @@ from app.models.enums import (
 )
 from app.schemas.budget import BudgetAllocationRead, PeriodMonth
 from app.schemas.category import CategoryBrief
+from app.schemas.zone import ZoneEvidence
 
 AdviceRule = Literal[
     "within_plan",
@@ -141,6 +142,10 @@ class BudgetAdviceEvidence(BaseModel):
     stable_cv_threshold_pct: float
     budget_rounding_step: int
     rule: AdviceRule = Field(description="Nhánh của decision tree dẫn tới verdict")
+    zone: ZoneEvidence | None = Field(
+        default=None,
+        description="Vùng linh hoạt (Phase 9) của dòng trong tháng xét, nếu dòng đã có ngưỡng",
+    )
 
 
 # ---------- văn bản ----------

@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 from app.models.enums import AllocationGroup, BudgetStatus, BudgetStrategy, SpendingType
 from app.schemas.category import CategoryBrief
+from app.schemas.zone import AllocationZoneRead, AutoZoneDetailRead
 
 PaceStatus = Literal["ahead", "on_track", "under"]
 AllocationTrackingStatus = Literal["on_track", "ahead_of_pace", "over_budget", "not_tracked"]
@@ -70,6 +71,9 @@ class AllocationStatusRead(BaseModel):
         "not_tracked cho nhóm savings (nối Goals/PYF ở Phase 11)"
     )
     top_contributor: TopContributorRead | None
+    zone: AllocationZoneRead | None = Field(
+        description="Vùng linh hoạt (Phase 9); null với nhóm savings"
+    )
 
 
 class BudgetStatusTotals(BaseModel):
@@ -111,3 +115,27 @@ class MonthSummaryRead(BaseModel):
     budget_status: BudgetStatus | None = Field(description="null nếu tháng chưa có budget")
     budget: BudgetStatusTotals | None
     top_over: AllocationStatusRead | None = Field(description="Dòng vượt nhiều nhất (nếu có)")
+
+
+class BudgetZoneRead(AllocationZoneRead):
+    allocation_id: uuid.UUID
+    position: int
+    group: AllocationGroup
+    category: CategoryBrief | None
+    jar_name: str | None
+    label: str
+    planned: int
+    actual: int = Field(description="Tổng chi khớp dòng trong tháng (kể cả khoản bất thường)")
+    used_percent: float | None
+    expected_to_date: int = Field(description="planned × % tháng đã qua (pro-rata)")
+    auto: AutoZoneDetailRead | None = Field(description="Chỉ có với zone_mode = auto")
+
+
+class BudgetZoneList(BaseModel):
+    """Vùng của mọi dòng chi tiêu (nhóm savings không có vùng)."""
+
+    budget_id: uuid.UUID
+    period_month: date
+    status: BudgetStatus
+    progress: MonthProgressRead
+    items: list[BudgetZoneRead]

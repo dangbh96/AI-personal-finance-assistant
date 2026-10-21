@@ -13,7 +13,7 @@ from pydantic import (
     model_validator,
 )
 
-from app.models.enums import AllocationGroup, BudgetStatus, BudgetStrategy
+from app.models.enums import AllocationGroup, BudgetStatus, BudgetStrategy, ZoneMode
 from app.schemas.category import CategoryBrief
 
 MAX_MONEY = 10**15
@@ -70,6 +70,10 @@ class BudgetAllocationRead(BudgetAllocationDraft):
 
     id: uuid.UUID
     position: int
+    zone_mode: ZoneMode = Field(description="Vùng linh hoạt (Phase 9): manual | auto")
+    comfort_low: int | None = Field(description="null = dòng auto chưa được tính vùng")
+    comfort_high: int | None
+    warning_threshold: int | None
 
 
 class GroupTotals(BaseModel):

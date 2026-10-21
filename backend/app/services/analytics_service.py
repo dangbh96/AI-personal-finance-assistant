@@ -10,6 +10,8 @@
   (60%) phần vượt.
 - Review (Phase 6, 7): đọc giao dịch kỳ này / kỳ trước cho `review_metrics`; kỳ tháng gom thêm
   budget vs actual (`summarize_budget`) và phản tư các review tuần trong tháng.
+- Vùng linh hoạt (Phase 9): mỗi dòng (trừ savings) kèm `zone` từ `zone_service` (ngưỡng đã lưu +
+  pro-rata); `get_budget_zones` thêm cách tính ngưỡng auto.
 """
 
 import uuid
@@ -31,6 +33,8 @@ from app.schemas.analytics import (
     AllocationTrackingStatus,
     BudgetStatusRead,
     BudgetStatusTotals,
+    BudgetZoneList,
+    BudgetZoneRead,
     MonthProgressRead,
     MonthSummaryRead,
     PaceStatus,
@@ -44,9 +48,9 @@ from app.schemas.review import (
     ReviewMetrics,
     WeeklyReflectionDigest,
 )
-from app.services import budget_service, review_metrics, review_service
+from app.services import budget_service, review_metrics, review_service, zone_service
 from app.services.budget_service import AllocationScope
-from app.services.money import month_range, round_vnd
+from app.services.money import elapsed_days, month_range, round_vnd
 from app.services.review_metrics import TxRow
 
 PACE_TOLERANCE = Fraction(10, 100)
@@ -92,13 +96,7 @@ class MonthProgress:
 def month_progress(period_month: date, today: date) -> MonthProgress:
     """Tháng chưa tới → 0 ngày; tháng đã qua → đủ số ngày; đang chạy → `today.day` ngày."""
     start, end = month_range(period_month)
-    if today < start:
-        elapsed = 0
-    elif today > end:
-        elapsed = end.day
-    else:
-        elapsed = today.day
-    return MonthProgress(today, start, end, elapsed, end.day)
+    return MonthProgress(today, start, end, elapsed_days(period_month, today), end.day)
 
 
 def used_percent(actual: int, planned: int) -> float | None:
@@ -311,6 +309,9 @@ def _allocation_status(
         pace_status=metrics.pace_status,
         status=metrics.status,
         top_contributor=top,
+        zone=zone_service.allocation_zone(
+            allocation, metrics.actual, progress.elapsed_days, progress.days_in_month
+        ),
     )
 
 
@@ -364,6 +365,50 @@ def get_budget_status(db: Session, budget: Budget, today: date) -> BudgetStatusR
 
 def get_budget_status_by_id(db: Session, budget_id: uuid.UUID, today: date) -> BudgetStatusRead:
     return get_budget_status(db, budget_service.get_budget(db, budget_id), today)
+
+
+# ---------- vùng linh hoạt (Phase 9) ----------
+
+
+def get_budget_zones(db: Session, budget_id: uuid.UUID, today: date) -> BudgetZoneList:
+    """Ngưỡng + zone + pro-rata của mọi dòng chi tiêu; dòng auto kèm cách tính (`auto`)."""
+    budget = budget_service.get_budget(db, budget_id)
+    status = get_budget_status(db, budget, today)
+    rows = {a.id: a for a in budget.allocations}
+    auto_rows = [a for a in budget.allocations if a.zone_mode == "auto"]
+    histories = zone_service.load_histories(db, budget, auto_rows)
+    items = []
+    for line in status.allocations:
+        if line.zone is None:
+            continue
+        allocation = rows[line.id]
+        items.append(
+            BudgetZoneRead(
+                **line.zone.model_dump(),
+                allocation_id=line.id,
+                position=line.position,
+                group=line.group,
+                category=line.category,
+                jar_name=line.jar_name,
+                label=budget_service.allocation_label(
+                    line.category.name if line.category else None, line.jar_name
+                ),
+                planned=line.planned,
+                actual=line.actual,
+                used_percent=line.used_percent,
+                expected_to_date=line.expected_to_date,
+                auto=zone_service.auto_detail(allocation, histories[allocation.id])
+                if allocation.zone_mode == "auto"
+                else None,
+            )
+        )
+    return BudgetZoneList(
+        budget_id=budget.id,
+        period_month=budget.period_month,
+        status=budget.status,  # type: ignore[arg-type]
+        progress=status.progress,
+        items=items,
+    )
 
 
 def _tracked_budget(db: Session, month: date) -> Budget:

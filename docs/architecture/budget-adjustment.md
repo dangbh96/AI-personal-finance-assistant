@@ -54,3 +54,10 @@ flowchart LR
 Zone còn có **pro-rata theo ngày** trong tháng đang chạy: so `actual` với `planned * (ngày đã qua / số ngày trong tháng)` để cảnh báo sớm ("đã dùng 80% budget ăn uống khi mới qua 50% tháng").
 
 **Làm tròn:** ngưỡng zone tính ra số lẻ được làm tròn tới **đồng gần nhất** (`round_vnd(x, step=1)`, round-half-up — ví dụ `4.081.649,5` → `4.081.650`). Chỉ đề xuất `planned` mới của advisor mới làm tròn 100.000đ.
+
+**Cách hiểu khi triển khai (Phase 9, `services/zone_service.py`):**
+- "3–6 tháng gần nhất" = 6 tháng **trước** tháng ngân sách (không tính tháng đang xét); tháng có dữ liệu = có ≥ 1 giao dịch chi trong phạm vi dòng (`budget_service.allocation_scope` — danh mục / hũ / nhóm spending_type); giá trị của tháng = chi **không tính** giao dịch `irregular`. Dùng tối đa 6 tháng có dữ liệu gần nhất; < 3 tháng → % dự phòng. `std` = độ lệch chuẩn **tổng thể** (chia n).
+- Dòng nhóm `irregular` (chỉ gồm khoản bất thường) luôn dùng % dự phòng; nhóm `savings` không có vùng.
+- Ngưỡng auto là cache lưu trên `budget_allocations`, chỉ ghi khi user bấm tính lại / chuyển sang auto (idempotent). Dòng auto chưa tính → zone `null`, advisor so với `planned` ("chưa có zone"). Đổi planned của dòng auto → cache bị xoá, chờ tính lại.
+- Zone so **actual cả tháng (kể cả khoản bất thường)** với ngưỡng: `normal` ≤ `comfort_high` < `attention` ≤ `warning_threshold` < `review_needed`.
+- Pro-rata: tháng đang chạy (0 < ngày đã qua < số ngày, tính cả hôm nay) và `actual/planned − ngày đã qua/số ngày > 10 điểm %` (cùng dung sai với `pace_status` Phase 5) → `early_warning` + thông điệp "Đã dùng 80% ngân sách khi mới qua 48,4% tháng"; không đổi zone.

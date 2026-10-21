@@ -17,7 +17,13 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
 from app.models.category import Category
-from app.models.enums import ALLOCATION_GROUPS, BUDGET_STATUSES, BUDGET_STRATEGIES, sql_in
+from app.models.enums import (
+    ALLOCATION_GROUPS,
+    BUDGET_STATUSES,
+    BUDGET_STRATEGIES,
+    ZONE_MODES,
+    sql_in,
+)
 from app.models.mixins import TimestampMixin, UUIDPrimaryKeyMixin
 
 
@@ -59,6 +65,10 @@ class BudgetAllocation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     Cách dòng `jar_name` khớp giao dịch phụ thuộc `budgets.strategy` — xem
     `budget_service.allocation_scope`.
+
+    Vùng linh hoạt (Phase 9, `zone_service`): `zone_mode = manual` → user nhập đủ 3 ngưỡng;
+    `auto` → ngưỡng là cache do `zone_service` tính (NULL = chưa tính). Ràng buộc
+    `comfort_low <= comfort_high <= warning_threshold` kiểm ở service.
     """
 
     __tablename__ = "budget_allocations"
@@ -68,6 +78,7 @@ class BudgetAllocation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         CheckConstraint(
             "(category_id IS NOT NULL) <> (jar_name IS NOT NULL)", name="category_xor_jar"
         ),
+        CheckConstraint(f"zone_mode IN ({sql_in(ZONE_MODES)})", name="zone_mode"),
         Index("ix_budget_allocations_budget_id", "budget_id"),
         Index("ix_budget_allocations_category_id", "category_id"),
     )
@@ -83,6 +94,12 @@ class BudgetAllocation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     planned_amount: Mapped[int] = mapped_column(BigInteger, nullable=False)
     position: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default=text("0")
+    )
+    comfort_low: Mapped[int | None] = mapped_column(BigInteger)
+    comfort_high: Mapped[int | None] = mapped_column(BigInteger)
+    warning_threshold: Mapped[int | None] = mapped_column(BigInteger)
+    zone_mode: Mapped[str] = mapped_column(
+        Text, nullable=False, default="auto", server_default="auto"
     )
 
     budget: Mapped[Budget] = relationship(back_populates="allocations")
