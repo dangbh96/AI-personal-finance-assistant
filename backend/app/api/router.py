@@ -8,6 +8,7 @@ from app.api.routers import (
     classification_preferences,
     coach,
     dashboard,
+    goals,
     health,
     monthly_reviews,
     reviews,
@@ -26,3 +27,4 @@ api_router.include_router(dashboard.router)
 api_router.include_router(reviews.router)
 api_router.include_router(monthly_reviews.router)
 api_router.include_router(coach.router)
+api_router.include_router(goals.router)

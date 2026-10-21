@@ -5,10 +5,10 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
-from app.core.errors import DomainError, NotFoundError
+from app.core.errors import ConflictError, DomainError, NotFoundError
 from app.models import Category, ClassificationPreference, Transaction
 from app.models.enums import SPENDING_TYPES
-from app.repositories import category_repository, transaction_repository
+from app.repositories import category_repository, goal_repository, transaction_repository
 from app.repositories.transaction_repository import TransactionFilters
 from app.schemas.transaction import (
     CategoryTotal,
@@ -18,6 +18,7 @@ from app.schemas.transaction import (
     TransactionUpdate,
 )
 from app.services import classification_preference_service
+from app.services.money import format_vnd
 
 __all__ = [
     "TransactionFilters",
@@ -118,6 +119,30 @@ def create_transaction_and_learn(
     return transaction, learned
 
 
+def _check_goal_contributions(
+    db: Session, transaction: Transaction, direction: str, amount: int
+) -> None:
+    """Thu nhập đã cấp tiền cho mục tiêu (Phase 11) không được đổi thành khoản chi hoặc giảm
+    xuống dưới tổng đã phân bổ."""
+    if transaction.direction != "income":
+        return
+    allocated = goal_repository.allocated_total_for_income(db, transaction.id)
+    if not allocated:
+        return
+    if direction != "income":
+        raise ConflictError(
+            f"Thu nhập này đã phân bổ {format_vnd(allocated)} cho mục tiêu — không đổi thành "
+            "khoản chi được",
+            "income_has_goal_contributions",
+        )
+    if amount < allocated:
+        raise DomainError(
+            f"Thu nhập này đã phân bổ {format_vnd(allocated)} cho mục tiêu — số tiền không được "
+            "nhỏ hơn",
+            "amount_below_goal_contributions",
+        )
+
+
 def update_transaction(
     db: Session, transaction_id: uuid.UUID, data: TransactionUpdate
 ) -> Transaction:
@@ -137,6 +162,7 @@ def update_transaction(
     else:
         spending_type = None  # → lấy default của category (expense) / null (income)
 
+    _check_goal_contributions(db, transaction, direction, changes.get("amount", transaction.amount))
     transaction.direction = direction
     transaction.category = category
     transaction.spending_type = _resolve_spending_type(direction, spending_type, category)

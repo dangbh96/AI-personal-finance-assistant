@@ -215,6 +215,36 @@ class RecentReviewsOutput(BaseModel):
     note: str | None
 
 
+# ---------- tool: get_goals (Phase 11) ----------
+
+
+class GoalsInput(BaseModel):
+    """Các mục tiêu tiết kiệm đang thực hiện (không tham số)."""
+
+
+class GoalToolItem(BaseModel):
+    goal_id: uuid.UUID
+    name: str
+    target_amount: int
+    current_amount: int
+    remaining_amount: int
+    progress_pct: float = Field(description="current / target × 100 (1 chữ số)")
+    deadline: date
+    months_remaining: int = Field(description="Tính cả tháng hiện tại; 0 = đã quá hạn")
+    suggested_monthly_saving: int = Field(description="Số nên để dành mỗi tháng")
+    on_track: bool
+    overdue: bool
+    priority: int = Field(description="1 = ưu tiên cao nhất")
+
+
+class GetGoalsOutput(BaseModel):
+    active_goals: list[GoalToolItem] = Field(description="Theo priority")
+    total_suggested_monthly_saving: int
+    paused_count: int
+    achieved_count: int
+    note: str | None
+
+
 # ---------- tool trace / evidence ----------
 
 

@@ -4,6 +4,7 @@ import { PlusIcon } from "lucide-react";
 import { io } from "next/cache";
 import { use, useEffect, useState } from "react";
 
+import { PyfAllocationDialog } from "@/components/goals/pyf-allocation-dialog";
 import { DeleteTransactionDialog } from "@/components/transactions/delete-transaction-dialog";
 import {
   TransactionFilters,
@@ -19,6 +20,7 @@ import {
   describeError,
   withQuery,
   type Category,
+  type PyfProposal,
   type Transaction,
   type TransactionList,
   type TransactionSummary,
@@ -44,6 +46,7 @@ export function TransactionsView() {
   const [page, setPage] = useState(1);
   const [form, setForm] = useState<FormState>({ open: false, transaction: null });
   const [deleting, setDeleting] = useState<Transaction | null>(null);
+  const [pyfProposal, setPyfProposal] = useState<PyfProposal | null>(null);
 
   // Debounce ô tìm kiếm.
   useEffect(() => {
@@ -172,6 +175,11 @@ export function TransactionsView() {
         categories={activeCategories}
         transaction={form.transaction}
         onSaved={reloadData}
+        onPyfProposal={setPyfProposal}
+      />
+      <PyfAllocationDialog
+        proposal={pyfProposal}
+        onOpenChange={(open) => !open && setPyfProposal(null)}
       />
       <DeleteTransactionDialog
         transaction={deleting}

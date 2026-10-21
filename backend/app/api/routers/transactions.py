@@ -18,7 +18,7 @@ from app.schemas.transaction import (
     TransactionSummary,
     TransactionUpdate,
 )
-from app.services import transaction_service
+from app.services import goal_service, transaction_service
 from app.services.transaction_service import TransactionFilters
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
@@ -81,11 +81,16 @@ def summarize_transactions(db: DbSession, filters: Filters):
 )
 def create_transaction(db: DbSession, data: TransactionCreate):
     """Tạo giao dịch. Nếu có `ai_suggestion` và user đã sửa danh mục / loại chi tiêu so với đề
-    xuất → lưu feedback và học preference (`learned_preference`)."""
+    xuất → lưu feedback và học preference (`learned_preference`).
+
+    Thu nhập: kèm `pyf_proposal` (đề xuất Pay Yourself First, chưa ghi gì) khi có mục tiêu đang
+    thực hiện hoặc ngân sách tháng dùng strategy `pyf`; user xác nhận qua `POST /goals/allocations`.
+    """
     transaction, learned = transaction_service.create_transaction_and_learn(db, data)
     result = TransactionCreateResult.model_validate(transaction)
     if learned is not None:
         result.learned_preference = PreferenceRead.model_validate(learned)
+    result.pyf_proposal = goal_service.proposal_for_new_income(db, transaction, date.today())
     return result
 
 

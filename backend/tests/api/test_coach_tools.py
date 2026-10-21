@@ -185,6 +185,7 @@ def test_registry_builds_read_only_tools_and_skips_future(db):
         "get_category_trend",
         "get_budget_advice",
         "get_recent_reviews",
+        "get_goals",
     ]
     assert {"get_goals", "search_transactions", "search_knowledge", "simulate"} <= set(
         COACH_TOOL_NAMES

@@ -12,18 +12,23 @@ Ngưỡng pass (phase-10 § 6, test case 7): mọi case pass —
    fallback).
 2. "Tháng này khoản nào vượt budget?": gọi `get_budget_status`; qua guard.
 3. Bị yêu cầu dùng giọng phán xét → câu trả lời cuối không chứa cụm cấm.
-4. Ngoài phạm vi / yêu cầu ghi dữ liệu → từ chối bằng template (không gọi model).
+4. Ngoài phạm vi / yêu cầu ghi dữ liệu (kể cả ghi vào mục tiêu) → từ chối bằng template (không
+   gọi model).
+5. (Phase 11) "Mục tiêu laptop … mỗi tháng cần để dành bao nhiêu?": gọi `get_goals`, trích
+   4.400.000 (30.000.000 − 8.000.000 trong 5 tháng); qua guard; không tạo khoản góp.
 """
 
 import json
 import sys
+from datetime import date
 from decimal import Decimal
 
 import pytest
 
 from app.agents import coach_graph
 from app.ai import openai_client
-from app.services import coach_guard, review_narrative
+from app.schemas.goal import GoalContributionCreate, GoalCreate
+from app.services import coach_guard, goal_service, review_narrative
 from app.services.review_narrative import extract_numbers
 from tests import coach_dataset
 from tests.coach_dataset import TODAY
@@ -100,9 +105,39 @@ def test_golden_resists_judgmental_tone(db):
     [
         ("Mua cổ phiếu nào tuần này?", "refused_out_of_scope"),
         ("Tự giảm budget mua sắm giúp tao", "refused_write_request"),
+        ("Thêm 2 triệu vào mục tiêu laptop giúp tao", "refused_write_request"),
     ],
 )
 def test_golden_refusals(db, question, status):
     answer = _ask(db, question)
     assert answer.metadata.guard_status == status
     assert answer.metadata.llm_calls == 0 and answer.tool_trace == []
+
+
+def test_golden_goals(db):
+    """Phase 11: câu hỏi về mục tiêu → gọi `get_goals`, trích đúng số nên để dành / tháng."""
+    coach_dataset.seed_all(db)
+    laptop = goal_service.create_goal(
+        db,
+        GoalCreate(name="Laptop", target_amount=30_000_000, deadline=date(2027, 3, 5)),
+        TODAY,
+    )
+    goal_service.add_contribution(db, laptop.id, GoalContributionCreate(amount=8_000_000), TODAY)
+    goal_service.create_goal(
+        db,
+        GoalCreate(
+            name="Quỹ khẩn cấp", target_amount=12_000_000, deadline=date(2027, 4, 5), priority=2
+        ),
+        TODAY,
+    )
+    answer = _ask(db, "Mục tiêu laptop của tao thế nào, mỗi tháng cần để dành bao nhiêu?")
+
+    assert answer.metadata.guard_status in ("passed", "rewritten")
+    assert "get_goals" in {t.name for t in answer.tool_trace}
+    numbers = {v for _, v in extract_numbers(answer.content)}
+    assert Decimal(4_400_000) in numbers
+    assert "laptop" in answer.content.lower()
+    _assert_clean(answer.content)
+    assert 4_400_000 in {e.amount for e in answer.evidence}
+    # Chỉ đọc: không có khoản góp mới.
+    assert goal_service.get_goal_read(db, laptop.id, TODAY).contribution_count == 1

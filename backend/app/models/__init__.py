@@ -7,6 +7,7 @@ from app.models.budget_advice import BudgetAdvice
 from app.models.category import Category
 from app.models.chat import ChatMessage, ChatSession
 from app.models.classification import ClassificationFeedback, ClassificationPreference
+from app.models.goal import Goal, GoalContribution
 from app.models.review import MonthlyReview, ReflectionAnswer, WeeklyReview
 from app.models.transaction import Transaction
 
@@ -24,5 +25,7 @@ __all__ = [
     "ChatSession",
     "ClassificationFeedback",
     "ClassificationPreference",
+    "Goal",
+    "GoalContribution",
     "Transaction",
 ]

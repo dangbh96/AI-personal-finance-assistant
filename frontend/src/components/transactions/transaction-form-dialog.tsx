@@ -20,8 +20,10 @@ import {
   apiRequest,
   describeError,
   type Category,
+  type PyfProposal,
   type Transaction,
   type TransactionCreate,
+  type TransactionCreateResult,
   type TransactionUpdate,
 } from "@/lib/api";
 import { todayISO } from "@/lib/dates";
@@ -33,6 +35,8 @@ type Props = {
   /** `null` = tạo mới. */
   transaction: Transaction | null;
   onSaved: () => void;
+  /** Thu nhập vừa tạo có đề xuất Pay Yourself First (Phase 11). */
+  onPyfProposal?: (proposal: PyfProposal) => void;
 };
 
 export function TransactionFormDialog({
@@ -41,6 +45,7 @@ export function TransactionFormDialog({
   categories,
   transaction,
   onSaved,
+  onPyfProposal,
 }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -60,9 +65,10 @@ export function TransactionFormDialog({
             categories={categories}
             transaction={transaction}
             onCancel={() => onOpenChange(false)}
-            onSaved={() => {
+            onSaved={(proposal) => {
               onSaved();
               onOpenChange(false);
+              if (proposal) onPyfProposal?.(proposal);
             }}
           />
         )}
@@ -91,7 +97,7 @@ function TransactionForm({
   categories: Category[];
   transaction: Transaction | null;
   onCancel: () => void;
-  onSaved: () => void;
+  onSaved: (pyfProposal: PyfProposal | null) => void;
 }) {
   const [values, setValues] = useState(() => initialValues(transaction));
   const [submitted, setSubmitted] = useState(false);
@@ -114,14 +120,15 @@ function TransactionForm({
           `/transactions/${transaction.id}`,
           payload satisfies TransactionUpdate,
         );
+        onSaved(null);
       } else {
-        await apiRequest<Transaction>(
+        const created = await apiRequest<TransactionCreateResult>(
           "POST",
           "/transactions",
           payload satisfies TransactionCreate,
         );
+        onSaved(created.pyf_proposal ?? null);
       }
-      onSaved();
     } catch (err) {
       setError(describeError(err));
     } finally {

@@ -35,6 +35,7 @@ export const TOOL_LABELS: Record<string, string> = {
   get_category_trend: "Xu hướng theo danh mục",
   get_budget_advice: "Tư vấn ngân sách đã có",
   get_recent_reviews: "Review gần đây",
+  get_goals: "Mục tiêu tiết kiệm",
 };
 
 /** Thông báo theo mã lỗi AI của backend (`AI_*`). */

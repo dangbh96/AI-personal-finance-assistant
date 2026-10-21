@@ -70,6 +70,9 @@ export interface paths {
          * Create Transaction
          * @description Tạo giao dịch. Nếu có `ai_suggestion` và user đã sửa danh mục / loại chi tiêu so với đề
          *     xuất → lưu feedback và học preference (`learned_preference`).
+         *
+         *     Thu nhập: kèm `pyf_proposal` (đề xuất Pay Yourself First, chưa ghi gì) khi có mục tiêu đang
+         *     thực hiện hoặc ngân sách tháng dùng strategy `pyf`; user xác nhận qua `POST /goals/allocations`.
          */
         post: operations["create_transaction_api_v1_transactions_post"];
         delete?: never;
@@ -803,6 +806,150 @@ export interface paths {
          */
         post: operations["send_coach_message_api_v1_coach_sessions__session_id__messages_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/goals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Goals
+         * @description Mục tiêu kèm số liệu tính sẵn (đang thực hiện → tạm dừng → đã đạt, theo priority).
+         */
+        get: operations["list_goals_api_v1_goals_get"];
+        put?: never;
+        /** Create Goal */
+        post: operations["create_goal_api_v1_goals_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/goals/unallocated-incomes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Unallocated Incomes
+         * @description Thu nhập từ đầu tháng trước tới hôm nay chưa được phân bổ cho mục tiêu nào.
+         */
+        get: operations["list_unallocated_incomes_api_v1_goals_unallocated_incomes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/goals/pyf-proposal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Propose Pyf Allocation
+         * @description Đề xuất Pay Yourself First cho một thu nhập đã lưu (hoặc tính lại với số user chỉnh).
+         *     **Không ghi DB.** Thu nhập đã phân bổ → 409 `income_already_allocated`.
+         */
+        post: operations["propose_pyf_allocation_api_v1_goals_pyf_proposal_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/goals/allocations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Allocations
+         * @description User xác nhận phân bổ: tạo `goal_contributions` gắn thu nhập (lỗi → không ghi gì).
+         */
+        post: operations["confirm_allocations_api_v1_goals_allocations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/goals/{goal_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Goal
+         * @description Mục tiêu + lịch sử khoản góp (mới nhất trước).
+         */
+        get: operations["get_goal_api_v1_goals__goal_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Goal
+         * @description Xoá mục tiêu chưa có khoản góp, hoặc đã tạm dừng (xoá cả lịch sử góp); khác → 409.
+         */
+        delete: operations["delete_goal_api_v1_goals__goal_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Goal */
+        patch: operations["update_goal_api_v1_goals__goal_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/goals/{goal_id}/contributions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Contribution
+         * @description Khoản góp thủ công (không gắn thu nhập), vd số tiền đã để dành sẵn.
+         */
+        post: operations["add_contribution_api_v1_goals__goal_id__contributions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/goals/{goal_id}/contributions/{contribution_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Contribution */
+        delete: operations["delete_contribution_api_v1_goals__goal_id__contributions__contribution_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2254,6 +2401,198 @@ export interface components {
             /** Spending Type */
             spending_type: ("essential" | "non_essential" | "irregular") | null;
         };
+        /**
+         * GoalContributionCreate
+         * @description Khoản góp thủ công (không gắn thu nhập), vd số tiền đã để dành sẵn.
+         */
+        GoalContributionCreate: {
+            /**
+             * Amount
+             * @description Số nguyên đồng, > 0
+             */
+            amount: number;
+            /**
+             * Contributed On
+             * @description Mặc định hôm nay
+             */
+            contributed_on?: string | null;
+        };
+        /** GoalContributionRead */
+        GoalContributionRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Goal Id
+             * Format: uuid
+             */
+            goal_id: string;
+            /** Amount */
+            amount: number;
+            /**
+             * Contributed On
+             * Format: date
+             */
+            contributed_on: string;
+            /**
+             * Income Transaction Id
+             * @description null = góp thủ công
+             */
+            income_transaction_id: string | null;
+            income_transaction: components["schemas"]["IncomeBrief"] | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** GoalCreate */
+        GoalCreate: {
+            /** Name */
+            name: string;
+            /**
+             * Target Amount
+             * @description Số nguyên đồng, > 0
+             */
+            target_amount: number;
+            /**
+             * Deadline
+             * Format: date
+             * @description Hạn đạt mục tiêu (không được ở quá khứ)
+             */
+            deadline: string;
+            /**
+             * Priority
+             * @description 1 = ưu tiên cao nhất
+             * @default 1
+             */
+            priority?: number;
+        };
+        /** GoalDetail */
+        GoalDetail: {
+            goal: components["schemas"]["GoalRead"];
+            /**
+             * Contributions
+             * @description Mới nhất trước
+             */
+            contributions: components["schemas"]["GoalContributionRead"][];
+        };
+        /** GoalList */
+        GoalList: {
+            /**
+             * Items
+             * @description Đang thực hiện → tạm dừng → đã đạt; trong nhóm theo priority, deadline
+             */
+            items: components["schemas"]["GoalRead"][];
+            /**
+             * Total Suggested Monthly Saving
+             * @description Tổng gợi ý/tháng của goal active
+             */
+            total_suggested_monthly_saving: number;
+        };
+        /** GoalRead */
+        GoalRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Target Amount */
+            target_amount: number;
+            /**
+             * Current Amount
+             * @description Tổng các khoản góp
+             */
+            current_amount: number;
+            /**
+             * Remaining Amount
+             * @description max(0, target_amount - current_amount)
+             */
+            remaining_amount: number;
+            /**
+             * Progress Pct
+             * @description current / target × 100 (1 chữ số, tối đa 100)
+             */
+            progress_pct: number;
+            /**
+             * Deadline
+             * Format: date
+             */
+            deadline: string;
+            /**
+             * Months Remaining
+             * @description Số tháng còn lại tính cả tháng hiện tại, không tính tháng đến hạn; tối thiểu 1 nếu chưa quá hạn; 0 nếu đã quá hạn
+             */
+            months_remaining: number;
+            /**
+             * Suggested Monthly Saving
+             * @description remaining / months_remaining làm tròn lên bội số 100.000 (không vượt remaining); quá hạn → toàn bộ remaining; đã đạt → 0
+             */
+            suggested_monthly_saving: number;
+            /**
+             * On Track
+             * @description Đã đạt, hoặc chưa quá hạn và current + suggested × months ≥ target
+             */
+            on_track: boolean;
+            /**
+             * Overdue
+             * @description Đã quá hạn mà chưa đạt
+             */
+            overdue: boolean;
+            /** Priority */
+            priority: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "achieved" | "paused";
+            /** Contribution Count */
+            contribution_count: number;
+            /** Last Contributed On */
+            last_contributed_on: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * GoalUpdate
+         * @description PATCH: chỉ field được gửi mới cập nhật.
+         */
+        GoalUpdate: {
+            /** Name */
+            name?: string;
+            /**
+             * Target Amount
+             * @description Số nguyên đồng, > 0
+             */
+            target_amount?: number;
+            /**
+             * Deadline
+             * Format: date
+             */
+            deadline?: string;
+            /**
+             * Priority
+             * @description 1 = ưu tiên cao nhất
+             */
+            priority?: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status?: "active" | "achieved" | "paused";
+        };
         /** GroupTotals */
         GroupTotals: {
             /**
@@ -2298,6 +2637,25 @@ export interface components {
             ai_configured: boolean;
             /** Version */
             version: string;
+        };
+        /** IncomeBrief */
+        IncomeBrief: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Amount */
+            amount: number;
+            /**
+             * Occurred On
+             * Format: date
+             */
+            occurred_on: string;
+            /** Note */
+            note: string | null;
+            /** Category Name */
+            category_name: string;
         };
         /** MonthProgressRead */
         MonthProgressRead: {
@@ -2742,6 +3100,189 @@ export interface components {
              */
             updated_at: string;
         };
+        /** PyfAllocationItemInput */
+        PyfAllocationItemInput: {
+            /**
+             * Goal Id
+             * Format: uuid
+             */
+            goal_id: string;
+            /**
+             * Amount
+             * @description Số nguyên đồng, ≥ 0 (0 = bỏ qua)
+             */
+            amount: number;
+        };
+        /** PyfAllocationRequest */
+        PyfAllocationRequest: {
+            /**
+             * Income Transaction Id
+             * Format: uuid
+             */
+            income_transaction_id: string;
+            /** Items */
+            items?: components["schemas"]["PyfAllocationItemInput"][];
+            /**
+             * Budget Savings Amount
+             * @description Khoản tiết kiệm chưa gắn goal (không lưu thành bản ghi riêng)
+             * @default 0
+             */
+            budget_savings_amount?: number;
+        };
+        /** PyfAllocationResult */
+        PyfAllocationResult: {
+            /**
+             * Income Transaction Id
+             * Format: uuid
+             */
+            income_transaction_id: string;
+            /** Income Amount */
+            income_amount: number;
+            /** Contributions */
+            contributions: components["schemas"]["GoalContributionRead"][];
+            /** Goal Total */
+            goal_total: number;
+            /** Budget Savings Amount */
+            budget_savings_amount: number;
+            /**
+             * Available Spending
+             * @description income_amount - goal_total - budget_savings_amount
+             */
+            available_spending: number;
+            /**
+             * Goals
+             * @description Các goal vừa nhận tiền (đã cập nhật)
+             */
+            goals: components["schemas"]["GoalRead"][];
+        };
+        /** PyfProposal */
+        PyfProposal: {
+            /**
+             * Income Transaction Id
+             * Format: uuid
+             */
+            income_transaction_id: string;
+            income: components["schemas"]["IncomeBrief"];
+            /** Income Amount */
+            income_amount: number;
+            /**
+             * Budget Month
+             * Format: date
+             */
+            budget_month: string;
+            /** Budget Id */
+            budget_id: string | null;
+            /** Budget Strategy */
+            budget_strategy: ("envelope" | "fifty_thirty_twenty" | "pyf") | null;
+            /** Budget Status */
+            budget_status: ("draft" | "active" | "closed") | null;
+            /**
+             * Budget Savings Target
+             * @description savings_target của ngân sách tháng thu nhập; null = tháng chưa có ngân sách
+             */
+            budget_savings_target: number | null;
+            /**
+             * Items
+             * @description Goal active theo priority
+             */
+            items: components["schemas"]["PyfProposalItem"][];
+            /** Goal Total */
+            goal_total: number;
+            /** Budget Savings Amount */
+            budget_savings_amount: number;
+            /**
+             * Allocated Total
+             * @description goal_total + budget_savings_amount
+             */
+            allocated_total: number;
+            /**
+             * Available Spending
+             * @description income_amount - goal_total - budget_savings_amount (âm = phân bổ quá thu nhập)
+             */
+            available_spending: number;
+            /** Warnings */
+            warnings: components["schemas"]["PyfWarning"][];
+            /**
+             * Valid
+             * @description false nếu có cảnh báo chặn xác nhận
+             */
+            valid: boolean;
+        };
+        /** PyfProposalItem */
+        PyfProposalItem: {
+            /**
+             * Goal Id
+             * Format: uuid
+             */
+            goal_id: string;
+            /** Name */
+            name: string;
+            /** Priority */
+            priority: number;
+            /**
+             * Deadline
+             * Format: date
+             */
+            deadline: string;
+            /** Months Remaining */
+            months_remaining: number;
+            /** Current Amount */
+            current_amount: number;
+            /** Remaining Amount */
+            remaining_amount: number;
+            /** Suggested Monthly Saving */
+            suggested_monthly_saving: number;
+            /**
+             * Proposed Amount
+             * @description min(gợi ý/tháng, còn thiếu, thu nhập còn lại)
+             */
+            proposed_amount: number;
+            /**
+             * Amount
+             * @description Số sẽ ghi khi xác nhận (= proposed_amount nếu chưa chỉnh)
+             */
+            amount: number;
+            /**
+             * Remaining After
+             * @description remaining_amount - amount (âm = góp quá)
+             */
+            remaining_after: number;
+            /** Exceeds Remaining */
+            exceeds_remaining: boolean;
+        };
+        /**
+         * PyfProposalRequest
+         * @description Tính đề xuất PYF cho một thu nhập đã lưu. **Không ghi DB.**
+         *
+         *     Không gửi `items` → đề xuất mặc định theo priority. Gửi `items` (số user đã chỉnh) → tính lại
+         *     phần còn thiếu / số còn lại để chi tiêu và cảnh báo (goal không có trong `items` = 0).
+         */
+        PyfProposalRequest: {
+            /**
+             * Income Transaction Id
+             * Format: uuid
+             */
+            income_transaction_id: string;
+            /** Items */
+            items?: components["schemas"]["PyfAllocationItemInput"][] | null;
+            /**
+             * Budget Savings Amount
+             * @description Bỏ trống → min(savings_target, phần thu nhập còn lại)
+             */
+            budget_savings_amount?: number | null;
+        };
+        /** PyfWarning */
+        PyfWarning: {
+            /**
+             * Code
+             * @description allocation_exceeds_income | allocation_exceeds_remaining
+             */
+            code: string;
+            /** Message */
+            message: string;
+            /** Amount */
+            amount?: number | null;
+        };
         /** ReferenceComparison */
         ReferenceComparison: {
             /**
@@ -3157,7 +3698,8 @@ export interface components {
         };
         /**
          * TransactionCreateResult
-         * @description Kết quả `POST /transactions`: giao dịch + preference vừa học (nếu user đã sửa đề xuất AI).
+         * @description Kết quả `POST /transactions`: giao dịch + preference vừa học (nếu user đã sửa đề xuất AI)
+         *     + đề xuất Pay Yourself First (Phase 11) khi là thu nhập.
          */
         TransactionCreateResult: {
             /**
@@ -3209,6 +3751,8 @@ export interface components {
              */
             updated_at: string;
             learned_preference?: components["schemas"]["PreferenceRead"] | null;
+            /** @description Chỉ với thu nhập, khi có goal active hoặc ngân sách tháng dùng strategy pyf. Chưa ghi gì — user xác nhận qua POST /goals/allocations */
+            pyf_proposal?: components["schemas"]["PyfProposal"] | null;
         };
         /**
          * TransactionDraft
@@ -3402,6 +3946,14 @@ export interface components {
             spending_type?: ("essential" | "non_essential" | "irregular") | null;
             /** Note */
             note?: string | null;
+        };
+        /** UnallocatedIncomeList */
+        UnallocatedIncomeList: {
+            /**
+             * Items
+             * @description Thu nhập từ đầu tháng trước tới hôm nay chưa có khoản góp nào, mới nhất trước
+             */
+            items: components["schemas"]["IncomeBrief"][];
         };
         /** ValidationError */
         ValidationError: {
@@ -5693,6 +6245,420 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_goals_api_v1_goals_get: {
+        parameters: {
+            query?: {
+                status?: ("active" | "achieved" | "paused") | null;
+                /** @description Hôm nay phía user (mặc định của server) — dùng cho demo/test */
+                today?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalList"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_goal_api_v1_goals_post: {
+        parameters: {
+            query?: {
+                /** @description Hôm nay phía user (mặc định của server) — dùng cho demo/test */
+                today?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoalCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalRead"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_unallocated_incomes_api_v1_goals_unallocated_incomes_get: {
+        parameters: {
+            query?: {
+                /** @description Hôm nay phía user (mặc định của server) — dùng cho demo/test */
+                today?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnallocatedIncomeList"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    propose_pyf_allocation_api_v1_goals_pyf_proposal_post: {
+        parameters: {
+            query?: {
+                /** @description Hôm nay phía user (mặc định của server) — dùng cho demo/test */
+                today?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PyfProposalRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PyfProposal"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    confirm_allocations_api_v1_goals_allocations_post: {
+        parameters: {
+            query?: {
+                /** @description Hôm nay phía user (mặc định của server) — dùng cho demo/test */
+                today?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PyfAllocationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PyfAllocationResult"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_goal_api_v1_goals__goal_id__get: {
+        parameters: {
+            query?: {
+                /** @description Hôm nay phía user (mặc định của server) — dùng cho demo/test */
+                today?: string | null;
+            };
+            header?: never;
+            path: {
+                goal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_goal_api_v1_goals__goal_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_goal_api_v1_goals__goal_id__patch: {
+        parameters: {
+            query?: {
+                /** @description Hôm nay phía user (mặc định của server) — dùng cho demo/test */
+                today?: string | null;
+            };
+            header?: never;
+            path: {
+                goal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoalUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalRead"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    add_contribution_api_v1_goals__goal_id__contributions_post: {
+        parameters: {
+            query?: {
+                /** @description Hôm nay phía user (mặc định của server) — dùng cho demo/test */
+                today?: string | null;
+            };
+            header?: never;
+            path: {
+                goal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoalContributionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalContributionRead"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_contribution_api_v1_goals__goal_id__contributions__contribution_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: string;
+                contribution_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

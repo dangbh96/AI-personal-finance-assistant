@@ -21,6 +21,7 @@ TOOLS = {
     "get_category_trend",
     "get_budget_advice",
     "get_recent_reviews",
+    "get_goals",
 }
 
 GOOD_ANSWER = (
@@ -172,7 +173,7 @@ def test_post_message_runs_tools_and_persists(client, seeded, fake_llm):
     assert all(e["amount"] in {4_200_000, 3_800_000, 1_800_000, 2_000_000} for e in evidence)
 
     meta = assistant["metadata"]
-    assert meta["model"] == FAKE_MODEL and meta["prompt_version"] == "coach_v1"
+    assert meta["model"] == FAKE_MODEL and meta["prompt_version"] == "coach_v2"
     assert (meta["input_tokens"], meta["output_tokens"], meta["total_tokens"]) == (
         2000,
         400,
@@ -265,6 +266,48 @@ def test_write_request_refused_with_links(client, db, seeded, fake_llm):
     ][0]
     db.refresh(shopping)
     assert shopping.planned_amount == 2_000_000
+
+
+def test_coach_reads_goals_with_tool(client, db, fake_llm):
+    calls, responses = fake_llm
+    q = f"?today={TODAY.isoformat()}"
+    goal = client.post(
+        f"/api/v1/goals{q}",
+        json={"name": "Laptop", "target_amount": 30_000_000, "deadline": "2027-03-05"},
+    ).json()
+    client.post(f"/api/v1/goals/{goal['id']}/contributions{q}", json={"amount": 8_000_000})
+    answer = (
+        "**Quan sát**\n"
+        "- Mục tiêu Laptop: đã có 8.000.000 ₫, còn thiếu 22.000.000 ₫.\n\n"
+        "**Vì sao**\n"
+        "Còn 5 tháng tới hạn nên mỗi tháng cần khoảng 4.400.000 ₫.\n\n"
+        "**Bạn có thể cân nhắc**\n"
+        "Nếu bạn muốn, bạn có thể trích 4.400.000 ₫ ngay khi nhận lương ở [Mục tiêu](/goals)."
+    )
+    responses += [result(calls=[call("get_goals", {}, "g1")]), result(answer)]
+    session = _session(client)
+    resp = _ask(client, session["id"], "Mục tiêu laptop của tao thế nào?")
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["guard_status"] == "passed"
+    assert data["tool_trace"][0]["name"] == "get_goals"
+    assert data["tool_trace"][0]["result_summary"] == "1 mục tiêu đang thực hiện"
+    rows = {(e["label"], e["metric"], e["amount"]) for e in data["evidence"]}
+    assert ("Laptop", "Nên để dành / tháng", 4_400_000) in rows
+    assert ("Laptop", "Còn thiếu", 22_000_000) in rows
+    tool_message = next(m for m in calls[1]["messages"] if m["role"] == "tool")
+    assert json.loads(tool_message["content"])["total_suggested_monthly_saving"] == 4_400_000
+    # Chỉ đọc: vẫn đúng 1 khoản góp.
+    detail = client.get(f"/api/v1/goals/{goal['id']}{q}").json()
+    assert len(detail["contributions"]) == 1
+
+
+def test_goal_write_request_refused(client, fake_llm):
+    session = _session(client)
+    data = _ask(client, session["id"], "Thêm 2 triệu vào mục tiêu laptop giúp tao").json()
+    assert data["guard_status"] == "refused_write_request"
+    assert "[Mục tiêu](/goals)" in data["assistant_message"]["content"]
+    assert fake_llm[0] == []
 
 
 # ---------- response_guard (test case 5, 6 qua graph) ----------

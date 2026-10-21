@@ -1,6 +1,6 @@
-"""5 tool read-only của Financial Coach — chỉ gọi `services/insight_service` (không repository,
-không ghi DB). Output là JSON của schema trong `schemas/coach.py`; recorder giữ bản Pydantic để
-dựng evidence và tập số được phép cho `response_guard`.
+"""Tool read-only của Financial Coach — chỉ gọi services (`insight_service`, `goal_service` đọc;
+không repository, không ghi DB). Output là JSON của schema trong `schemas/coach.py`; recorder giữ
+bản Pydantic để dựng evidence và tập số được phép cho `response_guard`.
 """
 
 from datetime import date
@@ -12,10 +12,11 @@ from app.schemas.coach import (
     BudgetAdviceInput,
     BudgetStatusInput,
     CategoryTrendInput,
+    GoalsInput,
     RecentReviewsInput,
     SpendingSummaryInput,
 )
-from app.services import insight_service
+from app.services import goal_service, insight_service
 
 
 def spending_summary_tool(ctx: CoachToolContext) -> BaseTool:
@@ -96,6 +97,20 @@ def recent_reviews_tool(ctx: CoachToolContext) -> BaseTool:
     return get_recent_reviews
 
 
+def goals_tool(ctx: CoachToolContext) -> BaseTool:
+    @tool(
+        "get_goals",
+        args_schema=GoalsInput,
+        description="Các mục tiêu tiết kiệm đang thực hiện (theo ưu tiên): số tiền mục tiêu, đã "
+        "có, còn thiếu, % tiến độ, hạn, số tháng còn lại, số nên để dành mỗi tháng, đúng tiến độ "
+        "hay đã quá hạn; tổng số nên để dành mỗi tháng cho mọi mục tiêu. Chỉ đọc.",
+    )
+    def get_goals() -> str:
+        return ctx.recorder.store(goal_service.get_goals_overview(ctx.db, ctx.today))
+
+    return get_goals
+
+
 def default_registry() -> CoachToolRegistry:
     registry = CoachToolRegistry()
     registry.register("get_spending_summary", spending_summary_tool)
@@ -103,4 +118,5 @@ def default_registry() -> CoachToolRegistry:
     registry.register("get_category_trend", category_trend_tool)
     registry.register("get_budget_advice", budget_advice_tool)
     registry.register("get_recent_reviews", recent_reviews_tool)
+    registry.register("get_goals", goals_tool)
     return registry

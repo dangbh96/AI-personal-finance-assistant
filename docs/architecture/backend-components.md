@@ -35,7 +35,7 @@ flowchart TB
     subgraph agents ["agents/ (LangGraph)"]
         g_review["review_graph"]
         g_coach["coach_graph"]
-        tools["tools/*<br/>(registry + finance_tools,<br/>read-only, bọc services)"]
+        tools["tools/*<br/>(registry + finance_tools,<br/>read-only, bọc services;<br/>P11: get_goals)"]
     end
 
     subgraph services ["services/ (deterministic)"]
@@ -47,7 +47,7 @@ flowchart TB
         s_advisor["advisor_rules (decision tree)<br/>advice_narrative (validate, template)<br/>budget_advice_service (evidence, accept/dismiss)"]
         s_zone["zone_service<br/>(ngưỡng manual / auto / fallback,<br/>zone, pro-rata early warning)"]
         s_coach["insight_service (số liệu cho tool coach)<br/>coach_guard / coach_evidence (guard, evidence)<br/>coach_service (session, message)"]
-        s_goal["goal_service / pyf"]
+        s_goal["goal_service<br/>(tiến độ goal, months_remaining,<br/>gợi ý / tháng, đề xuất PYF,<br/>xác nhận phân bổ, tool get_goals)"]
         s_fc["forecast_service"]
         s_imp["import_service"]
         s_sim["simulator_service"]
@@ -96,6 +96,7 @@ Hệ quả: toàn bộ `services/` test được **không cần OpenAI key**. Te
 - Budget advice (Phase 8): router `budget_advice` gọi `budget_advice_service.prepare_advice` (verdict + evidence deterministic) → `ai/advice_writer.write_explanations` (chỉ viết văn bản; AI lỗi / output sai → template, **không** trả 503) → `budget_advice_service.save_advice`. Thay đổi ngân sách chỉ qua `POST /budget/advice/{id}/accept` với `confirm: true` → `budget_service`.
 - Flexible zones (Phase 9): **không có AI**. `zone_service` (phụ thuộc `budget_service` + repositories) tính ngưỡng và zone; `analytics_service` gắn `zone` vào từng dòng Budget vs Actual và dựng `GET /budgets/{id}/zones`; `budget_advice_service` đọc `comfort_high` đã lưu + `zone_service.zone_evidence` cho advisor. `budget_service` không import `zone_service` (tránh vòng) — chỉ giữ / xoá cột vùng khi ghi lại dòng phân bổ.
 - Financial Coach (Phase 10): router `coach` → `coach_service.send_message(db, session_id, data, runner)` — service lưu user message (commit) → gọi `runner` do router truyền vào (`agents/coach_graph.run_coach`, vì `services` không được import `agents`) → lưu assistant message (tool trace, evidence, metadata). `coach_graph` dùng `agents/tools/finance_tools` (5 tool read-only, chỉ gọi `services/insight_service`) + `ai/openai_client.chat_with_tools` + `ai/coach_prompt`; `response_guard` / evidence là deterministic ở `services/coach_guard`, `services/coach_evidence`; token/chi phí ở `core/ai_usage`. AI lỗi → 503 (câu hỏi vẫn lưu); câu hỏi ngoài phạm vi / yêu cầu ghi → template, không gọi AI. Coach không ghi bảng nghiệp vụ nào.
+- Goals + Pay Yourself First (Phase 11): **không có AI**. Router `goals` → `goal_service` (phụ thuộc `goal_repository`, `budget_repository`; không import `budget_service`). `current_amount` luôn = tổng `goal_contributions` (không có cột riêng). Đề xuất PYF (`POST /goals/pyf-proposal`, và `pyf_proposal` trong response `POST /transactions` — router `transactions` gọi `goal_service.proposal_for_new_income` sau khi tạo) chỉ đọc; chỉ `POST /goals/allocations` (user xác nhận) ghi `goal_contributions` trong 1 commit (lỗi → không ghi gì). `transaction_service` đọc `goal_repository` để chặn đổi thu nhập đã cấp tiền cho goal thành khoản chi (409) hoặc giảm dưới tổng đã phân bổ (422). Tool Coach `get_goals` (`agents/tools/finance_tools`) gọi `goal_service.get_goals_overview` (chỉ đọc).
 
 ## API conventions
 

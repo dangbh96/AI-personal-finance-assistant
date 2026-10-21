@@ -14,8 +14,8 @@ from pydantic import (
 from app.models.enums import Direction, SpendingType, TransactionSource
 from app.schemas.category import CategoryBrief
 from app.schemas.classification import PreferenceRead
-
-MAX_AMOUNT = 10**15
+from app.schemas.common import MAX_AMOUNT
+from app.schemas.goal import PyfProposal
 
 Amount = Annotated[int, Field(strict=True, gt=0, le=MAX_AMOUNT, description="Số nguyên đồng, > 0")]
 Note = Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)]
@@ -87,9 +87,15 @@ class TransactionRead(BaseModel):
 
 
 class TransactionCreateResult(TransactionRead):
-    """Kết quả `POST /transactions`: giao dịch + preference vừa học (nếu user đã sửa đề xuất AI)."""
+    """Kết quả `POST /transactions`: giao dịch + preference vừa học (nếu user đã sửa đề xuất AI)
+    + đề xuất Pay Yourself First (Phase 11) khi là thu nhập."""
 
     learned_preference: PreferenceRead | None = None
+    pyf_proposal: PyfProposal | None = Field(
+        default=None,
+        description="Chỉ với thu nhập, khi có goal active hoặc ngân sách tháng dùng strategy pyf. "
+        "Chưa ghi gì — user xác nhận qua POST /goals/allocations",
+    )
 
 
 class TransactionList(BaseModel):

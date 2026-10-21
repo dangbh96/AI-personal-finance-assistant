@@ -14,7 +14,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/budget", label: "Ngân sách" },
   { href: "/reviews/weekly", label: "Review", match: "/reviews" },
   { href: "/coach", label: "Financial Coach" },
-  { href: "/goals", label: "Mục tiêu", phase: 11 },
+  { href: "/goals", label: "Mục tiêu" },
   { href: "/settings", label: "Cài đặt" },
 ];
 

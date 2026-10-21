@@ -51,23 +51,27 @@ sequenceDiagram
     participant FE as Frontend
     participant API as FastAPI
     participant GS as goal_service
-    participant BS as budget_service
+    participant BR as budget_repository
     participant TX as transaction_service
 
-    U->>FE: "Nhận lương 25 triệu"
-    FE->>API: POST /transactions/parse
+    U->>FE: "Nhận lương 25 triệu" (quick add) hoặc form /transactions
+    FE->>API: POST /transactions/parse (quick add)
     API-->>FE: draft income 25.000.000
     FE->>API: POST /transactions (income)
-    API->>TX: create income
-    API->>GS: propose_pyf_allocation(income)
-    GS->>BS: savings_target của budget tháng
-    GS-->>API: đề xuất: Laptop goal 4.400.000, Saving 5.000.000, Available 15.600.000
-    API-->>FE: 201 + pyf_proposal
-    FE-->>U: màn hình xác nhận phân bổ
-    U->>FE: chỉnh số / xác nhận
-    FE->>API: POST /goals/allocations {income_transaction_id, items}
-    API->>GS: create GoalContribution(s)
-    API-->>FE: số dư available spending tháng
+    API->>TX: create income (commit)
+    API->>GS: proposal_for_new_income(income) — chỉ đọc
+    GS->>BR: budget tháng của thu nhập (savings_target, strategy)
+    GS-->>API: goal active theo priority: Laptop 4.400.000 → savings 5.000.000 → available 15.600.000
+    API-->>FE: 201 + pyf_proposal (null nếu không có goal active và budget không phải pyf)
+    FE-->>U: dialog "Nhận lương" (thu nhập · mục tiêu · tiết kiệm ngân sách · còn lại để chi tiêu)
+    U->>FE: chỉnh số
+    FE->>API: POST /goals/pyf-proposal {income_transaction_id, items, budget_savings_amount} (debounce)
+    API->>GS: tính lại phần còn thiếu / available / cảnh báo — không ghi DB
+    U->>FE: xác nhận
+    FE->>API: POST /goals/allocations {income_transaction_id, items, budget_savings_amount}
+    API->>GS: validate (thu nhập, chưa phân bổ, goal active, ≤ còn thiếu, tổng ≤ thu nhập) → create GoalContribution(s) (1 commit)
+    API-->>FE: contributions + available_spending
+    Note over FE,API: Đóng dialog chưa xác nhận → thu nhập vẫn còn, không có khoản góp;<br/>/goals liệt kê "Phân bổ từ thu nhập" (GET /goals/unallocated-incomes)
 ```
 
 ## 3. Weekly Review (Phase 6)

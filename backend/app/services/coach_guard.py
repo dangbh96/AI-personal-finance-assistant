@@ -85,6 +85,8 @@ WRITE_OBJECTS: dict[str, str] = {
     "vùng": "/budget",
     "tư vấn": "/budget/advice",
     "danh mục": "/settings",
+    "mục tiêu": "/goals",
+    "khoản góp": "/goals",
 }
 WRITE_MARKERS: tuple[str, ...] = (
     "giúp",
@@ -117,6 +119,7 @@ LINK_LABELS: dict[str, str] = {
     "/budget": "Ngân sách",
     "/budget/advice": "Tư vấn ngân sách",
     "/settings": "Cài đặt",
+    "/goals": "Mục tiêu",
 }
 
 # Giọng văn (ai-architecture.md § 2) + cấm ra lệnh / tự nhận đã thay đổi dữ liệu (read-only).
@@ -193,7 +196,7 @@ def refusal_answer(kind: str, question: str) -> str:
         )
     links = " hoặc ".join(f"[{LINK_LABELS[p]}]({p})" for p in write_request_links(question))
     return (
-        "Coach chỉ đọc dữ liệu nên không tự thay đổi giao dịch hay ngân sách của bạn.\n\n"
+        "Coach chỉ đọc dữ liệu nên không tự thay đổi giao dịch, ngân sách hay mục tiêu của bạn.\n\n"
         f"Nếu bạn muốn điều chỉnh, bạn có thể mở {links} để tự thực hiện và xác nhận. "
         "Mình có thể giúp bạn xem số liệu trước khi quyết định — ví dụ “Tháng này khoản nào "
         "vượt budget?”."

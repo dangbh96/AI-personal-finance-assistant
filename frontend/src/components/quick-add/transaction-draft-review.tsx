@@ -15,6 +15,7 @@ import {
   describeError,
   type Category,
   type Preference,
+  type PyfProposal,
   type TransactionCreate,
   type TransactionCreateResult,
   type TransactionDraft,
@@ -60,10 +61,13 @@ export function TransactionDraftReview({
   result,
   categories,
   onDone,
+  onPyfProposal,
 }: {
   result: TransactionParseResponse;
   categories: Category[];
   onDone: (savedCount: number, learned: Preference[]) => void;
+  /** Thu nhập vừa lưu có đề xuất Pay Yourself First (Phase 11). */
+  onPyfProposal?: (proposal: PyfProposal) => void;
 }) {
   const [items, setItems] = useState<DraftItem[]>(() =>
     result.drafts.map((draft, i) => ({
@@ -123,6 +127,7 @@ export function TransactionDraftReview({
         status: "saved",
         learned: saved.learned_preference ?? null,
       });
+      if (saved.pyf_proposal) onPyfProposal?.(saved.pyf_proposal);
     } catch (err) {
       update(item.key, { status: "pending", error: describeError(err) });
     }

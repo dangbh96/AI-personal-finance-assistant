@@ -156,17 +156,18 @@ erDiagram
     }
     GOAL {
         uuid id PK
+        uuid user_id "nullable"
         text name
-        bigint target_amount
+        bigint target_amount "> 0"
         date deadline
-        int priority
+        int priority "> 0, 1 = cao nhất"
         text status "active | achieved | paused"
     }
     GOAL_CONTRIBUTION {
         uuid id PK
         uuid goal_id FK
-        uuid income_transaction_id FK "nullable"
-        bigint amount
+        uuid income_transaction_id FK "nullable (null = góp thủ công)"
+        bigint amount "> 0"
         date contributed_on
     }
     RECURRING_TRANSACTION {
@@ -294,11 +295,11 @@ Tên trong bảng dưới là **tên bảng thực tế** (số nhiều snake_ca
   |---|---|
   | `category_id` khác null (mọi strategy) | `category_id` đó |
   | `jar_name` của budget `envelope` (hũ) | `category_id` thuộc danh sách slug của hũ trong `budget_jar_category_map` |
-  | `jar_name` của budget `fifty_thirty_twenty` / `pyf` (dòng nhóm, `jar_name = group`) | `spending_type`: `essential` → nhóm essential, `non_essential` → wants, `irregular` → irregular; nhóm `savings` không khớp chi tiêu (actual = 0 tới Phase 11) |
+  | `jar_name` của budget `fifty_thirty_twenty` / `pyf` (dòng nhóm, `jar_name = group`) | `spending_type`: `essential` → nhóm essential, `non_essential` → wants, `irregular` → irregular; nhóm `savings` không khớp chi tiêu (actual = 0; Phase 11 vẫn giữ — khoản góp goal không tính vào dòng savings) |
 
   Service chặn các dòng chồng lấn trong 1 budget (cùng danh mục ở 2 dòng / vừa dòng nhóm vừa dòng danh mục → 422 `overlapping_allocations`) nên cộng actual theo dòng không bị đếm trùng.
 
-**Phase 5** (không có migration): actual tính trực tiếp bằng SQL aggregate (`transaction_repository.expense_totals_by_category_and_spending_type` — 1 truy vấn gộp theo `(category_id, spending_type)` cho cả tháng, `analytics_service` cộng theo phạm vi từng dòng), dùng index `transactions(occurred_on)` / `(category_id, occurred_on)` có sẵn. Mọi dòng thuộc nhóm `savings` (kể cả dòng có `category_id`) có actual = 0 tới Phase 11. Chưa cần materialized view / cache.
+**Phase 5** (không có migration): actual tính trực tiếp bằng SQL aggregate (`transaction_repository.expense_totals_by_category_and_spending_type` — 1 truy vấn gộp theo `(category_id, spending_type)` cho cả tháng, `analytics_service` cộng theo phạm vi từng dòng), dùng index `transactions(occurred_on)` / `(category_id, occurred_on)` có sẵn. Mọi dòng thuộc nhóm `savings` (kể cả dòng có `category_id`) có actual = 0 (Phase 11 không đổi, xem ghi chú Phase 11). Chưa cần materialized view / cache.
 
 **Phase 6** (migration `20261020_63c5cd20a0e3_weekly_review`):
 - `weekly_reviews`: `UNIQUE (week_start)`, CHECK `extract(isodow from week_start) = 1`, `status IN (generated, completed)`. `metrics` JSONB = `ReviewMetrics` (thu/chi/net, kỳ trước, `expense_change(_pct)`, `by_spending_type`, `by_category` có `change_pct`, tiến độ tuần `days_elapsed`/`complete`/`as_of`, `highlights`: top 3 danh mục, `top_increase`/`top_decrease`, cụm lặp, top 3 khoản chi). `narrative` JSONB = `ReviewNarrative` (`observation`, `explanation`, `notice[1..3]`, `action`, `reflection_question`, `tone`, `fallback_used`, `fallback_reason`). `model` = tên model AI hoặc `fallback_template`. Regenerate ghi đè `metrics`/`narrative`/`model` và đặt lại `status = generated` (cùng row).
@@ -324,3 +325,9 @@ Tên trong bảng dưới là **tên bảng thực tế** (số nhiều snake_ca
 - `chat_sessions`: `id`, `user_id UUID NULL`, `title TEXT NOT NULL` (mặc định "Cuộc trò chuyện mới"; đổi theo câu hỏi đầu tiên, vd "Tao nên giảm khoản nào?" → "Nên giảm khoản nào"), `created_at`, `updated_at` (cập nhật mỗi khi có message mới — giờ phía Python, không phải `now()` của transaction). Index `ix_chat_sessions_updated_at (updated_at)` (btree quét ngược cho `ORDER BY updated_at DESC`).
 - `chat_messages`: FK `session_id` → `chat_sessions` `ON DELETE CASCADE`; CHECK `ck_chat_messages_role` (`role IN ('user', 'assistant', 'tool')` — Phase 10 chỉ ghi `user` / `assistant`, tool trace nằm trong assistant message); `content TEXT NOT NULL`; `tool_calls JSONB` = `[{name, args, result_summary, result_count, evidence_refs, latency_ms, error}]`; **`evidence JSONB`** (thêm so với plan) = bảng "Dữ liệu đã dùng" `[{ref, tool, label, period, metric, amount}]`; `metadata JSONB` (thuộc tính ORM `meta` vì `metadata` là tên dành riêng của SQLAlchemy) = `{model, prompt_version, input_tokens, output_tokens, total_tokens, estimated_cost_vnd, llm_calls, tool_rounds, latency_ms, guard_status, guard_problems}` — không lưu prompt / API key. `created_at` đặt từ Python để thứ tự message đúng cả khi ghi trong cùng transaction. Index `ix_chat_messages_session_id_created_at (session_id, created_at)`.
 - Không đổi bảng nghiệp vụ; Coach chỉ đọc qua `services/insight_service`.
+
+**Phase 11** (migration `20261022_bdb3df82523e_goals_pyf`):
+- `goals`: `user_id UUID NULL`, `name TEXT NOT NULL` (API 1–100 ký tự), `target_amount BIGINT` CHECK `ck_goals_target_amount_positive` (`> 0`), `deadline DATE NOT NULL`, `priority INT` CHECK `ck_goals_priority_positive` (`> 0`; API 1–100, 1 = cao nhất, cho phép trùng — hoà thì hạn sớm hơn, rồi ngày tạo), `status TEXT NOT NULL DEFAULT 'active'` CHECK `ck_goals_status` (`active | achieved | paused`), timestamps. Index `ix_goals_status_priority (status, priority)`, `ix_goals_deadline (deadline)`. **Không có cột `current_amount`** — `goal_service` luôn tính `SUM(goal_contributions.amount)`.
+- `goal_contributions`: FK `goal_id` → `goals` `ON DELETE CASCADE`; FK `income_transaction_id` → `transactions` **`ON DELETE SET NULL`** (xoá thu nhập → giữ khoản góp, bỏ liên kết; plan chưa nói); `amount BIGINT` CHECK `ck_goal_contributions_amount_positive` (`> 0`); `contributed_on DATE NOT NULL` (= `occurred_on` của thu nhập với khoản góp PYF; khoản góp thủ công không ở tương lai). Index `ix_goal_contributions_goal_id_contributed_on`, `ix_goal_contributions_income_transaction_id`. `income_transaction_id` NULL = khoản góp thủ công (vd số tiền đã có sẵn).
+- Ràng buộc ở service (không ở DB): `income_transaction_id` phải là giao dịch `direction = 'income'`; một thu nhập chỉ được xác nhận phân bổ **một lần** (đã có khoản góp → 409 `income_already_allocated`); khoản góp chỉ cho goal `active` và không vượt phần còn thiếu; tổng goal + `budget_savings_amount` ≤ thu nhập; thu nhập đã cấp tiền không đổi được thành khoản chi / giảm dưới tổng đã phân bổ. `status` tự chuyển `active → achieved` khi đủ tiền và `achieved → active` khi xoá khoản góp / tăng target làm thiếu tiền.
+- `budget_savings_amount` (khoản tiết kiệm ngân sách chưa gắn goal) **không lưu** — chỉ để tính `available_spending`; `transactions` không thêm cột. Dòng nhóm `savings` của budget vẫn `not_tracked` (actual 0) như Phase 5.

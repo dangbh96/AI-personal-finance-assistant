@@ -4,6 +4,7 @@ import { SparklesIcon } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useState } from "react";
 
+import { PyfAllocationDialog } from "@/components/goals/pyf-allocation-dialog";
 import { TransactionDraftReview } from "@/components/quick-add/transaction-draft-review";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +23,7 @@ import {
   type Category,
   type HealthResponse,
   type Preference,
+  type PyfProposal,
   type TransactionParseRequest,
   type TransactionParseResponse,
 } from "@/lib/api";
@@ -47,6 +49,8 @@ export function QuickAddBox({ onSaved }: { onSaved?: () => void } = {}) {
   const [error, setError] = useState<string | null>(null);
   const [notConfigured, setNotConfigured] = useState(false);
   const [parsed, setParsed] = useState<ParseState | null>(null);
+  // Đề xuất Pay Yourself First của các thu nhập vừa lưu (hiện lần lượt).
+  const [pyfQueue, setPyfQueue] = useState<PyfProposal[]>([]);
   const [notice, setNotice] = useState<{
     saved: number;
     learned: Preference[];
@@ -186,8 +190,13 @@ export function QuickAddBox({ onSaved }: { onSaved?: () => void } = {}) {
             result={parsed.result}
             categories={categories.data ?? []}
             onDone={handleDone}
+            onPyfProposal={(p) => setPyfQueue((q) => [...q, p])}
           />
         )}
+        <PyfAllocationDialog
+          proposal={pyfQueue[0] ?? null}
+          onOpenChange={(open) => !open && setPyfQueue((q) => q.slice(1))}
+        />
       </CardContent>
     </Card>
   );

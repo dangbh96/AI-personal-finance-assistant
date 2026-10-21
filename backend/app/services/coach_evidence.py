@@ -18,6 +18,7 @@ from app.schemas.coach import (
     BudgetStatusOutput,
     CategoryTrendOutput,
     EvidenceItem,
+    GetGoalsOutput,
     RecentReviewsOutput,
     SpendingSummaryOutput,
 )
@@ -110,6 +111,20 @@ def evidence_rows(tool: str, output: BaseModel) -> list[EvidenceRow]:
             add(label, period, "Tổng chi", r.expense)
             for c in r.top_categories:
                 add(c.category_name, period, "Chi tiêu", c.amount)
+    elif isinstance(output, GetGoalsOutput):
+        for g in output.active_goals:
+            period = f"hạn {g.deadline:%d/%m/%Y}"
+            add(g.name, period, "Số tiền mục tiêu", g.target_amount)
+            add(g.name, period, "Đã có", g.current_amount)
+            add(g.name, period, "Còn thiếu", g.remaining_amount)
+            add(g.name, period, "Nên để dành / tháng", g.suggested_monthly_saving)
+        if output.active_goals:
+            add(
+                "Mọi mục tiêu đang thực hiện",
+                "mỗi tháng",
+                "Tổng nên để dành / tháng",
+                output.total_suggested_monthly_saving,
+            )
     return rows
 
 
@@ -172,4 +187,7 @@ def summarize_result(output: BaseModel) -> tuple[str, int]:
     if isinstance(output, RecentReviewsOutput):
         n = len(output.items)
         return (f"{n} review" if n else "Chưa có review"), n
+    if isinstance(output, GetGoalsOutput):
+        n = len(output.active_goals)
+        return (f"{n} mục tiêu đang thực hiện" if n else "Chưa có mục tiêu đang thực hiện"), n
     return "Đã đọc dữ liệu", 0
