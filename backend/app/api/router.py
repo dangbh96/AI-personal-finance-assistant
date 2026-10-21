@@ -6,6 +6,7 @@ from app.api.routers import (
     budgets,
     categories,
     classification_preferences,
+    coach,
     dashboard,
     health,
     monthly_reviews,
@@ -24,3 +25,4 @@ api_router.include_router(budget_advice.router)
 api_router.include_router(dashboard.router)
 api_router.include_router(reviews.router)
 api_router.include_router(monthly_reviews.router)
+api_router.include_router(coach.router)

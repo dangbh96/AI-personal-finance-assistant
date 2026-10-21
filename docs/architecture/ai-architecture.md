@@ -26,7 +26,7 @@ Tên model đọc từ env (`OPENAI_MODEL_FAST`, `OPENAI_MODEL_SMART`) — khôn
 4. **AI không quyết định thay user:** luôn trả draft/gợi ý, user xác nhận.
 5. Ngôn ngữ: tiếng Việt, xưng "bạn".
 
-Prompt lưu ở `backend/app/ai/prompts/*.md` (có version trong tên hoặc header), không inline dài trong code. Phase 3: `nl_transaction_parse.v3.md` (placeholder `{{today}}`, `{{calendar}}`, `{{categories}}`, `{{preferences}}`, `{{amount_hints}}`… do `nl_transaction_parser.build_messages` điền; v3 = v2 + mục "Sở thích phân loại của người dùng") và `classification_preference_parse.v1.md`. Phase 6: `review_narrative.v1.md` (`{{period_word}}`, `{{period_label}}`, `{{metrics_json}}`, `{{allowed_numbers}}`). Phase 7: `review_narrative_month.v1.md` (cùng placeholder). Phase 8: `budget_advice_explanation.v1.md` (xem § 4b).
+Prompt lưu ở `backend/app/ai/prompts/*.md` (có version trong tên hoặc header), không inline dài trong code. Phase 3: `nl_transaction_parse.v3.md` (placeholder `{{today}}`, `{{calendar}}`, `{{categories}}`, `{{preferences}}`, `{{amount_hints}}`… do `nl_transaction_parser.build_messages` điền; v3 = v2 + mục "Sở thích phân loại của người dùng") và `classification_preference_parse.v1.md`. Phase 6: `review_narrative.v1.md` (`{{period_word}}`, `{{period_label}}`, `{{metrics_json}}`, `{{allowed_numbers}}`). Phase 7: `review_narrative_month.v1.md` (cùng placeholder). Phase 8: `budget_advice_explanation.v1.md` (xem § 4b). Phase 10: `coach_v1.md` (system prompt Financial Coach, xem § 5).
 
 ## 3. Structured output chính (phác thảo)
 
@@ -107,20 +107,32 @@ Không dùng LangGraph — một lời gọi Structured Outputs cho mỗi advice
 
 ```mermaid
 stateDiagram-v2
-    [*] --> agent
+    [*] --> scope_check
+    scope_check: scope_check (deterministic)<br/>đầu tư / chứng khoán / crypto / thuế,<br/>yêu cầu ghi dữ liệu
+    scope_check --> [*]: từ chối bằng template (không gọi model)
+    scope_check --> agent
     agent: agent (LLM + tools bound)
     agent --> tools: có tool_calls
-    tools: ToolNode<br/>get_spending_summary, get_budget_status,<br/>get_category_trend, get_budget_advice,<br/>get_goals, search_transactions (P15),<br/>search_knowledge (P16), simulate (P17)
+    tools: ToolNode<br/>get_spending_summary, get_budget_status,<br/>get_category_trend, get_budget_advice,<br/>get_recent_reviews · sau này: get_goals (P11),<br/>search_transactions (P15), search_knowledge (P16), simulate (P17)
     tools --> agent
     agent --> guard: trả lời cuối
-    guard: response_guard<br/>cụm từ cấm, có evidence chưa
+    guard: response_guard (deterministic)<br/>số ⊆ output tool, cụm từ cấm,<br/>3 tầng + gợi ý có điều kiện
     guard --> agent: cần sửa (tối đa 1 lần)
-    guard --> [*]: ok
+    guard --> [*]: ok / fallback từ evidence
 ```
 
 - Tools **chỉ đọc** (read-only). Coach không tạo/sửa giao dịch hay budget; nếu user muốn, Coach trả về link/gợi ý tới màn hình tương ứng.
 - Giới hạn tối đa 6 vòng tool call / câu hỏi.
-- Lịch sử chat lưu `chat_session` / `chat_message`.
+- Lịch sử chat lưu `chat_sessions` / `chat_messages`.
+
+Triển khai Phase 10 (`app/agents/coach_graph.py`, LangGraph 1.2.16 + `langgraph-prebuilt` 1.1.1 `ToolNode`, `langchain-core` 1.6 `@tool`):
+- `agent` gọi `ai/openai_client.chat_with_tools` (Chat Completions function calling, `OPENAI_MODEL_SMART`, timeout 60s, temperature 0) — **không** dùng `langchain-openai`; graph tự chuyển message LangChain ↔ OpenAI. Đủ 6 vòng tool → gọi lần cuối với `tool_choice="none"`. Prompt `prompts/coach_v1.md` (`{{today}}`, `{{weekday}}`, `{{current_month}}`, `{{previous_month}}`), lịch sử = 10 message user/assistant gần nhất của session (không gồm tool output cũ).
+- `tools` = `ToolNode` (`wrap_tool_call` ghi tool trace + latency; các lần gọi tuần tự hoá bằng lock vì dùng chung 1 SQLAlchemy Session; lỗi nghiệp vụ / tham số trả về model dạng ToolMessage lỗi). Tool ở `agents/tools/finance_tools.py`, đăng ký qua `CoachToolRegistry` (`agents/tools/registry.py`; tên tool tương lai chưa đăng ký bị bỏ qua). Mỗi tool chỉ gọi `services/insight_service` (số liệu deterministic: tổng thu chi, trend N tháng kết thúc ở tháng đã trọn + độ lệch chuẩn population và hạng biến động, Budget vs Actual + vùng, advice đã có, review gần đây).
+- `response_guard` → `services/coach_guard`: số trong câu trả lời ⊆ số trong output tool đã gọi (bỏ ID; gồm khoá `YYYY-MM`) + số trong câu hỏi + ngày hôm nay + 0–12; cụm cấm (review + "ngay lập tức", "bạn cần phải", "tôi/mình đã điều chỉnh…"); tên kỹ thuật `snake_case`; câu trả lời có số tiền phải có "Quan sát", "Vì sao" và gợi ý có điều kiện; khuyến nghị không số liệu cũng phải có điều kiện. Fail → yêu cầu viết lại 1 lần → vẫn fail → `fallback_answer` liệt kê evidence (`guard_status = fallback`).
+- `scope_check` → `coach_guard.classify_request` (so khớp có dấu để không nhầm "thuế"/"thuê"): ngoài phạm vi → `refused_out_of_scope`; yêu cầu ghi (động từ ghi + đối tượng + "giúp/hộ/tự…" hoặc câu mở đầu bằng động từ, không có ý hỏi "xem/nên/nào/không…") → `refused_write_request` với link `/budget`, `/budget/advice`, `/transactions`.
+- Sau graph: `coach_evidence.select_evidence` giữ dòng evidence (nhãn, kỳ, chỉ số, số tiền) có số tiền được câu trả lời trích → bảng "Dữ liệu đã dùng" + `evidence_refs` của từng tool call. `core/ai_usage` cộng token, ước tính chi phí (giá USD/1M token × 26.000 đ) và log 1 dòng `ai_usage task=coach …`.
+- AI lỗi → `AIUnavailable` không bị bắt trong graph: user message đã lưu, router trả 503 (`AI_NOT_CONFIGURED` / `AI_TIMEOUT` / `AI_UNAVAILABLE`…).
+- Golden: `tests/ai_golden/test_coach.py` ("Tao nên giảm khoản nào?", "Tháng này khoản nào vượt budget?", chống giọng phán xét, từ chối ngoài phạm vi / yêu cầu ghi).
 
 ## 6. Classification memory (Phase 3)
 

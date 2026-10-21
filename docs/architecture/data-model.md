@@ -143,6 +143,7 @@ erDiagram
     CHAT_SESSION {
         uuid id PK
         text title
+        timestamptz updated_at
     }
     CHAT_MESSAGE {
         uuid id PK
@@ -150,6 +151,8 @@ erDiagram
         text role "user | assistant | tool"
         text content
         jsonb tool_calls
+        jsonb evidence
+        jsonb metadata
     }
     GOAL {
         uuid id PK
@@ -249,7 +252,7 @@ Tên trong bảng dưới là **tên bảng thực tế** (số nhiều snake_ca
 | 7 | `monthly_reviews` |
 | 8 | `budget_advice` (tên bảng giữ dạng không đếm được `advice`), `app_settings.budget_advisor` |
 | 9 | `budget_allocations.comfort_low/comfort_high/warning_threshold/zone_mode` (+ CHECK `zone_mode`) |
-| 10 | `chat_sessions`, `chat_messages` |
+| 10 | `chat_sessions`, `chat_messages` (+ cột `evidence` so với plan) |
 | 11 | `goals`, `goal_contributions` |
 | 12 | `recurring_transactions`, `transactions.recurring_id` |
 | 13 | `receipts`, `transactions.receipt_id` |
@@ -316,3 +319,8 @@ Tên trong bảng dưới là **tên bảng thực tế** (số nhiều snake_ca
 - Ý nghĩa: `manual` → 3 ngưỡng user nhập, `zone_service` bắt buộc đủ và `comfort_low <= comfort_high <= warning_threshold` (CHECK thứ tự **không** đặt ở DB). `auto` → ngưỡng là **cache** do `zone_service` tính (NULL = chưa tính — UI hiện "Chưa tính vùng", advisor so với `planned`); chỉ ghi khi user bấm tính lại (`POST /budgets/{id}/zones/recalculate`) hoặc chuyển sang auto (`PATCH /budget-allocations/{id}/zone`). Dòng nhóm `savings` không có vùng (ngưỡng luôn NULL).
 - Giữ ngưỡng khi dòng được ghi lại (`budget_service`): PATCH budget thay toàn bộ phân bổ → dòng cùng danh mục / hũ giữ `zone_mode` + ngưỡng manual, giữ cache auto nếu `planned_amount` không đổi (đổi → NULL); copy sang tháng mới → giữ manual, bỏ cache auto (lịch sử khác tháng); `set_allocation_planned` (accept advice) đổi planned của dòng auto → bỏ cache.
 - `budget_advice.evidence` thêm `zone` (`ZoneEvidence`: `zone_mode`, `planned_amount`, `comfort_low`, `comfort_high`, `warning_threshold`, `actual_amount`, `zone`, `early_warning`) khi dòng đã có ngưỡng; `comfort_high` lấy từ cột đã lưu.
+
+**Phase 10** (migration `20261022_cd108ee2d244_financial_coach`):
+- `chat_sessions`: `id`, `user_id UUID NULL`, `title TEXT NOT NULL` (mặc định "Cuộc trò chuyện mới"; đổi theo câu hỏi đầu tiên, vd "Tao nên giảm khoản nào?" → "Nên giảm khoản nào"), `created_at`, `updated_at` (cập nhật mỗi khi có message mới — giờ phía Python, không phải `now()` của transaction). Index `ix_chat_sessions_updated_at (updated_at)` (btree quét ngược cho `ORDER BY updated_at DESC`).
+- `chat_messages`: FK `session_id` → `chat_sessions` `ON DELETE CASCADE`; CHECK `ck_chat_messages_role` (`role IN ('user', 'assistant', 'tool')` — Phase 10 chỉ ghi `user` / `assistant`, tool trace nằm trong assistant message); `content TEXT NOT NULL`; `tool_calls JSONB` = `[{name, args, result_summary, result_count, evidence_refs, latency_ms, error}]`; **`evidence JSONB`** (thêm so với plan) = bảng "Dữ liệu đã dùng" `[{ref, tool, label, period, metric, amount}]`; `metadata JSONB` (thuộc tính ORM `meta` vì `metadata` là tên dành riêng của SQLAlchemy) = `{model, prompt_version, input_tokens, output_tokens, total_tokens, estimated_cost_vnd, llm_calls, tool_rounds, latency_ms, guard_status, guard_problems}` — không lưu prompt / API key. `created_at` đặt từ Python để thứ tự message đúng cả khi ghi trong cùng transaction. Index `ix_chat_messages_session_id_created_at (session_id, created_at)`.
+- Không đổi bảng nghiệp vụ; Coach chỉ đọc qua `services/insight_service`.

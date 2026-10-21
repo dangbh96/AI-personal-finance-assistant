@@ -18,6 +18,10 @@ AdviceVerdict = Literal["adjust_budget", "adjust_behavior", "one_off", "on_track
 AdviceStatus = Literal["open", "accepted", "dismissed"]
 ZoneMode = Literal["manual", "auto"]
 ZoneStatus = Literal["normal", "attention", "review_needed"]
+ChatRole = Literal["user", "assistant", "tool"]
+CoachGuardStatus = Literal[
+    "passed", "rewritten", "fallback", "refused_out_of_scope", "refused_write_request"
+]
 
 DIRECTIONS: tuple[str, ...] = get_args(Direction)
 SPENDING_TYPES: tuple[str, ...] = get_args(SpendingType)
@@ -30,6 +34,7 @@ REVIEW_KINDS: tuple[str, ...] = get_args(ReviewKind)
 ADVICE_VERDICTS: tuple[str, ...] = get_args(AdviceVerdict)
 ADVICE_STATUSES: tuple[str, ...] = get_args(AdviceStatus)
 ZONE_MODES: tuple[str, ...] = get_args(ZoneMode)
+CHAT_ROLES: tuple[str, ...] = get_args(ChatRole)
 
 
 def sql_in(values: tuple[str, ...]) -> str:

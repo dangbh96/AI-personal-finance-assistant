@@ -123,21 +123,22 @@ sequenceDiagram
 
     U->>FE: "Tao nên giảm khoản nào?"
     FE->>API: POST /coach/sessions/{id}/messages
+    API->>API: lưu user message (commit)
     API->>AG: invoke(history + message)
+    AG->>AG: scope_check (ngoài phạm vi / yêu cầu ghi → template)
     AG->>OAI: messages + tool schemas
-    OAI-->>AG: tool_call get_category_trend(months=3)
+    OAI-->>AG: tool_call get_category_trend(months=3) + get_budget_status()
     AG->>T: get_category_trend(3)
     T-->>AG: Ăn uống 4.2tr, Mua sắm 3.8tr (biến động cao nhất)...
-    AG->>OAI: kết quả tool
-    OAI-->>AG: tool_call get_budget_status(current)
     AG->>T: get_budget_status
-    T-->>AG: variance theo category
+    T-->>AG: variance theo dòng ngân sách
     AG->>OAI: kết quả tool
     OAI-->>AG: câu trả lời: evidence + gợi ý có điều kiện
-    AG->>AG: response_guard
-    AG-->>API: message + tool trace
-    API-->>FE: stream / JSON
-    FE-->>U: câu trả lời + bảng số liệu đã dùng
+    AG->>AG: response_guard (số ⊆ output tool, giọng văn; sai → viết lại 1 lần)
+    AG-->>API: message + tool trace + evidence + token/cost
+    API->>API: lưu assistant message
+    API-->>FE: JSON (plain, chưa stream ở Phase 10)
+    FE-->>U: câu trả lời + bảng "Dữ liệu đã dùng" + tool trace
 ```
 
 ## 5. Đọc hoá đơn (Phase 13)

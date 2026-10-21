@@ -738,6 +738,76 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/coach/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Coach Sessions
+         * @description Các cuộc trò chuyện, cập nhật gần nhất trước (kèm đoạn đầu message cuối).
+         */
+        get: operations["list_coach_sessions_api_v1_coach_sessions_get"];
+        put?: never;
+        /**
+         * Create Coach Session
+         * @description Tạo session; bỏ trống `title` → đặt theo câu hỏi đầu tiên.
+         */
+        post: operations["create_coach_session_api_v1_coach_sessions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/coach/sessions/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Coach Session
+         * @description Session + toàn bộ message (assistant kèm tool trace, evidence, metadata).
+         */
+        get: operations["get_coach_session_api_v1_coach_sessions__session_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Coach Session */
+        delete: operations["delete_coach_session_api_v1_coach_sessions__session_id__delete"];
+        options?: never;
+        head?: never;
+        /** Rename Coach Session */
+        patch: operations["rename_coach_session_api_v1_coach_sessions__session_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/coach/sessions/{session_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send Coach Message
+         * @description Gửi câu hỏi và chạy `coach_graph` (plain JSON, không stream).
+         *
+         *     Coach chỉ gọi tool đọc dữ liệu; không tạo / sửa giao dịch hay ngân sách. Câu hỏi ngoài phạm
+         *     vi (đầu tư, chứng khoán, crypto, thuế) hoặc yêu cầu ghi dữ liệu → trả lời mẫu, không gọi AI.
+         *     AI lỗi → 503 (`AI_*`), câu hỏi vẫn được lưu.
+         */
+        post: operations["send_coach_message_api_v1_coach_sessions__session_id__messages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1940,6 +2010,179 @@ export interface components {
             /** Is Archived */
             is_archived?: boolean;
         };
+        /** ChatMessageMetadata */
+        ChatMessageMetadata: {
+            /** Model */
+            model: string | null;
+            /** Prompt Version */
+            prompt_version: string | null;
+            /** Input Tokens */
+            input_tokens: number;
+            /** Output Tokens */
+            output_tokens: number;
+            /** Total Tokens */
+            total_tokens: number;
+            /** Estimated Cost Vnd */
+            estimated_cost_vnd: number | null;
+            /** Llm Calls */
+            llm_calls: number;
+            /** Tool Rounds */
+            tool_rounds: number;
+            /** Latency Ms */
+            latency_ms: number;
+            /**
+             * Guard Status
+             * @enum {string}
+             */
+            guard_status: "passed" | "rewritten" | "fallback" | "refused_out_of_scope" | "refused_write_request";
+            /** Guard Problems */
+            guard_problems?: string[];
+        };
+        /** ChatMessageRead */
+        ChatMessageRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Session Id
+             * Format: uuid
+             */
+            session_id: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "user" | "assistant" | "tool";
+            /** Content */
+            content: string;
+            /** Tool Calls */
+            tool_calls: components["schemas"]["ToolTraceItem"][] | null;
+            /** Evidence */
+            evidence: components["schemas"]["EvidenceItem"][] | null;
+            metadata: components["schemas"]["ChatMessageMetadata"] | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** ChatSessionCreate */
+        ChatSessionCreate: {
+            /**
+             * Title
+             * @description Bỏ trống → đặt theo câu hỏi đầu tiên
+             */
+            title?: string | null;
+        };
+        /** ChatSessionDetail */
+        ChatSessionDetail: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Messages
+             * @description Cũ nhất trước
+             */
+            messages: components["schemas"]["ChatMessageRead"][];
+        };
+        /** ChatSessionList */
+        ChatSessionList: {
+            /**
+             * Items
+             * @description Cập nhật gần nhất trước
+             */
+            items: components["schemas"]["ChatSessionSummary"][];
+        };
+        /** ChatSessionRead */
+        ChatSessionRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ChatSessionSummary */
+        ChatSessionSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Last Message Preview */
+            last_message_preview: string | null;
+            /** Message Count */
+            message_count: number;
+        };
+        /** ChatSessionUpdate */
+        ChatSessionUpdate: {
+            /** Title */
+            title: string;
+        };
+        /** CoachMessageCreate */
+        CoachMessageCreate: {
+            /** Content */
+            content: string;
+            /**
+             * Today
+             * @description Hôm nay phía user (mặc định của server) — dùng cho demo/test
+             */
+            today?: string | null;
+        };
+        /** CoachMessageResponse */
+        CoachMessageResponse: {
+            session: components["schemas"]["ChatSessionRead"];
+            user_message: components["schemas"]["ChatMessageRead"];
+            assistant_message: components["schemas"]["ChatMessageRead"];
+            /** Tool Trace */
+            tool_trace: components["schemas"]["ToolTraceItem"][];
+            /** Evidence */
+            evidence: components["schemas"]["EvidenceItem"][];
+            /**
+             * Guard Status
+             * @enum {string}
+             */
+            guard_status: "passed" | "rewritten" | "fallback" | "refused_out_of_scope" | "refused_write_request";
+        };
         /** ErrorResponse */
         ErrorResponse: {
             /** Detail */
@@ -1948,6 +2191,33 @@ export interface components {
             }[];
             /** Code */
             code: string;
+        };
+        /** EvidenceItem */
+        EvidenceItem: {
+            /**
+             * Ref
+             * @description E1, E2…
+             */
+            ref: string;
+            /** Tool */
+            tool: string;
+            /**
+             * Label
+             * @description Danh mục / dòng ngân sách / kỳ review
+             */
+            label: string;
+            /**
+             * Period
+             * @description Vd 09/2026 hoặc 01/09–30/09/2026
+             */
+            period: string;
+            /**
+             * Metric
+             * @description Vd Chi tiêu, Ngân sách, Chênh lệch
+             */
+            metric: string;
+            /** Amount */
+            amount: number;
         };
         /**
          * FiftyThirtyTwentyReference
@@ -2784,6 +3054,31 @@ export interface components {
              * @default 0
              */
             irregular?: number;
+        };
+        /** ToolTraceItem */
+        ToolTraceItem: {
+            /** Name */
+            name: string;
+            /** Args */
+            args: {
+                [key: string]: unknown;
+            };
+            /** Result Summary */
+            result_summary: string;
+            /**
+             * Result Count
+             * @description Số dòng kết quả (danh mục, dòng ngân sách…)
+             */
+            result_count: number;
+            /**
+             * Evidence Refs
+             * @description Mã dòng evidence (E1, E2…) lấy từ tool này
+             */
+            evidence_refs: string[];
+            /** Latency Ms */
+            latency_ms: number;
+            /** Error */
+            error?: string | null;
         };
         /**
          * TopContributorRead
@@ -5145,6 +5440,254 @@ export interface operations {
             };
             /** @description Unprocessable Content */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_coach_sessions_api_v1_coach_sessions_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatSessionList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_coach_session_api_v1_coach_sessions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChatSessionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatSessionRead"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_coach_session_api_v1_coach_sessions__session_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatSessionDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_coach_session_api_v1_coach_sessions__session_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rename_coach_session_api_v1_coach_sessions__session_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChatSessionUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatSessionRead"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    send_coach_message_api_v1_coach_sessions__session_id__messages_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CoachMessageCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachMessageResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

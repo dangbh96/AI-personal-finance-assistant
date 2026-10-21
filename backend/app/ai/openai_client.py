@@ -10,7 +10,7 @@
 import logging
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import lru_cache
 from typing import Any
 
@@ -215,3 +215,101 @@ def structured_completion[T: BaseModel](
         "AI trả kết quả không hợp lệ. Bạn thử diễn đạt lại hoặc nhập thủ công nhé.",
         status_code=502,
     )
+
+
+# ---------- function calling (Financial Coach, Phase 10) ----------
+
+
+@dataclass(frozen=True)
+class ToolCallData:
+    id: str
+    name: str
+    arguments: str
+
+
+@dataclass(frozen=True)
+class ToolChatResult:
+    content: str | None
+    tool_calls: list[ToolCallData]
+    finish_reason: str | None
+    prompt_tokens: int | None
+    completion_tokens: int | None
+    model: str
+    latency_ms: int = 0
+
+
+def _chat_tools(
+    *,
+    model: str,
+    messages: list[dict[str, Any]],
+    tools: list[dict[str, Any]],
+    tool_choice: str,
+    timeout: float,
+) -> ToolChatResult:
+    """Một lời gọi Chat Completions có `tools` (function calling)."""
+    api_key = get_settings().openai_api_key or ""
+    kwargs: dict[str, Any] = {}
+    if tools:
+        kwargs = {"tools": tools, "tool_choice": tool_choice}
+    response = _client(api_key.strip()).chat.completions.create(
+        model=model,
+        messages=messages,  # type: ignore[arg-type]
+        temperature=0,
+        timeout=timeout,
+        **kwargs,
+    )
+    choice = response.choices[0]
+    usage = response.usage
+    calls = [
+        ToolCallData(id=c.id, name=c.function.name, arguments=c.function.arguments or "{}")
+        for c in choice.message.tool_calls or []
+        if getattr(c, "function", None) is not None
+    ]
+    return ToolChatResult(
+        content=choice.message.content,
+        tool_calls=calls,
+        finish_reason=choice.finish_reason,
+        prompt_tokens=usage.prompt_tokens if usage else None,
+        completion_tokens=usage.completion_tokens if usage else None,
+        model=response.model or model,
+    )
+
+
+def chat_with_tools(
+    messages: list[dict[str, Any]],
+    tools: list[dict[str, Any]],
+    *,
+    task: str,
+    model: str | None = None,
+    timeout: float = DEFAULT_TIMEOUT_SECONDS,
+    tool_choice: str = "auto",
+) -> ToolChatResult:
+    """Gọi model với danh sách tool (schema OpenAI); trả nội dung hoặc tool calls.
+
+    Không tự chạy tool — vòng lặp agent ↔ tool nằm ở `agents/coach_graph`.
+    """
+    ensure_configured()
+    model = model or model_smart()
+    started = time.perf_counter()
+    try:
+        result = _chat_tools(
+            model=model, messages=messages, tools=tools, tool_choice=tool_choice, timeout=timeout
+        )
+    except openai.OpenAIError as exc:
+        logger.warning("ai task=%s model=%s error=%s", task, model, type(exc).__name__)
+        raise _map_openai_error(exc) from exc
+    latency_ms = int((time.perf_counter() - started) * 1000)
+    logger.info(
+        "ai task=%s model=%s tool_calls=%d prompt_tokens=%s completion_tokens=%s latency_ms=%d",
+        task,
+        model,
+        len(result.tool_calls),
+        result.prompt_tokens,
+        result.completion_tokens,
+        latency_ms,
+    )
+    if not result.tool_calls and not (result.content and result.content.strip()):
+        raise AIUnavailable(
+            "AI_INVALID_OUTPUT", "AI không trả lời được câu hỏi này.", status_code=502
+        )
+    return replace(result, latency_ms=latency_ms)

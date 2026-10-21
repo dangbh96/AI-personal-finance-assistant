@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **ID** | `phase-10-financial-coach` |
-| **Trạng thái** | Not started |
+| **Trạng thái** | Done |
 | **Phụ thuộc** | Phase 8 |
 | **Mở khoá** | Phase 16 |
 | **Milestone** | **M5 — AI Agent** |
@@ -139,17 +139,17 @@ Prompt `backend/app/ai/prompts/coach_v1.md`:
 
 ## 5. Task breakdown
 
-- [ ] T1 Migration + ORM/Pydantic schemas cho `chat_sessions`, `chat_messages`
-- [ ] T2 `CoachToolRegistry` + 5 read-only tools hiện có
-- [ ] T3 `coach_v1.md` prompt + `coach_graph` agent ↔ ToolNode loop, giới hạn 6 vòng
-- [ ] T4 `response_guard` deterministic + refusal template ngoài phạm vi
-- [ ] T5 `coach_service` lưu user/assistant/tool trace, token/cost logging
-- [ ] T6 Router `/api/v1/coach/*` + API tests persistence/error handling
-- [ ] T7 Golden AI tests `@pytest.mark.ai` cho "Tao nên giảm khoản nào?"
-- [ ] T8 UI `/coach` chat page + session list
-- [ ] T9 UI `ToolTracePanel` + `EvidenceTable`
-- [ ] T10 Frontend error/loading states + suggested prompt chips
-- [ ] T11 Cập nhật docs/PROGRESS, Handoff notes, commit `phase-10: financial coach`
+- [x] T1 Migration + ORM/Pydantic schemas cho `chat_sessions`, `chat_messages`
+- [x] T2 `CoachToolRegistry` + 5 read-only tools hiện có
+- [x] T3 `coach_v1.md` prompt + `coach_graph` agent ↔ ToolNode loop, giới hạn 6 vòng
+- [x] T4 `response_guard` deterministic + refusal template ngoài phạm vi
+- [x] T5 `coach_service` lưu user/assistant/tool trace, token/cost logging
+- [x] T6 Router `/api/v1/coach/*` + API tests persistence/error handling
+- [x] T7 Golden AI tests `@pytest.mark.ai` cho "Tao nên giảm khoản nào?"
+- [x] T8 UI `/coach` chat page + session list
+- [x] T9 UI `ToolTracePanel` + `EvidenceTable`
+- [x] T10 Frontend error/loading states + suggested prompt chips
+- [x] T11 Cập nhật docs/PROGRESS, Handoff notes, commit `phase-10: financial coach`
 
 ## 6. Verify / Acceptance criteria
 
@@ -182,26 +182,64 @@ cd ../frontend && npm run gen:api && npm run lint && npm run dev
 
 ## 7. Definition of Done
 
-- [ ] Tất cả task mục 5 xong, verify mục 6 pass
-- [ ] `pytest` mặc định xanh không cần `OPENAI_API_KEY`; test AI chỉ chạy bằng `pytest -m ai`
-- [ ] Coach tools read-only, không gọi repository trực tiếp từ graph/tool ngoài service layer
-- [ ] Answer không bịa số, không dùng banned phrases trong golden tests
-- [ ] Token/cost/latency được log trong `chat_messages.metadata`
-- [ ] [PROGRESS.md](../PROGRESS.md) cập nhật trạng thái phase = Done, Handoff notes điền
-- [ ] Commit `phase-10: financial coach`
+- [x] Tất cả task mục 5 xong, verify mục 6 pass
+- [x] `pytest` mặc định xanh không cần `OPENAI_API_KEY`; test AI chỉ chạy bằng `pytest -m ai`
+- [x] Coach tools read-only, không gọi repository trực tiếp từ graph/tool ngoài service layer
+- [x] Answer không bịa số, không dùng banned phrases trong golden tests
+- [x] Token/cost/latency được log trong `chat_messages.metadata`
+- [x] [PROGRESS.md](../PROGRESS.md) cập nhật trạng thái phase = Done, Handoff notes điền
+- [x] Commit `phase-10: financial coach agent`
 
 ## 8. Rủi ro / câu hỏi mở
 
 - LangGraph/LangChain API thay đổi nhanh; cần pin version và ghi version thực tế ở Handoff notes.
+  - **Đã chốt:** `langgraph` 1.2.16 (pin `>=1.2,<1.3` trong `pyproject.toml`), `langgraph-prebuilt` 1.1.1 (`ToolNode` + `wrap_tool_call`), `langchain-core` 1.6.12 (`@tool`, `convert_to_openai_tool`) — đi kèm langgraph, không thêm `langchain-openai` (model gọi qua `ai/openai_client`).
 - Plain JSON làm user phải chờ graph chạy xong; nếu latency > 8–10 giây, Phase 18 nên cân nhắc SSE.
+  - **Đo được:** 2 lời gọi model / câu hỏi điển hình, 3,5–8 giây (gpt-4o), ~4.000–5.600 token ≈ 310–430 đ; khi guard bắt viết lại ~5 giây và ~7.800 token. Chưa vượt 10 giây trong smoke test.
+- Hạng biến động dùng độ lệch chuẩn **tuyệt đối** (đồng) nên danh mục chi lớn (Ăn uống) dễ xếp hạng cao hơn danh mục nhỏ biến động mạnh theo %. Có thể bổ sung CV (%) nếu cần (Phase 17 / 18).
+- Phân loại "yêu cầu ghi dữ liệu" và "ngoài phạm vi" là luật từ khoá (có dấu) — câu viết không dấu / diễn đạt lạ có thể lọt qua; khi đó model vẫn bị prompt + guard (cấm "tôi đã điều chỉnh…") giữ read-only vì không có tool ghi.
 
 ## 9. Handoff notes
 
 > Điền khi kết thúc phase.
 
-- **Ngày hoàn thành:**
+- **Ngày hoàn thành:** 2026-10-22 (bắt đầu 2026-10-21)
 - **Đã làm:**
+  - **Migration** `20261022_cd108ee2d244_financial_coach`: `chat_sessions` (`user_id` NULL, `title`, index `updated_at`) + `chat_messages` (FK `ON DELETE CASCADE`, CHECK `role`, `tool_calls` / `evidence` / `metadata` JSONB, index `(session_id, created_at)`). ORM `models/chat.py` (`ChatSession`, `ChatMessage.meta` ↔ cột `metadata`; `created_at` / `updated_at` đặt từ Python), enum `ChatRole`, `CoachGuardStatus`. Schemas `schemas/coach.py` (input / output 5 tool theo plan § 4.3 + thêm field, tool trace, evidence, metadata, API).
+  - **Deterministic (services, không AI):**
+    - `insight_service`: `get_spending_summary` (thu / chi / net, theo danh mục hoặc spending_type, `share_pct`; khoảng ≤ 366 ngày), `get_category_trend` (N = 2–12 tháng, mặc định kết thúc ở **tháng đã trọn gần nhất**; `totals_by_month`, `latest_total`, `previous_total`, `delta_vs_previous(_pct)`, `average`, `volatility` = population std (đồng, dùng `zone_service.history_stats`), `volatility_rank` (std lớn nhất = 1; hoà → tháng cuối lớn hơn, rồi slug), `irregular_total`, `most_volatile`), `get_budget_status` (Budget vs Actual + vùng rút gọn; tháng chưa có ngân sách active/closed → `available=false` + lý do), `get_budget_advice` (advice **đã có**, mặc định tháng gần nhất có advice; không tạo mới), `get_recent_reviews` (review tuần / tháng đã tạo). Hàm thuần `build_trend_items`, `trend_months`, `share_pct`, `change_pct`.
+    - `coach_guard`: `classify_request` (ngoài phạm vi: cổ phiếu / chứng khoán / crypto / đầu tư / thuế…; yêu cầu ghi: động từ ghi + đối tượng + "giúp/hộ/tự…" hoặc mở đầu bằng động từ, trừ câu có ý hỏi), `refusal_answer` (link `/budget`, `/budget/advice`, `/transactions`), `allowed_numbers`, `check_answer` (số ⊆ output tool, cụm cấm + tự nhận đã sửa dữ liệu, tên kỹ thuật, 3 phần + điều kiện), `fallback_answer`, `make_title`.
+    - `coach_evidence`: dòng evidence từ output tool, `select_evidence` (giữ dòng có số tiền được trích, mã E1…, `evidence_refs` từng tool call), `summarize_result`.
+    - `coach_service`: CRUD session (preview message cuối, số message), `send_message` (commit user message → `runner` → lưu assistant message + trace + evidence + metadata; tự đặt tiêu đề từ câu đầu).
+  - **AI / agent:** `ai/openai_client.chat_with_tools` (+ seam `_chat_tools`, map lỗi `AI_*` như cũ), `ai/coach_prompt.py` + prompt `prompts/coach_v1.md`, `core/ai_usage.py` (`UsageTotals`, `estimate_cost_vnd`, `log_usage`). `agents/tools/registry.py` (`CoachToolRegistry`, `ToolRecorder`, `COACH_TOOL_NAMES` gồm tool tương lai), `agents/tools/finance_tools.py` (5 `@tool` read-only chỉ gọi `insight_service`), `agents/coach_graph.py` (`scope_check` → `agent` ⇄ `ToolNode` (≤ 6 vòng, vòng cuối `tool_choice="none"`) → `response_guard` (viết lại ≤ 1 lần → fallback), `run_coach`).
+  - **API** `api/routers/coach.py`: `GET/POST /coach/sessions` (`?limit=1..100`), `GET/PATCH/DELETE /coach/sessions/{id}`, `POST /coach/sessions/{id}/messages` `{content, today?}` → `{session, user_message, assistant_message, tool_trace, evidence, guard_status}`. Lỗi: `chat_session_not_found` (404), `validation_error` (422), `AI_*` (503 / 502) — câu hỏi vẫn lưu.
+  - **Frontend:** `/coach` (`CoachPage`, `CoachSessionList`, `CoachChatWindow`, `CoachMessageBubble`, `CoachAnswerText`, `EvidenceTable`, `ToolTracePanel`, `SuggestedQuestionChips`), `lib/coach.ts` (câu gợi ý, nhãn guard / tool, gợi ý theo mã lỗi), type mới trong `lib/api.ts`, nav "Financial Coach" bật. `gen:api` chạy lại (chỉ thêm type).
+  - **Test:** 654 pass (+65): `tests/unit/test_coach_guard.py` (test case 4–6, phân loại câu hỏi, số từ khoá tháng / câu hỏi / ID, cấu trúc, tên kỹ thuật, fallback / template qua guard, tiêu đề), `tests/unit/test_coach_insights.py` (trend + hạng biến động / hoà / tháng trước = 0, evidence, tóm tắt, chi phí token), `tests/api/test_coach_tools.py` (test case 1, 2 trên DB, summary, advice / review thật, registry + schema tool), `tests/api/test_coach.py` (CRUD session, test case 3 với model giả gọi 2 tool, không sửa budget, lịch sử gửi kèm, test case 4 + yêu cầu ghi không gọi AI, guard viết lại / fallback, giới hạn 6 vòng, lỗi tool trả về model, test case 8: timeout → 503 `AI_TIMEOUT`, mất kết nối → 503 `AI_UNAVAILABLE`, chưa cấu hình → 503, user message còn). Dữ liệu `tests/coach_dataset.py`.
+  - **Golden AI** `tests/ai_golden/test_coach.py`: **5/5 pass** (`gpt-4o-2024-08-06`, cả 3 câu có AI đều `guard_status = passed` ngay lần đầu): "Tao nên giảm khoản nào?" gọi `get_category_trend` + `get_budget_status`, trích 4.200.000 / 3.800.000, gợi ý có điều kiện; "Tháng này khoản nào vượt budget?"; chống giọng phán xét; từ chối cổ phiếu / "Tự giảm budget mua sắm giúp tao". Toàn bộ `pytest -m ai`: **15/15 pass**.
+  - **Verify:** `alembic upgrade head` + `downgrade -1` + `upgrade head` + `alembic check` (DB dev), `ruff check .`, `ruff format --check .`, `pytest` (654), `pytest -m ai` (15), `npm run gen:api`, `npm run lint`, `npm run typecheck`, `npm run build` xanh; `npm run start` → `/`, `/coach`, `/budget?month=2026-10`, `/budget/advice`, `/transactions`, `/reviews/monthly/2026-10`, `/settings` trả 200. Smoke API + UI với **DB tạm `pfa_smoke`** (seed_demo 05–09/2026 + seed_scenario 10/2026, đã xoá; DB dev chỉ được migrate): hội thoại thật 5 câu (2 tool, guard passed; "Có khoản bất thường nào không?" guard viết lại 1 lần rồi pass; 2 câu từ chối không gọi AI), ngân sách không đổi; kịch bản UI mục 6: tạo cuộc trò chuyện bằng chip / ô nhập, thấy Quan sát / Vì sao / Bạn có thể cân nhắc + bảng "Dữ liệu đã dùng" (danh mục, tháng, số tiền), mở Tool trace thấy `get_category_trend` (`months=3`) và `get_budget_status`, refresh vẫn còn lịch sử + trace, "Tự giảm budget mua sắm giúp tao" → từ chối kèm link `/budget`, `/budget/advice`; đổi tên / xoá session; backend tắt / thiếu key → khung lỗi + "Gửi lại".
 - **Lệch so với plan (và lý do):**
+  - Thêm cột `chat_messages.evidence` (JSONB) để refresh trang vẫn hiện bảng "Dữ liệu đã dùng" (plan chỉ có `tool_calls` + `metadata`). Metadata thêm `prompt_version`, `llm_calls`, `tool_rounds`, `latency_ms`, `guard_problems`; tool trace thêm `result_count`, `error`. Role `tool` có trong CHECK nhưng Phase 10 không ghi message tool riêng (trace nằm trong assistant message) → mỗi lượt đúng 1 user + 1 assistant (test case 3).
+  - `GET /coach/sessions` trả `{items: [...]}` (quy ước danh sách của repo) thay vì mảng trần; summary thêm `message_count`, `created_at`. `POST /messages` nhận thêm `today` (như các endpoint review / advice) và response có `session`.
+  - Graph thêm node `scope_check` trước `agent`: câu hỏi đầu tư / crypto / thuế và **yêu cầu ghi dữ liệu** trả template deterministic, không gọi model (`guard_status = refused_out_of_scope | refused_write_request`). Guard status thêm `rewritten`, `fallback`.
+  - Orchestration: `coach_service.send_message` nhận `runner` do router truyền (`coach_graph.run_coach`) vì `services` không được import `agents`; graph gọi model qua `openai_client.chat_with_tools` (không thêm `langchain-openai`).
+  - Test case 8: timeout map sang `AI_TIMEOUT` (503) theo quy ước Phase 2; lỗi mạng / 5xx là `AI_UNAVAILABLE` (503) — cả hai đều 503 và giữ câu hỏi.
+  - Trend mặc định kết thúc ở tháng đã trọn gần nhất (test case 1: seed 09/2026 → `latest_total` là tháng 9); "biến động" = population std theo đồng.
+  - Index `chat_sessions(updated_at)` dạng btree thường (quét ngược cho DESC) thay vì `updated_at DESC` — tương đương, `alembic check` sạch.
 - **Nợ kỹ thuật / TODO để lại:**
+  - Plain JSON, chưa stream (SSE ở Phase 18 nếu cần). Không huỷ được câu hỏi đang chạy.
+  - Lịch sử gửi model chỉ gồm nội dung user / assistant (không gồm output tool cũ) → câu hỏi nối tiếp cần gọi lại tool để trích số; guard không cho dùng số từ lượt trước.
+  - Tập số được phép là tập giá trị (không theo ngữ cảnh) như Phase 6–8; model có thể ghép đúng số nhưng sai nhãn (vd số của tháng khác) mà guard không bắt. Model đôi khi suy đoán nguyên nhân ("có thể do thói quen…") — prompt cấm phán xét nhưng chưa cấm suy đoán.
+  - Phân loại ngoài phạm vi / yêu cầu ghi bằng từ khoá có dấu (xem mục 8). "đầu tư" bị từ chối cả khi nghĩa rộng ("đầu tư cho bản thân").
+  - Chưa có `user_id` thực (ADR-004), chưa giới hạn số session / message, chưa rate limit; chi phí token là ước tính theo bảng giá cố định trong `core/ai_usage.py` (tỉ giá 26.000).
+  - Nếu kết nối đứt sau khi backend đã nhận câu hỏi, UI bỏ bong bóng tạm nhưng câu hỏi có thể đã được lưu (thấy lại khi tải lại). Chưa có test tự động frontend (Phase 18).
 - **Lệnh hữu ích:**
-- **Gợi ý cho phase tiếp theo:**
+  - `(cd backend && pytest tests/unit/test_coach_guard.py tests/unit/test_coach_insights.py tests/api/test_coach.py tests/api/test_coach_tools.py -q)`
+  - `(cd backend && pytest -m ai tests/ai_golden/test_coach.py -s)`
+  - `curl -s -X POST localhost:8000/api/v1/coach/sessions -H "Content-Type: application/json" -d '{}'`
+  - `curl -s -X POST localhost:8000/api/v1/coach/sessions/<id>/messages -H "Content-Type: application/json" -d '{"content":"Tao nên giảm khoản nào?","today":"2026-10-21"}'`
+  - UI: `/coach?today=2026-10-21` (với dữ liệu `seed_scenario`).
+- **Gợi ý cho phase tiếp theo (Phase 11 — Goals + Pay Yourself First):**
+  - Thêm tool `get_goals`: viết factory trong `agents/tools/finance_tools.py` (hoặc file mới `goal_tools.py`) gọi `goal_service.list_goal_status()` qua một hàm trong `services/insight_service` (hoặc `goal_service`) trả Pydantic output, rồi `registry.register("get_goals", factory)` trong `default_registry()` — tên đã có trong `COACH_TOOL_NAMES`, không cần sửa graph. Thêm dòng evidence trong `coach_evidence.evidence_rows` + `summarize_result` cho output mới, và một dòng gợi ý chọn tool trong `prompts/coach_v1.md` (đổi tên `coach_v2.md` + `PROMPT_VERSION` nếu sửa prompt, chạy lại golden).
+  - Tool phải read-only: tạo contribution / xác nhận PYF là thao tác ghi → Coach chỉ dẫn link `/goals`; nếu thêm, cập nhật `coach_guard.WRITE_OBJECTS` (vd "mục tiêu" → `/goals`) và `LINK_LABELS`.
+  - Dòng nhóm `savings` hiện `status = not_tracked`, actual 0 trong `get_budget_status` — khi Phase 11 nối Goals/PYF, cập nhật `insight_service.get_budget_status` nếu cần hiển thị tiến độ tiết kiệm.
+  - DB dev: đã `alembic upgrade head` (có `chat_sessions` / `chat_messages`, chưa có hội thoại nào).
