@@ -366,6 +366,116 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/budget/advice/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Advisor Settings
+         * @description Ngưỡng decision tree (`app_settings.budget_advisor`).
+         */
+        get: operations["get_advisor_settings_api_v1_budget_advice_settings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Advisor Settings
+         * @description Sửa một phần ngưỡng; chỉ áp dụng cho advice tạo / tính lại sau đó.
+         */
+        patch: operations["update_advisor_settings_api_v1_budget_advice_settings_patch"];
+        trace?: never;
+    };
+    "/api/v1/budget/advice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Budget Advice
+         * @description Danh sách advice (tháng mới nhất trước, trong tháng theo thứ tự dòng ngân sách).
+         */
+        get: operations["list_budget_advice_api_v1_budget_advice_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/budget/advice/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate Budget Advice
+         * @description Tạo advice cho các dòng (trừ nhóm tiết kiệm) của budget active / closed tháng `month`.
+         *
+         *     Verdict + evidence deterministic (`advisor_rules`); AI (model fast) chỉ viết explanation —
+         *     AI lỗi → template. Dòng đã có advice `open` giữ nguyên trừ khi `regenerate`; dòng đã
+         *     accepted / dismissed không tạo lại. Trả mọi advice của tháng (lọc theo `allocation_id`).
+         */
+        post: operations["generate_budget_advice_api_v1_budget_advice_generate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/budget/advice/{advice_id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept Budget Advice
+         * @description User xác nhận (`confirm: true`) áp dụng `proposed_planned_amount` cho dòng cùng danh mục /
+         *     hũ ở budget tháng `target_month` (mặc định tháng sau; chưa có budget → tạo nháp copy từ tháng
+         *     của advice). Chỉ cho advice `adjust_budget` đang `open`.
+         */
+        post: operations["accept_budget_advice_api_v1_budget_advice__advice_id__accept_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/budget/advice/{advice_id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dismiss Budget Advice
+         * @description Bỏ qua advice (kèm lý do tuỳ chọn); không đổi ngân sách.
+         */
+        post: operations["dismiss_budget_advice_api_v1_budget_advice__advice_id__dismiss_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dashboard/month-summary": {
         parameters: {
             query?: never;
@@ -566,6 +676,126 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AdviceHistoryMonth */
+        AdviceHistoryMonth: {
+            /**
+             * Month
+             * Format: date
+             */
+            month: string;
+            /**
+             * Actual
+             * @description Tổng chi trong phạm vi dòng phân bổ của tháng
+             */
+            actual: number;
+            /** Transaction Count */
+            transaction_count: number;
+            /**
+             * Has Data
+             * @description Tháng có ít nhất 1 giao dịch chi trong phạm vi
+             */
+            has_data: boolean;
+            /**
+             * Over Planned
+             * @description actual > planned_amount (của tháng đang xét)
+             */
+            over_planned: boolean;
+        };
+        /** AdviceNarrative */
+        AdviceNarrative: {
+            /**
+             * Observation
+             * @description Nêu planned/actual/variance từ evidence
+             */
+            observation: string;
+            /**
+             * Explanation
+             * @description Giải thích verdict, không thêm số ngoài evidence
+             */
+            explanation: string;
+            /**
+             * Action
+             * @description Gợi ý có điều kiện; accept/dismiss do user quyết
+             */
+            action: string | null;
+            /**
+             * Tone
+             * @enum {string}
+             */
+            tone: "neutral" | "supportive";
+            /**
+             * Generated By
+             * @description ai | template (không dùng AI)
+             * @enum {string}
+             */
+            generated_by: "ai" | "template";
+            /**
+             * Fallback Reason
+             * @description Mã lý do dùng template khi AI lỗi: AI_NOT_CONFIGURED, AI_INVALID_OUTPUT…; null nếu dùng AI hoặc template theo thiết kế (verdict on_track)
+             */
+            fallback_reason?: string | null;
+        };
+        /** AdviceTransaction */
+        AdviceTransaction: {
+            /**
+             * Transaction Id
+             * Format: uuid
+             */
+            transaction_id: string;
+            /**
+             * Occurred On
+             * Format: date
+             */
+            occurred_on: string;
+            /** Note */
+            note: string | null;
+            /** Amount */
+            amount: number;
+            /** Category Name */
+            category_name: string;
+            /** Spending Type */
+            spending_type: ("essential" | "non_essential" | "irregular") | null;
+        };
+        /**
+         * AdvisorSettings
+         * @description Ngưỡng decision tree (docs/architecture/budget-adjustment.md § 1).
+         */
+        AdvisorSettings: {
+            /**
+             * One Off Share Threshold
+             * @description Giao dịch bất thường / đơn lẻ chiếm ≥ tỉ lệ này phần vượt → one_off
+             */
+            one_off_share_threshold: number;
+            /**
+             * Stable Cv Threshold
+             * @description CV (population std / mean) của actual ≤ ngưỡng → ổn định
+             */
+            stable_cv_threshold: number;
+            /**
+             * Min History Months
+             * @description Số tháng lịch sử tối thiểu
+             */
+            min_history_months: number;
+            /**
+             * Budget Rounding Step
+             * @description Bước làm tròn planned đề xuất (đồng)
+             */
+            budget_rounding_step: number;
+        };
+        /**
+         * AdvisorSettingsUpdate
+         * @description PATCH: chỉ field được gửi mới cập nhật.
+         */
+        AdvisorSettingsUpdate: {
+            /** One Off Share Threshold */
+            one_off_share_threshold?: number;
+            /** Stable Cv Threshold */
+            stable_cv_threshold?: number;
+            /** Min History Months */
+            min_history_months?: number;
+            /** Budget Rounding Step */
+            budget_rounding_step?: number;
+        };
         /** AllocationScopeRead */
         AllocationScopeRead: {
             /**
@@ -640,6 +870,285 @@ export interface components {
              */
             status: "on_track" | "ahead_of_pace" | "over_budget" | "not_tracked";
             top_contributor: components["schemas"]["TopContributorRead"] | null;
+        };
+        /** AppliedBudgetRead */
+        AppliedBudgetRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Period Month
+             * Format: date
+             */
+            period_month: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "active" | "closed";
+            /**
+             * Created
+             * @description true nếu vừa tạo nháp (copy từ tháng của advice)
+             */
+            created: boolean;
+        };
+        /** BudgetAdviceAcceptRequest */
+        BudgetAdviceAcceptRequest: {
+            /**
+             * Confirm
+             * @description Bắt buộc true — user xác nhận áp dụng
+             * @default false
+             */
+            confirm?: boolean;
+            /**
+             * Target Month
+             * @description Tháng áp dụng (mặc định tháng sau tháng của advice)
+             */
+            target_month?: string | null;
+            /**
+             * Confirm Over Income
+             * @description Bắt buộc true nếu planned mới làm tổng vượt thu nhập dự kiến
+             * @default false
+             */
+            confirm_over_income?: boolean;
+        };
+        /** BudgetAdviceAcceptResult */
+        BudgetAdviceAcceptResult: {
+            advice: components["schemas"]["BudgetAdviceRead"];
+            updated_allocation: components["schemas"]["BudgetAllocationRead"];
+            budget: components["schemas"]["AppliedBudgetRead"];
+        };
+        /** BudgetAdviceDismissRequest */
+        BudgetAdviceDismissRequest: {
+            /** Reason */
+            reason?: string | null;
+        };
+        /**
+         * BudgetAdviceEvidence
+         * @description Số liệu deterministic làm căn cứ cho verdict — nguồn số duy nhất của explanation.
+         */
+        BudgetAdviceEvidence: {
+            /** Allocation Label */
+            allocation_label: string;
+            /**
+             * Group
+             * @enum {string}
+             */
+            group: "essential" | "wants" | "savings" | "irregular";
+            /** Category Slug */
+            category_slug: string | null;
+            /**
+             * Month
+             * Format: date
+             */
+            month: string;
+            /**
+             * As Of
+             * Format: date
+             * @description Ngày tính số liệu (≤ cuối tháng)
+             */
+            as_of: string;
+            /** Month Complete */
+            month_complete: boolean;
+            /** Planned Amount */
+            planned_amount: number;
+            /** Actual Amount */
+            actual_amount: number;
+            /**
+             * Variance
+             * @description actual_amount - planned_amount
+             */
+            variance: number;
+            /**
+             * Comfort High
+             * @description Ngưỡng trên vùng an toàn (Phase 9), nếu có
+             */
+            comfort_high: number | null;
+            /**
+             * Comfort High Used
+             * @description true nếu so với comfort_high thay vì planned
+             */
+            comfort_high_used: boolean;
+            /**
+             * Threshold Amount
+             * @description comfort_high nếu có, ngược lại planned_amount
+             */
+            threshold_amount: number;
+            /**
+             * Over Amount
+             * @description max(0, actual_amount - threshold_amount)
+             */
+            over_amount: number;
+            /** Transaction Count */
+            transaction_count: number;
+            largest_transaction: components["schemas"]["AdviceTransaction"] | null;
+            /**
+             * Single Transaction Share
+             * @description Giao dịch lớn nhất / phần vượt (tối đa 1); null nếu không vượt
+             */
+            single_transaction_share: number | null;
+            /** Single Transaction Share Pct */
+            single_transaction_share_pct: number | null;
+            /**
+             * Irregular Total
+             * @description Tổng giao dịch spending_type = irregular
+             */
+            irregular_total: number;
+            /**
+             * Irregular Share
+             * @description irregular_total / phần vượt (tối đa 1); null nếu không vượt
+             */
+            irregular_share: number | null;
+            /** Irregular Share Pct */
+            irregular_share_pct: number | null;
+            /** @description Giao dịch bất thường lớn nhất (nếu có) */
+            irregular_transaction: components["schemas"]["AdviceTransaction"] | null;
+            /** @description Giao dịch ngoại lệ được chỉ ra khi verdict = one_off */
+            one_off_transaction: components["schemas"]["AdviceTransaction"] | null;
+            /**
+             * History Actuals
+             * @description min_history_months tháng gần nhất, tính cả tháng đang xét, cũ nhất trước
+             */
+            history_actuals: components["schemas"]["AdviceHistoryMonth"][];
+            /**
+             * History Months
+             * @description Số tháng trong history_actuals có dữ liệu
+             */
+            history_months: number;
+            /** Min History Months */
+            min_history_months: number;
+            /**
+             * All Over Planned
+             * @description Mọi tháng trong history_actuals đều vượt planned
+             */
+            all_over_planned: boolean;
+            /**
+             * Cv
+             * @description Population std / mean của history_actuals (4 chữ số)
+             */
+            cv: number | null;
+            /** Cv Pct */
+            cv_pct: number | null;
+            /** History Median */
+            history_median: number | null;
+            /**
+             * Proposed Planned Amount
+             * @description Chỉ khi verdict = adjust_budget: median làm tròn budget_rounding_step
+             */
+            proposed_planned_amount: number | null;
+            /** One Off Share Threshold Pct */
+            one_off_share_threshold_pct: number;
+            /** Stable Cv Threshold Pct */
+            stable_cv_threshold_pct: number;
+            /** Budget Rounding Step */
+            budget_rounding_step: number;
+            /**
+             * Rule
+             * @description Nhánh của decision tree dẫn tới verdict
+             * @enum {string}
+             */
+            rule: "within_plan" | "one_off_irregular" | "one_off_single_transaction" | "insufficient_history" | "stable_overspend" | "unstable_overspend";
+        };
+        /** BudgetAdviceGenerateRequest */
+        BudgetAdviceGenerateRequest: {
+            /**
+             * Month
+             * Format: date
+             * @description Ngày 1 của tháng, vd. 2026-10-01
+             */
+            month: string;
+            /**
+             * Allocation Id
+             * @description Chỉ tạo cho 1 dòng phân bổ của tháng; null = mọi dòng
+             */
+            allocation_id?: string | null;
+            /**
+             * Regenerate
+             * @description true → tính lại advice đang open (gọi lại AI)
+             * @default false
+             */
+            regenerate?: boolean;
+            /**
+             * Today
+             * @description Hôm nay phía user (mặc định server)
+             */
+            today?: string | null;
+        };
+        /** BudgetAdviceList */
+        BudgetAdviceList: {
+            /** Items */
+            items: components["schemas"]["BudgetAdviceRead"][];
+        };
+        /** BudgetAdviceRead */
+        BudgetAdviceRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Budget Allocation Id
+             * Format: uuid
+             */
+            budget_allocation_id: string;
+            /**
+             * Budget Id
+             * Format: uuid
+             */
+            budget_id: string;
+            /**
+             * Month
+             * Format: date
+             */
+            month: string;
+            /** Allocation Label */
+            allocation_label: string;
+            /**
+             * Group
+             * @enum {string}
+             */
+            group: "essential" | "wants" | "savings" | "irregular";
+            category: components["schemas"]["CategoryBrief"] | null;
+            /** Jar Name */
+            jar_name: string | null;
+            /**
+             * Verdict
+             * @enum {string}
+             */
+            verdict: "adjust_budget" | "adjust_behavior" | "one_off" | "on_track";
+            evidence: components["schemas"]["BudgetAdviceEvidence"];
+            /** Explanation */
+            explanation: string;
+            narrative: components["schemas"]["AdviceNarrative"] | null;
+            /**
+             * Model
+             * @description Tên model AI, `template` hoặc `fallback_template`
+             */
+            model: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "open" | "accepted" | "dismissed";
+            /**
+             * Applied Month
+             * @description Tháng đã áp dụng planned mới (accepted)
+             */
+            applied_month: string | null;
+            /** Dismiss Reason */
+            dismiss_reason: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
         /** BudgetAllocationDraft */
         BudgetAllocationDraft: {
@@ -3492,6 +4001,242 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_advisor_settings_api_v1_budget_advice_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdvisorSettings"];
+                };
+            };
+        };
+    };
+    update_advisor_settings_api_v1_budget_advice_settings_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdvisorSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdvisorSettings"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_budget_advice_api_v1_budget_advice_get: {
+        parameters: {
+            query?: {
+                /** @description Một ngày trong tháng, vd 2026-10-01 */
+                month?: string | null;
+                /** @description open | accepted | dismissed */
+                status?: ("open" | "accepted" | "dismissed") | null;
+                allocation_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetAdviceList"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    generate_budget_advice_api_v1_budget_advice_generate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BudgetAdviceGenerateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetAdviceList"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    accept_budget_advice_api_v1_budget_advice__advice_id__accept_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                advice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BudgetAdviceAcceptRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetAdviceAcceptResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    dismiss_budget_advice_api_v1_budget_advice__advice_id__dismiss_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                advice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BudgetAdviceDismissRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetAdviceRead"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

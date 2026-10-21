@@ -14,6 +14,8 @@ AllocationGroup = Literal["essential", "wants", "savings", "irregular"]
 ReviewPeriod = Literal["week", "month"]
 ReviewStatus = Literal["generated", "completed"]
 ReviewKind = Literal["weekly", "monthly"]
+AdviceVerdict = Literal["adjust_budget", "adjust_behavior", "one_off", "on_track"]
+AdviceStatus = Literal["open", "accepted", "dismissed"]
 
 DIRECTIONS: tuple[str, ...] = get_args(Direction)
 SPENDING_TYPES: tuple[str, ...] = get_args(SpendingType)
@@ -23,6 +25,8 @@ BUDGET_STATUSES: tuple[str, ...] = get_args(BudgetStatus)
 ALLOCATION_GROUPS: tuple[str, ...] = get_args(AllocationGroup)
 REVIEW_STATUSES: tuple[str, ...] = get_args(ReviewStatus)
 REVIEW_KINDS: tuple[str, ...] = get_args(ReviewKind)
+ADVICE_VERDICTS: tuple[str, ...] = get_args(AdviceVerdict)
+ADVICE_STATUSES: tuple[str, ...] = get_args(AdviceStatus)
 
 
 def sql_in(values: tuple[str, ...]) -> str:

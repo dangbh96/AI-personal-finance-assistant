@@ -110,7 +110,11 @@ erDiagram
         text verdict "adjust_budget | adjust_behavior | one_off | on_track"
         jsonb evidence
         text explanation
+        jsonb narrative "P8: 3 tầng + generated_by + fallback_reason"
+        text model
         text status "open | accepted | dismissed"
+        date applied_month "P8: tháng đã áp dụng planned mới"
+        text dismiss_reason
     }
     WEEKLY_REVIEW {
         uuid id PK
@@ -243,7 +247,7 @@ Tên trong bảng dưới là **tên bảng thực tế** (số nhiều snake_ca
 | 5 | — (chỉ query/aggregate) |
 | 6 | `weekly_reviews`, `reflection_answers` |
 | 7 | `monthly_reviews` |
-| 8 | `budget_advice` |
+| 8 | `budget_advice` (tên bảng giữ dạng không đếm được `advice`), `app_settings.budget_advisor` |
 | 9 | `budget_allocations.comfort_low/comfort_high/warning_threshold/zone_mode` |
 | 10 | `chat_sessions`, `chat_messages` |
 | 11 | `goals`, `goal_contributions` |
@@ -300,3 +304,9 @@ Tên trong bảng dưới là **tên bảng thực tế** (số nhiều snake_ca
 **Phase 7** (migration `20261021_79e40a3c073b_monthly_review`):
 - `monthly_reviews`: `UNIQUE (month)`, CHECK `extract(day from month) = 1`, `status IN (generated, completed)`; cùng cột với `weekly_reviews` (`metrics`, `narrative`, `model`, `status`, `user_id` nullable). `metrics` JSONB = `MonthlyReviewMetrics` = `ReviewMetrics` (chung với tuần) + `saved`, `savings_rate_pct` (1 chữ số, `null` khi thu = 0), `previous_saved`, `previous_savings_rate_pct`, `saved_change`, `income_change(_pct)`, `spending_type_pct` (tỉ trọng 1 chữ số), `regular_expense` (= chi − bất thường), `previous_regular_expense`, `regular_expense_change_pct`, `irregular_change`, `increase_driver` (`irregular` khi chi bất thường tăng ≥ 50% mức tăng tổng; `null` khi chi không tăng / tháng trước không có chi), `irregular_items` (≤ 5), `budget` (`MonthlyBudgetSummary` — chỉ khi budget active/closed: dòng planned/actual/variance/status, tối đa 3 `over_lines`, `unbudgeted_actual`), `weekly_reflections` (phản tư của các review tuần có **Thứ Hai trong tháng**, câu trả lời cắt 300 ký tự, giao dịch đánh dấu đã xoá bị bỏ), `flagged_count` / `flagged_total` (giao dịch khác nhau). `narrative` cùng shape với tuần.
 - `reflection_answers` dùng lại với `review_kind = 'monthly'`, `review_id = monthly_reviews.id`; giao dịch đánh dấu phải là khoản **chi** trong tháng (khác tháng → 422 `flagged_transaction_out_of_month`).
+
+**Phase 8** (migration `20261021_461f51a98cbc_budget_advice`):
+- `budget_advice`: CHECK `extract(day from month) = 1`, `verdict IN (adjust_budget, adjust_behavior, one_off, on_track)`, `status IN (open, accepted, dismissed)` (mặc định `open`); FK `budget_allocation_id` → `budget_allocations` `ON DELETE CASCADE` (xoá budget nháp / thay phân bổ bằng PATCH → advice của dòng cũ mất theo); **unique một phần** `uq_budget_advice_open_allocation_month (budget_allocation_id, month) WHERE status = 'open'`; index `month`, `budget_allocation_id`; `user_id` nullable. Cột thêm so với thiết kế: `narrative JSONB` (`observation`, `explanation`, `action`, `tone`, `generated_by = ai | template`, `fallback_reason`), `model` (tên model / `template` / `fallback_template`), `applied_month DATE` (accept), `dismiss_reason TEXT`. `explanation` = 3 tầng nối thành 1 đoạn.
+- `evidence` JSONB = `BudgetAdviceEvidence` (do `services/advisor_rules` tính): `allocation_label`, `group`, `category_slug`, `month`, `as_of`, `month_complete`, `planned_amount`, `actual_amount`, `variance`, `comfort_high` (Phase 9), `comfort_high_used`, `threshold_amount`, `over_amount`, `transaction_count`, `largest_transaction`, `single_transaction_share(_pct)`, `irregular_total`, `irregular_share(_pct)`, `irregular_transaction`, `one_off_transaction`, `history_actuals[{month, actual, transaction_count, has_data, over_planned}]` (`min_history_months` tháng, tính cả tháng xét, cũ nhất trước), `history_months`, `min_history_months`, `all_over_planned`, `cv`/`cv_pct` (population std / mean), `history_median`, `proposed_planned_amount` (chỉ `adjust_budget`), `one_off_share_threshold_pct`, `stable_cv_threshold_pct`, `budget_rounding_step`, `rule` (`within_plan | one_off_irregular | one_off_single_transaction | insufficient_history | stable_overspend | unstable_overspend`).
+- `app_settings.budget_advisor` (seed trong migration): `{"one_off_share_threshold": 0.6, "stable_cv_threshold": 0.15, "min_history_months": 3, "budget_rounding_step": 100000}`; key thiếu / giá trị sai kiểu → service dùng mặc định.
+- Accept ghi vào `budget_allocations` của tháng đích qua `budget_service.set_allocation_planned` — sửa `planned_amount` **tại chỗ** (giữ id dòng), thiếu dòng thì thêm dòng cuối; tháng đích chưa có budget → tạo nháp copy từ tháng của advice (cùng commit).

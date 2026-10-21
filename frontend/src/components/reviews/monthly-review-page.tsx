@@ -1,8 +1,15 @@
 "use client";
 
-import { ArrowRightIcon, ChevronLeftIcon, ChevronRightIcon, RefreshCwIcon } from "lucide-react";
+import {
+  ArrowRightIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  RefreshCwIcon,
+  SparklesIcon,
+} from "lucide-react";
 import { io } from "next/cache";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { use, useState } from "react";
 
 import { BudgetActualMiniTable } from "@/components/reviews/budget-actual-mini-table";
@@ -37,10 +44,11 @@ import { useApiData } from "@/hooks/use-api-data";
 import {
   apiRequest,
   describeError,
+  type BudgetAdviceGenerateRequest,
   type MonthlyReview,
   type MonthlyReviewGenerateRequest,
 } from "@/lib/api";
-import { shiftMonth } from "@/lib/dates";
+import { shiftMonth, todayISO } from "@/lib/dates";
 import { formatMonthLabel } from "@/lib/format";
 
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -74,26 +82,71 @@ function MonthNav({ month, today }: { month: string; today: string }) {
   );
 }
 
-/** CTA sang Budget advisor (Phase 8 sẽ hiện nội dung). */
-function BudgetAdviceCta({ month, hasOverBudget }: { month: string; hasOverBudget: boolean }) {
+/** CTA tạo tư vấn điều chỉnh ngân sách cho tháng (Phase 8) rồi chuyển sang `/budget/advice`. */
+function BudgetAdviceCta({
+  month,
+  today,
+  hasBudget,
+  hasOverBudget,
+}: {
+  month: string;
+  today: string;
+  hasBudget: boolean;
+  hasOverBudget: boolean;
+}) {
+  const router = useRouter();
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const todayQuery = today !== todayISO() ? `&today=${today}` : "";
+  const adviceHref = `/budget/advice?month=${month}-01${todayQuery}`;
+
+  async function generate() {
+    setGenerating(true);
+    setError(null);
+    try {
+      const body: BudgetAdviceGenerateRequest = { month: `${month}-01`, today };
+      await apiRequest("POST", "/budget/advice/generate", body);
+      router.push(adviceHref);
+    } catch (err) {
+      setError(describeError(err));
+      setGenerating(false);
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Chuẩn bị cho tháng tới</CardTitle>
         <CardDescription>
-          {hasOverBudget
-            ? "Có dòng ngân sách vượt kế hoạch. Phần tư vấn sẽ giúp bạn phân biệt: nên chỉnh ngân sách, chỉnh thói quen, hay chỉ là khoản một lần."
-            : "Xem gợi ý điều chỉnh ngân sách dựa trên số liệu tháng này."}
+          {!hasBudget
+            ? "Tháng này chưa có ngân sách đang theo dõi nên chưa có tư vấn điều chỉnh."
+            : hasOverBudget
+              ? "Có dòng ngân sách vượt kế hoạch. Phần tư vấn giúp bạn phân biệt: ngân sách đặt thấp, nhịp chi cần xem lại, hay chỉ là khoản một lần."
+              : "Xem gợi ý điều chỉnh ngân sách dựa trên số liệu tháng này."}
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <Link
-          href={`/budget/advice?month=${month}-01`}
-          className={buttonVariants({ variant: hasOverBudget ? "default" : "outline" })}
-        >
-          Xem tư vấn điều chỉnh ngân sách
-          <ArrowRightIcon />
-        </Link>
+      <CardContent className="flex flex-col items-start gap-3">
+        <div className="flex flex-wrap gap-2">
+          {hasBudget && (
+            <Button
+              onClick={generate}
+              disabled={generating}
+              variant={hasOverBudget ? "default" : "outline"}
+            >
+              <SparklesIcon />
+              {generating ? "Đang tạo tư vấn…" : "Tạo tư vấn điều chỉnh"}
+            </Button>
+          )}
+          <Link href={adviceHref} className={buttonVariants({ variant: "ghost" })}>
+            Xem tư vấn đã có
+            <ArrowRightIcon />
+          </Link>
+        </div>
+        {error && (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        )}
       </CardContent>
     </Card>
   );
@@ -255,6 +308,8 @@ export function MonthlyReviewPage({ month }: { month: string }) {
           />
           <BudgetAdviceCta
             month={month}
+            today={today}
+            hasBudget={Boolean(data.metrics.budget)}
             hasOverBudget={(data.metrics.budget?.over_budget_count ?? 0) > 0}
           />
         </>

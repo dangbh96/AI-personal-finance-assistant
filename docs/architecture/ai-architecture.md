@@ -8,7 +8,7 @@
 | Phân loại category × spending_type | 2, 3 | Structured Outputs + few-shot từ `classification_preference`; exact-match preference → deterministic | `gpt-4o-mini` | `ClassificationSuggestion` (kèm `confidence`, `reason`) |
 | Parse câu sở thích phân loại ("Tao coi giày là thiết yếu") | 3 | Structured Outputs | `gpt-4o-mini` | `PreferenceDraft` |
 | Weekly / Monthly review narrative | 6, 7 | LangGraph workflow, input là metrics đã tính sẵn | `gpt-4o` | `ReviewNarrative` |
-| Giải thích Budget advice | 8 | Structured Outputs, input là `evidence` deterministic | `gpt-4o-mini` | `explanation` |
+| Giải thích Budget advice | 8 | Structured Outputs, input là `evidence` deterministic; validate + template dự phòng | `gpt-4o-mini` (`OPENAI_MODEL_FAST`) | `BudgetAdviceExplanation` (3 tầng) |
 | Financial Coach | 10, 16 | LangGraph ReAct agent + function calling (LangChain tools) | `gpt-4o` | Chat message + tool calls |
 | Đọc hoá đơn | 13 | Vision input + Structured Outputs | `gpt-4o` | `ReceiptExtraction` |
 | Phân loại hàng loạt khi import | 14 | Batch classify (gom 20 dòng / request) | `gpt-4o-mini` | `list[ClassificationSuggestion]` |
@@ -26,7 +26,7 @@ Tên model đọc từ env (`OPENAI_MODEL_FAST`, `OPENAI_MODEL_SMART`) — khôn
 4. **AI không quyết định thay user:** luôn trả draft/gợi ý, user xác nhận.
 5. Ngôn ngữ: tiếng Việt, xưng "bạn".
 
-Prompt lưu ở `backend/app/ai/prompts/*.md` (có version trong tên hoặc header), không inline dài trong code. Phase 3: `nl_transaction_parse.v3.md` (placeholder `{{today}}`, `{{calendar}}`, `{{categories}}`, `{{preferences}}`, `{{amount_hints}}`… do `nl_transaction_parser.build_messages` điền; v3 = v2 + mục "Sở thích phân loại của người dùng") và `classification_preference_parse.v1.md`. Phase 6: `review_narrative.v1.md` (`{{period_word}}`, `{{period_label}}`, `{{metrics_json}}`, `{{allowed_numbers}}`). Phase 7: `review_narrative_month.v1.md` (cùng placeholder).
+Prompt lưu ở `backend/app/ai/prompts/*.md` (có version trong tên hoặc header), không inline dài trong code. Phase 3: `nl_transaction_parse.v3.md` (placeholder `{{today}}`, `{{calendar}}`, `{{categories}}`, `{{preferences}}`, `{{amount_hints}}`… do `nl_transaction_parser.build_messages` điền; v3 = v2 + mục "Sở thích phân loại của người dùng") và `classification_preference_parse.v1.md`. Phase 6: `review_narrative.v1.md` (`{{period_word}}`, `{{period_label}}`, `{{metrics_json}}`, `{{allowed_numbers}}`). Phase 7: `review_narrative_month.v1.md` (cùng placeholder). Phase 8: `budget_advice_explanation.v1.md` (xem § 4b).
 
 ## 3. Structured output chính (phác thảo)
 
@@ -92,6 +92,16 @@ Mở rộng Phase 7 (`period = month`, cùng graph — không có workflow riên
 - `review_writer` chọn prompt theo kỳ: `review_narrative_month.v1.md` (bắt buộc nêu khoản bất thường khi `increase_driver = irregular`, chỉ gợi ý "xem tư vấn điều chỉnh ngân sách", không tự kết luận ngân sách/hành vi sai). Metrics gửi model và tập số được phép dùng chung `review_narrative.metrics_payload` (bỏ mọi khoá `id`/`*_id`/`*_ids`/`key`/`icon`).
 - `validate` thêm cho tháng: chi tăng chủ yếu do khoản bất thường → observation/explanation phải chứa số tiền khoản bất thường lớn nhất. Cụm cấm thêm (cả tuần): "kém kỷ luật", "thiếu kỷ luật", "thói quen xấu", "ngân sách sai", "đặt sai ngân sách", "ngân sách đặt sai", "ngân sách không/chưa hợp lý", `adjust_budget`, `adjust_behavior`.
 - Fallback tháng: thu/chi/còn lại/tỉ lệ tiết kiệm, nguyên nhân (khoản bất thường hoặc danh mục), cơ cấu kèm %, ý đáng chú ý ưu tiên dòng vượt ngân sách → khoản bất thường → khoản đã đánh dấu trong tuần → cụm lặp; câu hỏi "giữ gì / điều chỉnh gì cho tháng tới".
+
+## 4b. Giải thích Budget advice (Phase 8)
+
+Không dùng LangGraph — một lời gọi Structured Outputs cho mỗi advice (`app/ai/advice_writer.py`):
+
+- Input: `verdict` + `evidence` do `services/advisor_rules` tính sẵn (decision tree ở [budget-adjustment.md](./budget-adjustment.md)). Model **không** quyết định verdict.
+- Prompt `budget_advice_explanation.v1.md` (`{{verdict}}`, `{{verdict_label}}`, `{{verdict_guide}}` — hướng dẫn riêng từng verdict, `{{evidence_json}}` — evidence bỏ ID, `{{allowed_numbers}}`). Model `OPENAI_MODEL_FAST`, timeout 30s, output `BudgetAdviceExplanation` (`observation`, `explanation`, `action`, `tone`).
+- Validate (`services/advice_narrative.validate_explanation`, truyền vào `structured_completion(validate=…)` → sai thì model sửa 1 lần): số ⊆ evidence; cụm phán xét (+ "sai lầm"); cấm tự nhận đã làm ("tôi đã điều chỉnh", "đã cập nhật ngân sách", "app đã"…); verdict ≠ `adjust_budget` cấm gợi ý tăng ngân sách; `adjust_budget` phải nêu `proposed_planned_amount`; `one_off` phải nêu số tiền giao dịch ngoại lệ; action có điều kiện (bắt buộc trừ `on_track`); cấm lộ tên trường / mã kỹ thuật (`cv_pct`, `adjust_budget`).
+- Vẫn sai hoặc AI lỗi → `template_explanation` (deterministic, luôn qua validate), `model = fallback_template`, `narrative.fallback_reason` = mã lỗi. Verdict `on_track` luôn dùng template (`model = template`, không gọi AI). Nhiều advice → gọi song song (tối đa 4).
+- Golden: `tests/ai_golden/test_budget_advice_explanation.py` (Ăn uống `adjust_budget`, Laptop `one_off`, Giải trí `adjust_behavior`, chống prompt phán xét).
 
 ## 5. LangGraph — Financial Coach graph (Phase 10, 16)
 

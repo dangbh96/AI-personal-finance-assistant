@@ -5,9 +5,9 @@
 
 ## Phase hiện tại
 
-**Tiếp theo: [Phase 8 — Budget adjustment advisor](./phases/phase-08-budget-advisor.md)** · **M4 (MVP) đã đạt** sau Phase 7
+**Tiếp theo: [Phase 9 — Flexible budget zones](./phases/phase-09-flexible-zones.md)** · **M4 (MVP) đã đạt** sau Phase 7
 
-Handoff Phase 7: xem [phase-07-monthly-review.md § 9](./phases/phase-07-monthly-review.md#9-handoff-notes). Review tháng chạy cùng LangGraph `review_graph` (`period=month`, persister `month`, prompt `review_narrative_month.v1.md`); `MonthlyReviewMetrics` có tiết kiệm/tỉ lệ, tỉ trọng spending_type, `increase_driver` + `irregular_items`, `budget` (planned/actual, `over_lines`) và phản tư các tuần — đủ evidence cho advisor. API `/reviews/monthly*` (+ preview `/{month}/metrics`), UI `/reviews/monthly/[month]` (Recharts) với CTA tới trang giữ chỗ `/budget/advice?month=YYYY-MM-01` mà Phase 8 thay bằng UI thật. Lưu ý: `adjust_budget`/`adjust_behavior` là cụm cấm trong narrative review. Postgres vẫn ở **port 5433**.
+Handoff Phase 8: xem [phase-08-budget-advisor.md § 9](./phases/phase-08-budget-advisor.md#9-handoff-notes). Budget advisor deterministic (`services/advisor_rules` — decision tree 60% / CV 15% population / 3 tháng tính cả tháng xét / làm tròn 100.000, ngưỡng ở `app_settings.budget_advisor`), bảng `budget_advice` (1 advice `open` / dòng / tháng), AI (`OPENAI_MODEL_FAST`) chỉ viết explanation 3 tầng từ evidence, sai/lỗi → template. API `/budget/advice*` (generate / list / accept cần `confirm: true` → sửa dòng tháng sau qua `budget_service`, tạo nháp nếu chưa có / dismiss / settings), UI `/budget/advice` + CTA "Tạo tư vấn điều chỉnh" ở review tháng. Phase 9: advisor đọc `getattr(allocation, "comfort_high", None)` — thêm cột là advisor tự so với `comfort_high`; nhớ copy/tính lại cột zone khi copy budget và khi accept đổi planned. Postgres vẫn ở **port 5433**.
 
 ## Bảng trạng thái
 
@@ -22,7 +22,7 @@ Handoff Phase 7: xem [phase-07-monthly-review.md § 9](./phases/phase-07-monthly
 | 5 | [Budget vs Actual](./phases/phase-05-budget-vs-actual.md) | Done | 2026-10-20 | 2026-10-20 | M3 ✅ | 369 test; thêm `not_tracked` (savings), `unbudgeted_actual` |
 | 6 | [Weekly review](./phases/phase-06-weekly-review.md) | Done | 2026-10-20 | 2026-10-21 | | 440 test; golden AI 2/2 (gpt-4o); LangGraph 1.2 |
 | 7 | [Monthly review](./phases/phase-07-monthly-review.md) | Done | 2026-10-21 | 2026-10-21 | M4 (MVP) ✅ | 491 test; golden AI 2/2 (gpt-4o); Recharts 3 |
-| 8 | [Budget adjustment advisor](./phases/phase-08-budget-advisor.md) | Not started | | | | |
+| 8 | [Budget adjustment advisor](./phases/phase-08-budget-advisor.md) | Done | 2026-10-21 | 2026-10-21 | | 547 test; golden AI 4/4 (gpt-4o-mini) |
 | 9 | [Flexible budget zones](./phases/phase-09-flexible-zones.md) | Not started | | | | |
 | 10 | [Financial Coach](./phases/phase-10-financial-coach.md) | Not started | | | M5 | |
 | 11 | [Goals + Pay Yourself First](./phases/phase-11-goals-pyf.md) | Not started | | | | |
@@ -76,6 +76,9 @@ Handoff Phase 7: xem [phase-07-monthly-review.md § 9](./phases/phase-07-monthly
 | 2026-10-21 | 7 | `MonthlyReviewMetrics` giữ tên chung `income`/`expense`/`net` + `saved`; so sánh tháng trước trải phẳng (`income_change_pct`, `saved_change`…); % tỉ trọng ở `spending_type_pct` (1 chữ số); thêm `regular_expense*`, `irregular_change`, `increase_driver` | Dùng chung schema/fallback/UI với review tuần; cần tín hiệu deterministic "tăng do khoản một lần" để AI không quy kết thói quen |
 | 2026-10-21 | 7 | Validate tháng: chi tăng chủ yếu do khoản bất thường → phải nêu khoản đó; cụm cấm thêm "kém kỷ luật", "ngân sách sai", `adjust_budget`… (áp cho cả tuần); số được phép / prompt bỏ ID theo tên khoá | Guardrail mục 4.3; review không đưa verdict trước Phase 8 |
 | 2026-10-21 | 7 | Phản tư tuần thuộc tháng = review tuần có Thứ Hai trong tháng; thêm `/reviews/monthly` (index) và trang giữ chỗ `/budget/advice`; thêm `recharts` + `react-is` | Quy tắc gán tuần rõ ràng; CTA điều hướng được trước khi có Phase 8 |
+| 2026-10-21 | 8 | Bước 2 decision tree = **tổng** giao dịch `irregular` hoặc 1 giao dịch đơn lẻ ≥ 60% phần vượt; lịch sử 3 tháng **tính cả tháng đang xét** (tháng có dữ liệu = có giao dịch trong phạm vi dòng); CV population; advice cho mọi dòng trừ nhóm `savings` (kể cả hũ / dòng nhóm, theo `allocation_scope` Phase 4) | Plan chưa định nghĩa "có giao dịch irregular" (1 khoản nhỏ không nên biến cả dòng thành one_off) và "lịch sử"; mapping hũ đã rõ từ Phase 4 |
+| 2026-10-21 | 8 | `budget_advice` thêm `narrative` JSONB, `model`, `applied_month`, `dismiss_reason`; evidence thêm `rule`, `*_pct`, `one_off_transaction`, `history_median`…; generate nhận `regenerate`/`today`, yêu cầu budget active/closed, không tạo lại advice đã accepted/dismissed; accept thêm `confirm_over_income`, trả thêm `budget{created}`; `on_track` dùng template (không gọi AI) | UI cần 3 tầng + nguồn văn bản + kết quả quyết định; AI/template chỉ được trích số có sẵn; tái dùng quy tắc vượt thu nhập Phase 4 |
+| 2026-10-21 | 8 | Accept sửa dòng tháng đích **tại chỗ** (`budget_service.set_allocation_planned`, giữ id) thay vì PATCH thay toàn bộ phân bổ; `copy_from_previous_month` tách `_copy_budget` (không commit) để tạo nháp + sửa dòng + đánh dấu advice trong 1 commit | Atomic, không làm mất advice (FK cascade) của tháng đích |
 
 ## Câu hỏi mở xuyên suốt
 

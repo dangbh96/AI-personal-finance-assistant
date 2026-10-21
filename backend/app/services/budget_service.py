@@ -605,6 +605,14 @@ def copy_from_previous_month(db: Session, to_month: date, from_month: date | Non
 
     Dòng theo danh mục đã bị ẩn không được copy.
     """
+    budget = _copy_budget(db, to_month, from_month)
+    db.commit()
+    db.refresh(budget)
+    return budget
+
+
+def _copy_budget(db: Session, to_month: date, from_month: date | None = None) -> Budget:
+    """Như `copy_from_previous_month` nhưng chỉ flush (caller commit)."""
     from_month = from_month or add_months(to_month, -1)
     if from_month == to_month:
         raise DomainError("Tháng nguồn và tháng đích phải khác nhau", "same_month")
@@ -626,6 +634,80 @@ def copy_from_previous_month(db: Session, to_month: date, from_month: date | Non
         [a for a in source.allocations if a.category is None or not a.category.is_archived],
     )
     budget_repository.add(db, budget)
-    db.commit()
-    db.refresh(budget)
     return budget
+
+
+# ---------- áp dụng tư vấn điều chỉnh (Phase 8) ----------
+
+
+def ensure_next_month_budget(
+    db: Session, target_month: date, source_month: date | None = None
+) -> tuple[Budget, bool]:
+    """Budget của `target_month`; chưa có → tạo nháp copy từ `source_month` (mặc định tháng
+    trước). Trả `(budget, vừa_tạo)`. Chỉ flush — caller commit cùng thay đổi khác."""
+    existing = budget_repository.get_by_month(db, target_month)
+    if existing is not None:
+        return existing, False
+    return _copy_budget(db, target_month, source_month), True
+
+
+def _same_line(a: _AllocationLike, b: _AllocationLike) -> bool:
+    if a.category_id is not None or b.category_id is not None:
+        return a.category_id == b.category_id
+    return a.jar_name == b.jar_name
+
+
+def set_allocation_planned(
+    db: Session,
+    budget: Budget,
+    line: _AllocationLike,
+    planned_amount: int,
+    *,
+    confirm_over_income: bool = False,
+) -> BudgetAllocation:
+    """Đặt `planned_amount` cho dòng cùng danh mục / hũ với `line` trong `budget` (sửa tại chỗ,
+    giữ id dòng); budget chưa có dòng đó → thêm dòng mới cuối bảng. Cùng validate như sửa
+    budget (chồng lấn, danh mục ẩn, vượt thu nhập cần xác nhận). Chỉ flush — caller commit."""
+    if budget.status == "closed":
+        raise ConflictError(
+            f"Ngân sách tháng {budget.period_month:%m/%Y} đã đóng — mở lại trước khi chỉnh sửa",
+            "budget_closed",
+        )
+    rows = list(budget.allocations)
+    match = next((a for a in rows if _same_line(a, line)), None)
+    inputs = [
+        BudgetAllocationInput(
+            group=a.group,
+            category_id=a.category_id,
+            jar_name=a.jar_name,
+            planned_amount=planned_amount if a is match else a.planned_amount,
+        )
+        for a in rows
+    ]
+    if match is None:
+        inputs.append(
+            BudgetAllocationInput(
+                group=line.group,
+                category_id=line.category_id,
+                jar_name=None if line.category_id else line.jar_name,
+                planned_amount=planned_amount,
+            )
+        )
+    _validate_allocations(db, budget.strategy, inputs)
+    _check_over_income(budget.expected_income, inputs, confirm_over_income)
+
+    if match is None:
+        match = BudgetAllocation(
+            group=line.group,
+            category_id=line.category_id,
+            jar_name=None if line.category_id else line.jar_name,
+            planned_amount=planned_amount,
+            position=max((a.position for a in rows), default=-1) + 1,
+        )
+        budget.allocations.append(match)
+    else:
+        match.planned_amount = planned_amount
+    budget.savings_target = savings_total(inputs)
+    budget.updated_at = func.now()
+    db.flush()
+    return match

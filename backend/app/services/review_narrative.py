@@ -171,6 +171,18 @@ def _has_conditional(text: str) -> bool:
     )
 
 
+# Dùng lại cho văn bản tư vấn ngân sách (Phase 8, `services/advice_narrative`).
+contains_phrase = _contains_phrase
+has_conditional = _has_conditional
+
+
+def collect_numbers(payload: Any) -> set[Decimal]:
+    """Mọi giá trị số (tuyệt đối) trong JSON đã bỏ ID, kèm 0."""
+    out: set[Decimal] = {Decimal(0)}
+    _collect(payload, out)
+    return out
+
+
 def _texts(narrative: ReviewNarrativeOutput) -> list[tuple[str, str]]:
     items = [
         ("observation", narrative.observation),

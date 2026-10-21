@@ -13,7 +13,7 @@
 """
 
 import uuid
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
@@ -238,6 +238,16 @@ def _context(db: Session, budget: Budget) -> _BudgetContext:
         jar_ids={name: [c.id for c in cats] for name, cats in jar_categories.items()},
         categories={c.id: c for cats in jar_categories.values() for c in cats},
     )
+
+
+def scope_resolver(db: Session, budget: Budget) -> Callable[[BudgetAllocation], AllocationScope]:
+    """Hàm trả phạm vi giao dịch (`effective_scope`) của từng dòng thuộc `budget`."""
+    return _context(db, budget).scope
+
+
+def tracked_budget(db: Session, month: date) -> Budget:
+    """Budget đang theo dõi của tháng (active / closed); chưa có / nháp → 404."""
+    return _tracked_budget(db, month)
 
 
 # ---------- trạng thái budget ----------

@@ -28,6 +28,12 @@ Ngưỡng (`60%`, `15%`, `3 tháng`) là hằng số cấu hình trong `app_sett
 | Giải trí | planned 1.000.000; actual 1.400.000, lịch sử 800k / 1.6tr / 1.4tr | `adjust_behavior` |
 | Đi lại | planned 1.000.000; actual 700.000 | `on_track` |
 
+**Cách hiểu khi triển khai (Phase 8):**
+- "Giao dịch irregular … chiếm ≥ 60% phần vượt": **tổng** các giao dịch `spending_type = irregular` của dòng ≥ 60% phần vượt, **hoặc** giao dịch lớn nhất (bất kể loại) ≥ 60% phần vượt. Phần vượt = `actual − comfort_high` (hoặc `− planned` khi chưa có zone).
+- "Lịch sử" = `min_history_months` tháng gần nhất **tính cả tháng đang xét**; tháng có dữ liệu = có ≥ 1 giao dịch chi trong phạm vi dòng (`budget_service.allocation_scope`). "Đều vượt planned" so với `planned` của tháng đang xét.
+- CV = độ lệch chuẩn **tổng thể** (chia n) / trung bình; so ngưỡng chính xác bằng `CV² ≤ ngưỡng²` trên số hữu tỉ. Median n chẵn = trung bình 2 giá trị giữa; làm tròn đề xuất half-up tới `budget_rounding_step`.
+- Không tạo advice cho dòng nhóm `savings`. Ngưỡng lưu ở `app_settings.budget_advisor`, sửa qua `PATCH /budget/advice/settings`.
+
 ## 2. Flexible Budget Zones (Phase 9)
 
 Thay vì một con số cứng, mỗi allocation có 3 vùng:

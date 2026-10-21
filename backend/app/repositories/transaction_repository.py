@@ -183,6 +183,22 @@ def list_in_scope(
     return list(db.scalars(stmt)), total
 
 
+def all_in_scope(
+    db: Session,
+    date_from: date,
+    date_to: date,
+    category_ids: Collection[uuid.UUID],
+    spending_types: Collection[str],
+) -> list[Transaction]:
+    """Mọi giao dịch chi trong phạm vi (cũ nhất trước) — evidence của Budget advisor."""
+    stmt = (
+        select(Transaction)
+        .where(*_scope_conditions(date_from, date_to, category_ids, spending_types))
+        .order_by(Transaction.occurred_on, Transaction.created_at, Transaction.id)
+    )
+    return list(db.scalars(stmt))
+
+
 def list_between(db: Session, date_from: date, date_to: date) -> list[Transaction]:
     """Mọi giao dịch (thu + chi) trong kỳ, cũ nhất trước (kèm category)."""
     stmt = (
