@@ -11,6 +11,9 @@ TransactionSource = Literal["manual", "nl", "receipt", "import", "recurring"]
 BudgetStrategy = Literal["envelope", "fifty_thirty_twenty", "pyf"]
 BudgetStatus = Literal["draft", "active", "closed"]
 AllocationGroup = Literal["essential", "wants", "savings", "irregular"]
+ReviewPeriod = Literal["week", "month"]
+ReviewStatus = Literal["generated", "completed"]
+ReviewKind = Literal["weekly", "monthly"]
 
 DIRECTIONS: tuple[str, ...] = get_args(Direction)
 SPENDING_TYPES: tuple[str, ...] = get_args(SpendingType)
@@ -18,6 +21,8 @@ TRANSACTION_SOURCES: tuple[str, ...] = get_args(TransactionSource)
 BUDGET_STRATEGIES: tuple[str, ...] = get_args(BudgetStrategy)
 BUDGET_STATUSES: tuple[str, ...] = get_args(BudgetStatus)
 ALLOCATION_GROUPS: tuple[str, ...] = get_args(AllocationGroup)
+REVIEW_STATUSES: tuple[str, ...] = get_args(ReviewStatus)
+REVIEW_KINDS: tuple[str, ...] = get_args(ReviewKind)
 
 
 def sql_in(values: tuple[str, ...]) -> str:

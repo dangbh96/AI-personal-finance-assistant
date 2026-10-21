@@ -5,9 +5,9 @@
 
 ## Phase hiện tại
 
-**Tiếp theo: [Phase 6 — Weekly review](./phases/phase-06-weekly-review.md)** · M3 — Budget loop hoàn chỉnh ✅
+**Tiếp theo: [Phase 7 — Monthly review](./phases/phase-07-monthly-review.md)** · đạt **M4 (MVP)** sau phase này
 
-Handoff Phase 5: xem [phase-05-budget-vs-actual.md § 9](./phases/phase-05-budget-vs-actual.md#9-handoff-notes). `analytics_service` (deterministic) tính planned / actual / variance / used % / pro-rata pace / top contributor (≥ 60% phần vượt) cho từng dòng phân bổ + tổng tháng; API `/budgets/{id}/status`, `/budgets/current/status`, `/budget-allocations/{id}/transactions`, `/dashboard/month-summary`. `/budget` có tab Theo dõi / Kế hoạch, trang chủ có thẻ tóm tắt tháng. Evidence cho review AI lấy từ `get_budget_status`. DB dev: kịch bản cố định 10/2026 (`seed_scenario`) + demo 06–09/2026. Postgres vẫn ở **port 5433**.
+Handoff Phase 6: xem [phase-06-weekly-review.md § 9](./phases/phase-06-weekly-review.md#9-handoff-notes). LangGraph `agents/review_graph` (generic `period=week|month`): metrics + highlights deterministic (`services/review_metrics`), narrative `OPENAI_MODEL_SMART`, validate số ⊆ metrics + cụm cấm + 3 tầng (`services/review_narrative`), retry ≤ 2, fallback template. Phase 7 chỉ cần bảng `monthly_reviews` + persister `month` + router/UI; `reflection_answers` đã hỗ trợ `monthly`. API `/reviews/weekly*`, UI `/reviews/weekly/[week]` + banner Thứ Hai. Thêm dependency `langgraph 1.2.x`. Postgres vẫn ở **port 5433**.
 
 ## Bảng trạng thái
 
@@ -20,7 +20,7 @@ Handoff Phase 5: xem [phase-05-budget-vs-actual.md § 9](./phases/phase-05-budge
 | 3 | [Classification learning](./phases/phase-03-classification-learning.md) | Done | 2026-10-19 | 2026-10-19 | M2 ✅ | 259 test (mock); golden 10 bước đạt 100% |
 | 4 | [Budget engine](./phases/phase-04-budget-engine.md) | Done | 2026-10-19 | 2026-10-19 | | 333 test; dòng nhóm khớp theo spending_type |
 | 5 | [Budget vs Actual](./phases/phase-05-budget-vs-actual.md) | Done | 2026-10-20 | 2026-10-20 | M3 ✅ | 369 test; thêm `not_tracked` (savings), `unbudgeted_actual` |
-| 6 | [Weekly review](./phases/phase-06-weekly-review.md) | Not started | | | | |
+| 6 | [Weekly review](./phases/phase-06-weekly-review.md) | Done | 2026-10-20 | 2026-10-21 | | 440 test; golden AI 2/2 (gpt-4o); LangGraph 1.2 |
 | 7 | [Monthly review](./phases/phase-07-monthly-review.md) | Not started | | | M4 (MVP) | |
 | 8 | [Budget adjustment advisor](./phases/phase-08-budget-advisor.md) | Not started | | | | |
 | 9 | [Flexible budget zones](./phases/phase-09-flexible-zones.md) | Not started | | | | |
@@ -70,6 +70,9 @@ Handoff Phase 5: xem [phase-05-budget-vs-actual.md § 9](./phases/phase-05-budge
 | 2026-10-20 | 5 | Trạng thái dòng thêm `not_tracked` (mọi dòng nhóm savings, actual 0); `top_contributor.share` tối đa 1; totals thêm `expense_actual` (mọi khoản chi tháng), `allocated_actual`, `unbudgeted_actual`, `over_budget_count` | Plan chưa nói cách hiển thị savings, share > 1, và chi tiêu không thuộc dòng nào |
 | 2026-10-20 | 5 | `/budgets/current/status` + month-summary nhận budget active **hoặc closed** (nháp → 404 `budget_not_active`); month-summary trả `budget_status`; drill-down trả `TransactionList` | Tháng đã đóng vẫn cần xem; trang chủ phân biệt "chưa có" và "nháp" |
 | 2026-10-20 | 5 | Script riêng `seed_scenario` (kịch bản cố định 10/2026, `--reset`) thay vì gộp vào `seed_demo`; `/budget` tách tab Theo dõi / Kế hoạch; trang chủ `HomeDashboard` thay `HomeBudgetCta` | Số liệu kịch bản phải chính xác để test/UI; giữ editor Phase 4 nguyên vẹn |
+| 2026-10-21 | 6 | `weekly_reviews.metrics` chứa cả `highlights` + tiến độ tuần (cho phép review tuần đang chạy, tuần tương lai → 422); `% thay đổi` là số nguyên; `narrative.fallback_reason`; `model = fallback_template` | Narrative chỉ được dùng số có trong metrics; UI hiển thị evidence và lý do dùng bản tự động |
+| 2026-10-21 | 6 | AI lỗi → fallback ngay, chỉ retry (≤ 2) khi output không qua validate; validate thêm "action phải có điều kiện"; reflection chỉ nhận khoản chi trong tuần; pending chỉ khi tuần trước có giao dịch | Tránh 3 × timeout; giữ giọng văn không ra lệnh; dữ liệu phản tư nhất quán |
+| 2026-10-21 | 6 | `agents` được gọi trực tiếp `services` + `ai/review_writer` (cập nhật `backend-components.md`); `AppNav` bọc `<Suspense>` | Graph review cần collect/persist qua services; route động đầu tiên làm `usePathname()` thành dữ liệu runtime (Cache Components) |
 
 ## Câu hỏi mở xuyên suốt
 

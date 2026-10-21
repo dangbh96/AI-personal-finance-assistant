@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Geist_Mono, Inter } from "next/font/google";
+import { Suspense } from "react";
 
-import { AppNav } from "@/components/app-nav";
+import { AppNav, AppNavLinks } from "@/components/app-nav";
 
 import "./globals.css";
 
@@ -38,7 +39,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         </header>
         <div className="flex flex-1">
           <aside className="hidden w-56 shrink-0 border-r md:block">
-            <AppNav />
+            {/* usePathname() là dữ liệu runtime ở route động (/reviews/weekly/[week]). */}
+            <Suspense fallback={<AppNavLinks pathname="" />}>
+              <AppNav />
+            </Suspense>
           </aside>
           <main className="min-w-0 flex-1 p-6">{children}</main>
         </div>

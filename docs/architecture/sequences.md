@@ -86,15 +86,21 @@ sequenceDiagram
     FE->>API: GET /reviews/weekly/2026-10-05
     alt đã có review
         API-->>FE: WeeklyReview
-    else chưa có
-        FE->>API: POST /reviews/weekly {week_start}
+    else chưa có (404)
+        U->>FE: bấm "Tạo review tuần này"
+        FE->>API: POST /reviews/weekly {week_start, today}
         API->>G: run(period=week)
         G->>AN: metrics tuần này + tuần trước
         AN-->>G: metrics
         G->>G: detect_highlights
-        G->>OAI: ReviewNarrative
-        OAI-->>G: narrative
-        G->>G: validate (số liệu, giọng văn)
+        loop tối đa 3 lần (retry ≤ 2)
+            G->>OAI: ReviewNarrative
+            OAI-->>G: narrative
+            G->>G: validate (số ⊆ metrics, cụm cấm, 3 tầng)
+        end
+        opt AI lỗi hoặc vẫn fail
+            G->>G: fallback_template
+        end
         G->>DB: lưu WeeklyReview
         API-->>FE: WeeklyReview
     end

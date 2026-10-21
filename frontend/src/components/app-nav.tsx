@@ -12,7 +12,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Tổng quan" },
   { href: "/transactions", label: "Giao dịch" },
   { href: "/budget", label: "Ngân sách" },
-  { href: "/reviews/weekly", label: "Review", phase: 6 },
+  { href: "/reviews/weekly", label: "Review" },
   { href: "/coach", label: "Financial Coach", phase: 10 },
   { href: "/goals", label: "Mục tiêu", phase: 11 },
   { href: "/settings", label: "Cài đặt" },
@@ -23,8 +23,11 @@ function isActive(pathname: string, href: string): boolean {
 }
 
 export function AppNav() {
-  const pathname = usePathname();
+  return <AppNavLinks pathname={usePathname()} />;
+}
 
+/** Danh sách link; `pathname` rỗng = chưa biết route (fallback khi đang stream). */
+export function AppNavLinks({ pathname }: { pathname: string }) {
   return (
     <nav className="flex flex-col gap-1 p-3 text-sm">
       {NAV_ITEMS.map((item) =>

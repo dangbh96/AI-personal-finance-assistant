@@ -26,7 +26,7 @@ Tên model đọc từ env (`OPENAI_MODEL_FAST`, `OPENAI_MODEL_SMART`) — khôn
 4. **AI không quyết định thay user:** luôn trả draft/gợi ý, user xác nhận.
 5. Ngôn ngữ: tiếng Việt, xưng "bạn".
 
-Prompt lưu ở `backend/app/ai/prompts/*.md` (có version trong tên hoặc header), không inline dài trong code. Phase 3: `nl_transaction_parse.v3.md` (placeholder `{{today}}`, `{{calendar}}`, `{{categories}}`, `{{preferences}}`, `{{amount_hints}}`… do `nl_transaction_parser.build_messages` điền; v3 = v2 + mục "Sở thích phân loại của người dùng") và `classification_preference_parse.v1.md`.
+Prompt lưu ở `backend/app/ai/prompts/*.md` (có version trong tên hoặc header), không inline dài trong code. Phase 3: `nl_transaction_parse.v3.md` (placeholder `{{today}}`, `{{calendar}}`, `{{categories}}`, `{{preferences}}`, `{{amount_hints}}`… do `nl_transaction_parser.build_messages` điền; v3 = v2 + mục "Sở thích phân loại của người dùng") và `classification_preference_parse.v1.md`. Phase 6: `review_narrative.v1.md` (`{{period_word}}`, `{{period_label}}`, `{{metrics_json}}`, `{{allowed_numbers}}`).
 
 ## 3. Structured output chính (phác thảo)
 
@@ -79,6 +79,13 @@ stateDiagram-v2
     fallback --> persist
     persist --> [*]
 ```
+
+Triển khai Phase 6 (`app/agents/review_graph.py`, LangGraph 1.2):
+- `collect_metrics` → `analytics_service.get_review_metrics(period, start, today)`; `detect_highlights` → `services/review_metrics.detect_highlights` (top 3 danh mục, danh mục tăng/giảm nhiều nhất theo đồng, cụm lặp ≥ 3 khoản cùng danh mục + cùng buổi trong ngày theo từ khoá ghi chú "sáng/trưa/tối/đêm/khuya", hoặc cùng pattern ghi chú đã chuẩn hoá; top 3 khoản chi).
+- `write_narrative` → `ai/review_writer` (prompt `review_narrative.v1.md`, model `OPENAI_MODEL_SMART`, timeout 60s); prompt kèm metrics JSON (bỏ UUID) + **danh sách số được phép** định dạng kiểu Việt Nam.
+- `validate` → `services/review_narrative.validate_narrative`: trích mọi số trong văn bản ("1.180.000", "18%", "0,5 triệu", "620k", ngày "12/10") và so với tập số có trong metrics (tiền, %, số lượng, ngày/tháng/năm, số trong ghi chú; giá trị tuyệt đối); cụm từ cấm (so khớp cả không dấu); đủ observation/explanation/notice/reflection; có `action` khi tuần có giao dịch và action phải có điều kiện ("nếu", "có thể", "cân nhắc", "thử"). Fail → gửi danh sách lỗi cho model viết lại (retry ≤ 2, tức tối đa 3 lần gọi).
+- AI lỗi (`AIUnavailable`: chưa cấu hình, timeout, 5xx…) → **không retry**, sang `fallback` ngay. `fallback_template` dựng narrative từ metrics (luôn qua validate), `fallback_reason` = mã lỗi AI hoặc `validation_failed`.
+- `persist` theo `period` (`week` → `review_service.save_weekly_review`); Phase 7 chỉ cần thêm persister `month`. Endpoint `POST /reviews/weekly` không chạy graph nếu tuần đã có review và `regenerate=false`.
 
 ## 5. LangGraph — Financial Coach graph (Phase 10, 16)
 

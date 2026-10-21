@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import NotFoundError
 from app.models import Budget, BudgetAllocation, Category, Transaction
+from app.models.enums import ReviewPeriod
 from app.repositories import budget_repository, transaction_repository
 from app.schemas.analytics import (
     AllocationScopeRead,
@@ -34,9 +35,11 @@ from app.schemas.analytics import (
     TopContributorRead,
 )
 from app.schemas.category import CategoryBrief
-from app.services import budget_service
+from app.schemas.review import PeriodMetrics
+from app.services import budget_service, review_metrics
 from app.services.budget_service import AllocationScope
 from app.services.money import month_range, round_vnd
+from app.services.review_metrics import TxRow
 
 PACE_TOLERANCE = Fraction(10, 100)
 TOP_CONTRIBUTOR_MIN_SHARE = Fraction(60, 100)
@@ -417,3 +420,42 @@ def list_allocation_transactions(
         offset=(page - 1) * page_size,
         limit=page_size,
     )
+
+
+# ---------- review (Phase 6) ----------
+
+
+@dataclass(frozen=True)
+class ReviewData:
+    """Metrics của kỳ + giao dịch kỳ này (để `detect_highlights` tìm cụm / khoản lớn)."""
+
+    metrics: PeriodMetrics
+    transactions: list[TxRow]
+
+
+def _tx_row(t: Transaction) -> TxRow:
+    return TxRow(
+        id=t.id,
+        occurred_on=t.occurred_on,
+        direction=t.direction,
+        amount=t.amount,
+        note=t.note,
+        category_id=t.category_id,
+        category_slug=t.category.slug,
+        category_name=t.category.name,
+        category_icon=t.category.icon,
+        spending_type=t.spending_type,
+    )
+
+
+def load_period_rows(db: Session, date_from: date, date_to: date) -> list[TxRow]:
+    return [_tx_row(t) for t in transaction_repository.list_between(db, date_from, date_to)]
+
+
+def get_review_metrics(db: Session, period: ReviewPeriod, start: date, today: date) -> ReviewData:
+    """Thu/chi, breakdown spending_type, theo danh mục, % thay đổi so với kỳ trước."""
+    rng = review_metrics.period_range(period, start)
+    current = load_period_rows(db, rng.start, rng.end)
+    previous = load_period_rows(db, rng.previous_start, rng.previous_end)
+    metrics = review_metrics.compute_period_metrics(period, start, current, previous, today)
+    return ReviewData(metrics=metrics, transactions=current)

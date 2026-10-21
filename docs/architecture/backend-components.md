@@ -23,6 +23,7 @@ flowchart TB
         nlp["nl_transaction_parser"]
         cls["classifier<br/>+ preference memory"]
         pref["preference_parser"]
+        rw["review_writer"]
         vis["receipt_vision"]
         emb["embeddings"]
         prompts["prompts/*.md"]
@@ -38,7 +39,8 @@ flowchart TB
         s_tx["transaction_service"]
         s_pref["classification_preference_service<br/>(normalize, match, feedback)"]
         s_budget["budget_service<br/>(strategies)"]
-        s_analytics["analytics_service<br/>(budget vs actual, pro-rata,<br/>top contributor; trend sau)"]
+        s_analytics["analytics_service<br/>(budget vs actual, pro-rata,<br/>top contributor, review metrics)"]
+        s_review["review_metrics / review_narrative<br/>(highlights, validate, fallback)<br/>review_service"]
         s_advisor["advisor_rules"]
         s_zone["zone_service"]
         s_goal["goal_service / pyf"]
@@ -55,6 +57,8 @@ flowchart TB
     api --> ai
     api --> agents
     g_review --> tools
+    g_review --> services
+    g_review --> rw
     g_coach --> tools
     tools --> services
     g_review --> client
@@ -71,7 +75,7 @@ flowchart TB
 | `api/routers` | `services`, `ai`, `agents`, `schemas` | `repositories` trực tiếp (trừ CRUD rất đơn giản) |
 | `services` | `repositories`, `services` khác | `ai`, `agents`, OpenAI SDK |
 | `ai` | `openai_client`, `services` (đọc context), `schemas` | ghi DB trực tiếp |
-| `agents` | `agents/tools`, `openai_client` | `repositories` trực tiếp |
+| `agents` | `agents/tools`, `services`, `ai` (writer/prompt), `openai_client` | `repositories` trực tiếp |
 | `agents/tools` | `services` | — |
 | `repositories` | `models` | `services` |
 

@@ -387,6 +387,93 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reviews/weekly": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Weekly Reviews
+         * @description Danh sách review tuần (lọc theo `week_start`), tuần mới nhất trước.
+         */
+        get: operations["list_weekly_reviews_api_v1_reviews_weekly_get"];
+        put?: never;
+        /**
+         * Generate Weekly Review
+         * @description Tạo review on-demand. Tuần đã có review và `regenerate=false` → trả review cũ (không gọi AI).
+         *     `regenerate=true` → tính lại metrics + narrative, status về `generated`, giữ reflection cũ.
+         *     AI lỗi / output không qua kiểm tra → narrative dự phòng (`narrative.fallback_used = true`).
+         */
+        post: operations["generate_weekly_review_api_v1_reviews_weekly_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reviews/weekly/pending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Pending Weekly Review
+         * @description Gợi ý banner Thứ Hai: review tuần trước đang chờ. Không tự tạo review.
+         */
+        get: operations["get_pending_weekly_review_api_v1_reviews_weekly_pending_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reviews/weekly/{week_start}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Weekly Review
+         * @description Review của tuần bắt đầu `week_start` (Thứ Hai); chưa có → 404.
+         */
+        get: operations["get_weekly_review_api_v1_reviews_weekly__week_start__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reviews/weekly/{review_id}/reflections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Reflection
+         * @description Lưu câu trả lời phản tư + giao dịch "không đáng tiền" (phải là khoản chi trong tuần);
+         *     review chuyển `completed`.
+         */
+        post: operations["add_reflection_api_v1_reviews_weekly__review_id__reflections_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -843,6 +930,45 @@ export interface components {
             /** Icon */
             icon: string | null;
         };
+        /**
+         * CategoryChange
+         * @description Chi tiêu một danh mục kỳ này so với kỳ trước.
+         */
+        CategoryChange: {
+            /**
+             * Category Id
+             * Format: uuid
+             */
+            category_id: string;
+            /** Slug */
+            slug: string;
+            /** Name */
+            name: string;
+            /** Icon */
+            icon: string | null;
+            /**
+             * Amount
+             * @description Tổng chi kỳ này
+             */
+            amount: number;
+            /**
+             * Previous Amount
+             * @description Tổng chi kỳ trước
+             */
+            previous_amount: number;
+            /**
+             * Change
+             * @description amount - previous_amount
+             */
+            change: number;
+            /**
+             * Change Pct
+             * @description change / previous_amount × 100; null nếu = 0
+             */
+            change_pct: number | null;
+            /** Transaction Count */
+            transaction_count: number;
+        };
         /** CategoryCreate */
         CategoryCreate: {
             /** Name */
@@ -1057,6 +1183,24 @@ export interface components {
             /** @description Dòng vượt nhiều nhất (nếu có) */
             top_over: components["schemas"]["AllocationStatusRead"] | null;
         };
+        /** PendingWeeklyReviewRead */
+        PendingWeeklyReviewRead: {
+            /**
+             * Has Pending
+             * @description true khi hôm nay là Thứ Hai, tuần trước có giao dịch và review tuần trước chưa completed
+             */
+            has_pending: boolean;
+            /**
+             * Week Start
+             * Format: date
+             * @description Thứ Hai của tuần trước
+             */
+            week_start: string;
+            /** Review Id */
+            review_id: string | null;
+            /** Review Status */
+            review_status: ("generated" | "completed") | null;
+        };
         /**
          * PreferenceCreate
          * @description Preference user đã xác nhận (thường từ draft của `POST /classification-preferences/parse`).
@@ -1177,6 +1321,268 @@ export interface components {
              * @description planned - reference (dương = nhiều hơn tham khảo)
              */
             difference: number;
+        };
+        /** ReflectionAnswerRead */
+        ReflectionAnswerRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Review Kind
+             * @enum {string}
+             */
+            review_kind: "weekly" | "monthly";
+            /**
+             * Review Id
+             * Format: uuid
+             */
+            review_id: string;
+            /** Question */
+            question: string;
+            /** Answer */
+            answer: string;
+            /** Flagged Transaction Ids */
+            flagged_transaction_ids: string[];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** ReflectionCreate */
+        ReflectionCreate: {
+            /**
+             * Answer
+             * @default
+             */
+            answer?: string;
+            /**
+             * Flagged Transaction Ids
+             * @description Giao dịch chi trong tuần user thấy "không đáng tiền"
+             */
+            flagged_transaction_ids?: string[];
+        };
+        /**
+         * RepeatedCluster
+         * @description Nhóm giao dịch chi lặp lại trong kỳ (cùng danh mục + buổi trong ngày / từ khoá).
+         */
+        RepeatedCluster: {
+            /** Key */
+            key: string;
+            /**
+             * Label
+             * @description Vd "Ăn uống buổi tối", "Cà phê"
+             */
+            label: string;
+            /**
+             * Category Id
+             * Format: uuid
+             */
+            category_id: string;
+            /** Category Slug */
+            category_slug: string;
+            /** Category Name */
+            category_name: string;
+            /**
+             * Time Bucket
+             * @description Có giá trị nếu nhóm theo buổi trong ngày
+             */
+            time_bucket: ("morning" | "noon" | "evening") | null;
+            /** Count */
+            count: number;
+            /** Total */
+            total: number;
+            /** Transaction Ids */
+            transaction_ids: string[];
+        };
+        /** ReviewHighlights */
+        ReviewHighlights: {
+            /**
+             * Top Categories
+             * @description Tối đa 3 danh mục chi nhiều nhất
+             */
+            top_categories: components["schemas"]["CategoryChange"][];
+            /** @description Danh mục tăng nhiều nhất (theo đồng) */
+            top_increase: components["schemas"]["CategoryChange"] | null;
+            /** @description Danh mục giảm nhiều nhất (theo đồng) */
+            top_decrease: components["schemas"]["CategoryChange"] | null;
+            /**
+             * Repeated Clusters
+             * @description Tối đa 3 nhóm, tổng lớn trước
+             */
+            repeated_clusters: components["schemas"]["RepeatedCluster"][];
+            /**
+             * Top Transactions
+             * @description Tối đa 3 khoản chi lớn nhất
+             */
+            top_transactions: components["schemas"]["ReviewTransaction"][];
+        };
+        /**
+         * ReviewMetrics
+         * @description Lưu ở `weekly_reviews.metrics`: số liệu kỳ + highlights.
+         */
+        ReviewMetrics: {
+            /**
+             * Period
+             * @enum {string}
+             */
+            period: "week" | "month";
+            /**
+             * Period Start
+             * Format: date
+             */
+            period_start: string;
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+            /**
+             * Previous Start
+             * Format: date
+             */
+            previous_start: string;
+            /**
+             * Previous End
+             * Format: date
+             */
+            previous_end: string;
+            /**
+             * As Of
+             * Format: date
+             * @description Ngày tính số liệu (≤ period_end)
+             */
+            as_of: string;
+            /**
+             * Days Elapsed
+             * @description Số ngày của kỳ đã qua, tính cả `as_of`
+             */
+            days_elapsed: number;
+            /** Days In Period */
+            days_in_period: number;
+            /**
+             * Complete
+             * @description Kỳ đã kết thúc (days_elapsed = days_in_period)
+             */
+            complete: boolean;
+            /** Income */
+            income: number;
+            /** Expense */
+            expense: number;
+            /**
+             * Net
+             * @description income - expense
+             */
+            net: number;
+            /**
+             * Expense Count
+             * @description Số giao dịch chi trong kỳ
+             */
+            expense_count: number;
+            /** Previous Income */
+            previous_income: number;
+            /** Previous Expense */
+            previous_expense: number;
+            /**
+             * Expense Change
+             * @description expense - previous_expense
+             */
+            expense_change: number;
+            /** Expense Change Pct */
+            expense_change_pct: number | null;
+            by_spending_type: components["schemas"]["SpendingTypeAmounts"];
+            previous_by_spending_type: components["schemas"]["SpendingTypeAmounts"];
+            /**
+             * By Category
+             * @description Danh mục chi có phát sinh ở kỳ này hoặc kỳ trước, chi nhiều nhất trước
+             */
+            by_category: components["schemas"]["CategoryChange"][];
+            highlights: components["schemas"]["ReviewHighlights"];
+        };
+        /**
+         * ReviewNarrative
+         * @description Lưu ở `weekly_reviews.narrative`.
+         */
+        ReviewNarrative: {
+            /**
+             * Observation
+             * @description What happened — có số liệu copy từ metrics
+             */
+            observation: string;
+            /**
+             * Explanation
+             * @description Why — nguyên nhân dựa trên highlights
+             */
+            explanation: string;
+            /**
+             * Notice
+             * @description What to notice — 1 đến 3 ý ngắn
+             */
+            notice: string[];
+            /**
+             * Action
+             * @description Gợi ý có điều kiện ('nếu bạn muốn…'), không ra lệnh
+             */
+            action: string | null;
+            /**
+             * Reflection Question
+             * @description Một câu hỏi phản tư cho user
+             */
+            reflection_question: string;
+            /**
+             * Tone
+             * @enum {string}
+             */
+            tone: "neutral" | "supportive";
+            /**
+             * Fallback Used
+             * @description true nếu là bản tóm tắt tự động (không dùng AI)
+             */
+            fallback_used: boolean;
+            /**
+             * Fallback Reason
+             * @description Mã lý do dùng bản tự động: AI_NOT_CONFIGURED, AI_TIMEOUT…, validation_failed
+             */
+            fallback_reason?: string | null;
+        };
+        /** ReviewTransaction */
+        ReviewTransaction: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Occurred On
+             * Format: date
+             */
+            occurred_on: string;
+            /** Note */
+            note: string | null;
+            /** Amount */
+            amount: number;
+            /**
+             * Category Id
+             * Format: uuid
+             */
+            category_id: string;
+            /** Category Slug */
+            category_slug: string;
+            /** Category Name */
+            category_name: string;
+            /** Spending Type */
+            spending_type: ("essential" | "non_essential" | "irregular") | null;
+        };
+        /** SpendingTypeAmounts */
+        SpendingTypeAmounts: {
+            /** Essential */
+            essential: number;
+            /** Non Essential */
+            non_essential: number;
+            /** Irregular */
+            irregular: number;
         };
         /** SpendingTypeTotals */
         SpendingTypeTotals: {
@@ -1531,6 +1937,76 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** WeeklyReviewGenerateRequest */
+        WeeklyReviewGenerateRequest: {
+            /**
+             * Week Start
+             * Format: date
+             * @description Thứ Hai đầu tuần
+             */
+            week_start: string;
+            /**
+             * Regenerate
+             * @description true: tạo lại narrative/metrics cho review đã có (giữ reflection cũ)
+             * @default false
+             */
+            regenerate?: boolean;
+            /**
+             * Today
+             * @description Ngày hiện tại phía user (mặc định hôm nay của server)
+             */
+            today?: string | null;
+        };
+        /** WeeklyReviewList */
+        WeeklyReviewList: {
+            /** Items */
+            items: components["schemas"]["WeeklyReviewRead"][];
+        };
+        /** WeeklyReviewRead */
+        WeeklyReviewRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Week Start
+             * Format: date
+             */
+            week_start: string;
+            /**
+             * Week End
+             * Format: date
+             */
+            week_end: string;
+            metrics: components["schemas"]["ReviewMetrics"];
+            narrative: components["schemas"]["ReviewNarrative"];
+            /**
+             * Model
+             * @description Model AI đã viết narrative; `fallback_template` nếu dùng bản tự động
+             */
+            model: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "generated" | "completed";
+            /**
+             * Reflections
+             * @description Cũ nhất trước
+             */
+            reflections: components["schemas"]["ReflectionAnswerRead"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
     };
     responses: never;
@@ -2600,6 +3076,189 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MonthSummaryRead"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_weekly_reviews_api_v1_reviews_weekly_get: {
+        parameters: {
+            query?: {
+                /** @description Từ tuần (bao gồm) */
+                from?: string | null;
+                /** @description Đến tuần (bao gồm) */
+                to?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WeeklyReviewList"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    generate_weekly_review_api_v1_reviews_weekly_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WeeklyReviewGenerateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WeeklyReviewRead"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_pending_weekly_review_api_v1_reviews_weekly_pending_get: {
+        parameters: {
+            query?: {
+                /** @description Hôm nay phía user (mặc định của server) */
+                today?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PendingWeeklyReviewRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_weekly_review_api_v1_reviews_weekly__week_start__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                week_start: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WeeklyReviewRead"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    add_reflection_api_v1_reviews_weekly__review_id__reflections_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReflectionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReflectionAnswerRead"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Unprocessable Content */
