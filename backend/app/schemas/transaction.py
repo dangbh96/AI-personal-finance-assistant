@@ -82,6 +82,9 @@ class TransactionRead(BaseModel):
     source: TransactionSource
     raw_input: str | None
     ai_suggestion: dict[str, Any] | None
+    recurring_id: uuid.UUID | None = Field(
+        default=None, description="Khoản định kỳ đã sinh / gắn giao dịch này (Phase 12)"
+    )
     created_at: datetime
     updated_at: datetime
 

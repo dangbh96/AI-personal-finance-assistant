@@ -29,6 +29,7 @@ class Transaction(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         ),
         Index("ix_transactions_occurred_on", "occurred_on"),
         Index("ix_transactions_category_id_occurred_on", "category_id", "occurred_on"),
+        Index("ix_transactions_recurring_id", "recurring_id"),
     )
 
     user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
@@ -45,5 +46,10 @@ class Transaction(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     raw_input: Mapped[str | None] = mapped_column(Text)
     ai_suggestion: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    # Phase 12: giao dịch tạo từ khoản định kỳ (`source = 'recurring'`) hoặc đã được gắn khi user
+    # xác nhận đề xuất phát hiện định kỳ. Khoản định kỳ chỉ bị tắt, không xoá (SET NULL phòng hờ).
+    recurring_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("recurring_transactions.id", ondelete="SET NULL")
+    )
 
     category: Mapped[Category] = relationship(lazy="joined", innerjoin=True)

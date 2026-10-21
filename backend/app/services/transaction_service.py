@@ -28,6 +28,8 @@ __all__ = [
     "delete_transactions_in_range",
     "get_transaction",
     "list_transactions",
+    "resolve_category",
+    "resolve_spending_type",
     "summarize",
     "update_transaction",
     "validate_filters",
@@ -39,7 +41,7 @@ def validate_filters(filters: TransactionFilters) -> None:
         raise DomainError("Ngày bắt đầu phải trước hoặc bằng ngày kết thúc", "invalid_date_range")
 
 
-def _resolve_category(
+def resolve_category(
     db: Session, category_id: uuid.UUID, direction: str, *, allow_archived: bool = False
 ) -> Category:
     category = category_repository.get(db, category_id)
@@ -56,7 +58,7 @@ def _resolve_category(
     return category
 
 
-def _resolve_spending_type(
+def resolve_spending_type(
     direction: str, spending_type: str | None, category: Category
 ) -> str | None:
     if direction == "income":
@@ -98,14 +100,14 @@ def create_transaction_and_learn(
 
     Trả `(transaction, preference vừa học hoặc None)`.
     """
-    category = _resolve_category(db, data.category_id, data.direction)
+    category = resolve_category(db, data.category_id, data.direction)
     transaction = Transaction(
         direction=data.direction,
         amount=data.amount,
         occurred_on=data.occurred_on,
         note=data.note,
         category=category,
-        spending_type=_resolve_spending_type(data.direction, data.spending_type, category),
+        spending_type=resolve_spending_type(data.direction, data.spending_type, category),
         source=data.source,
         raw_input=data.raw_input,
         ai_suggestion=data.ai_suggestion,
@@ -153,7 +155,7 @@ def update_transaction(
     category_id = changes.get("category_id", transaction.category_id)
     category_changed = category_id != transaction.category_id
     # Giữ được giao dịch cũ thuộc danh mục đã ẩn, nhưng không cho chuyển sang danh mục đã ẩn.
-    category = _resolve_category(db, category_id, direction, allow_archived=not category_changed)
+    category = resolve_category(db, category_id, direction, allow_archived=not category_changed)
 
     if "spending_type" in changes:
         spending_type = changes["spending_type"]
@@ -165,7 +167,7 @@ def update_transaction(
     _check_goal_contributions(db, transaction, direction, changes.get("amount", transaction.amount))
     transaction.direction = direction
     transaction.category = category
-    transaction.spending_type = _resolve_spending_type(direction, spending_type, category)
+    transaction.spending_type = resolve_spending_type(direction, spending_type, category)
     for field in ("amount", "occurred_on", "note"):
         if field in changes:
             setattr(transaction, field, changes[field])

@@ -8,9 +8,11 @@ from app.api.routers import (
     classification_preferences,
     coach,
     dashboard,
+    forecast,
     goals,
     health,
     monthly_reviews,
+    recurring_transactions,
     reviews,
     transactions,
 )
@@ -28,3 +30,5 @@ api_router.include_router(reviews.router)
 api_router.include_router(monthly_reviews.router)
 api_router.include_router(coach.router)
 api_router.include_router(goals.router)
+api_router.include_router(recurring_transactions.router)
+api_router.include_router(forecast.router)

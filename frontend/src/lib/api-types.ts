@@ -955,6 +955,217 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/recurring-transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Recurring
+         * @description Khoản định kỳ kèm trạng thái đến hạn (đang bật trước, kỳ gần nhất trước).
+         */
+        get: operations["list_recurring_api_v1_recurring_transactions_get"];
+        put?: never;
+        /**
+         * Create Recurring
+         * @description Tạo khoản định kỳ thủ công (tiền nhà, internet, lương…). Không tạo giao dịch.
+         */
+        post: operations["create_recurring_api_v1_recurring_transactions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recurring-transactions/detect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Detect Recurring
+         * @description Phát hiện mẫu định kỳ từ lịch sử (deterministic). **Chỉ tạo đề xuất** — user xác nhận
+         *     qua `…/suggestions/{id}/confirm`.
+         */
+        post: operations["detect_recurring_api_v1_recurring_transactions_detect_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recurring-transactions/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Suggestions
+         * @description Đề xuất của lần phát hiện gần nhất (bỏ mẫu đã có khoản định kỳ).
+         */
+        get: operations["list_suggestions_api_v1_recurring_transactions_suggestions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recurring-transactions/suggestions/{suggestion_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Suggestion
+         * @description User xác nhận đề xuất → tạo khoản định kỳ (`auto_detected`) + gắn giao dịch lịch sử.
+         */
+        post: operations["confirm_suggestion_api_v1_recurring_transactions_suggestions__suggestion_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recurring-transactions/suggestions/{suggestion_id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dismiss Suggestion
+         * @description Từ chối đề xuất — lần phát hiện sau không đề xuất lại mẫu này.
+         */
+        post: operations["dismiss_suggestion_api_v1_recurring_transactions_suggestions__suggestion_id__dismiss_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recurring-transactions/{recurring_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Deactivate Recurring
+         * @description Tắt khoản định kỳ (giữ lịch sử giao dịch đã gắn).
+         */
+        delete: operations["deactivate_recurring_api_v1_recurring_transactions__recurring_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Recurring
+         * @description Sửa / tạm dừng (`active: false`) / bật lại.
+         */
+        patch: operations["update_recurring_api_v1_recurring_transactions__recurring_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/recurring-transactions/{recurring_id}/create-transaction": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Transaction
+         * @description Ghi kỳ đang đến hạn thành giao dịch thật (`source = "recurring"`, `recurring_id`) và chuyển
+         *     khoản định kỳ sang kỳ sau. Thu nhập: kèm `pyf_proposal` (chưa ghi gì).
+         */
+        post: operations["create_transaction_api_v1_recurring_transactions__recurring_id__create_transaction_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/calendar/month": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Calendar Month
+         * @description Sự kiện tiền trong tháng: 💰 thu, 🏠 nhà, 💳 thẻ, 📱 tiện ích, 🎯 để dành mục tiêu.
+         */
+        get: operations["get_calendar_month_api_v1_calendar_month_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/forecast": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Forecast
+         * @description Dự báo số dư từng ngày (deterministic). `starting_balance` là số user tự nhập.
+         */
+        get: operations["get_forecast_api_v1_forecast_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/forecast": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Forecast Settings */
+        get: operations["get_forecast_settings_api_v1_settings_forecast_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Forecast Settings
+         * @description Sửa số dư đầu (giả định của forecast), ngưỡng cảnh báo, ngày để dành mục tiêu.
+         */
+        patch: operations["update_forecast_settings_api_v1_settings_forecast_patch"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2014,6 +2225,72 @@ export interface components {
             /** @description Chỉ có với zone_mode = auto */
             auto: components["schemas"]["AutoZoneDetailRead"] | null;
         };
+        /** CalendarEvent */
+        CalendarEvent: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Icon */
+            icon: string;
+            /** Label */
+            label: string;
+            /** Amount */
+            amount: number;
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "income" | "expense";
+            /**
+             * Kind
+             * @description recurring = kỳ sắp tới / chưa ghi; paid = giao dịch đã ghi từ khoản định kỳ; goal_saving = khoản để dành cho mục tiêu (kế hoạch)
+             * @enum {string}
+             */
+            kind: "recurring" | "paid" | "goal_saving";
+            /** Recurring Id */
+            recurring_id?: string | null;
+            /** Transaction Id */
+            transaction_id?: string | null;
+            /**
+             * Overdue
+             * @description Kỳ đã qua mà chưa ghi giao dịch
+             * @default false
+             */
+            overdue?: boolean;
+        };
+        /** CalendarMonth */
+        CalendarMonth: {
+            /**
+             * Month
+             * Format: date
+             * @description Ngày 1 của tháng
+             */
+            month: string;
+            /**
+             * Today
+             * Format: date
+             */
+            today: string;
+            /**
+             * Events
+             * @description Theo ngày; trong ngày: thu → chi → mục tiêu
+             */
+            events: components["schemas"]["CalendarEvent"][];
+            /**
+             * Income Total
+             * @description Tổng thu (kỳ định kỳ + đã ghi) trong tháng
+             */
+            income_total: number;
+            /**
+             * Expense Total
+             * @description Tổng chi (kỳ định kỳ + đã ghi) trong tháng
+             */
+            expense_total: number;
+            /** Goal Saving Total */
+            goal_saving_total: number;
+        };
         /** CategoryBrief */
         CategoryBrief: {
             /**
@@ -2400,6 +2677,177 @@ export interface components {
             category_name: string;
             /** Spending Type */
             spending_type: ("essential" | "non_essential" | "irregular") | null;
+        };
+        /** ForecastEvent */
+        ForecastEvent: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "recurring" | "goal_saving";
+            /** Label */
+            label: string;
+            /** Icon */
+            icon: string;
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "income" | "expense";
+            /** Amount */
+            amount: number;
+            /** Recurring Id */
+            recurring_id?: string | null;
+        };
+        /** ForecastOutput */
+        ForecastOutput: {
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
+            /** Days */
+            days: number;
+            /**
+             * Starting Balance
+             * @description Số dư user nhập (0 nếu chưa nhập)
+             */
+            starting_balance: number;
+            /** Starting Balance On */
+            starting_balance_on: string | null;
+            /** Starting Balance Set */
+            starting_balance_set: boolean;
+            /**
+             * Opening Balance
+             * @description Số dư đầu ngày start_date = starting_balance + giao dịch đã ghi từ starting_balance_on tới trước start_date
+             */
+            opening_balance: number;
+            /** Low Balance Threshold */
+            low_balance_threshold: number;
+            /** Points */
+            points: components["schemas"]["ForecastPoint"][];
+            /**
+             * Low Balance Warning Day
+             * @description Ngày đầu tiên số dư dự báo < ngưỡng; null = không có
+             */
+            low_balance_warning_day: string | null;
+            /** Min Balance */
+            min_balance: number;
+            /**
+             * Min Balance Day
+             * Format: date
+             */
+            min_balance_day: string;
+            /** End Balance */
+            end_balance: number;
+            /**
+             * Average Daily Variable Spending
+             * @description Chi 30 ngày trước start_date, bỏ khoản định kỳ và bất thường, chia số ngày có lịch sử (≥ 7); thiếu → 0
+             */
+            average_daily_variable_spending: number;
+            /** Variable History Days */
+            variable_history_days: number;
+            /**
+             * Insufficient History
+             * @description Lịch sử < 30 ngày → số trung bình kém tin cậy
+             */
+            insufficient_history: boolean;
+            /**
+             * Monthly Goal Saving
+             * @description Tổng gợi ý để dành / tháng của mục tiêu active
+             */
+            monthly_goal_saving: number;
+            /** Goal Saving Day Of Month */
+            goal_saving_day_of_month: number;
+            /** Recurring Income Total */
+            recurring_income_total: number;
+            /** Recurring Expense Total */
+            recurring_expense_total: number;
+            /** Goal Saving Total */
+            goal_saving_total: number;
+            /** Variable Spending Total */
+            variable_spending_total: number;
+            /**
+             * Overdue Recurring
+             * @description Kỳ đã quá hạn chưa ghi giao dịch — không tính vào dự báo
+             */
+            overdue_recurring: components["schemas"]["OverdueRecurring"][];
+        };
+        /** ForecastPoint */
+        ForecastPoint: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Projected Balance */
+            projected_balance: number;
+            /**
+             * Delta Income
+             * @description Thu định kỳ đến hạn + thu đã ghi trong ngày
+             */
+            delta_income: number;
+            /**
+             * Delta Expense
+             * @description Chi định kỳ đến hạn + chi đã ghi (không gồm biến đổi)
+             */
+            delta_expense: number;
+            /** Delta Goal Saving */
+            delta_goal_saving: number;
+            /**
+             * Delta Variable
+             * @description Chi tiêu biến đổi trung bình / ngày
+             */
+            delta_variable: number;
+            /**
+             * Events
+             * @description Khoản định kỳ / mục tiêu trong ngày
+             */
+            events: components["schemas"]["ForecastEvent"][];
+        };
+        /** ForecastSettings */
+        ForecastSettings: {
+            /**
+             * Starting Balance
+             * @description Số dư user tự nhập (đồng) — giả định của forecast; null = chưa nhập
+             */
+            starting_balance: number | null;
+            /**
+             * Starting Balance On
+             * @description Số dư tính tại đầu ngày này; giao dịch từ ngày này trở đi cộng / trừ vào
+             */
+            starting_balance_on: string | null;
+            /**
+             * Low Balance Threshold
+             * @description Cảnh báo khi số dư dự báo < ngưỡng
+             */
+            low_balance_threshold: number;
+            /**
+             * Goal Saving Day Of Month
+             * @description Ngày đặt khoản để dành cho mục tiêu 🎯
+             */
+            goal_saving_day_of_month: number;
+        };
+        /**
+         * ForecastSettingsUpdate
+         * @description PATCH: chỉ field được gửi mới cập nhật. Gửi `starting_balance` mà không gửi
+         *     `starting_balance_on` → tính từ hôm nay.
+         */
+        ForecastSettingsUpdate: {
+            /** Starting Balance */
+            starting_balance?: number | null;
+            /**
+             * Starting Balance On
+             * Format: date
+             */
+            starting_balance_on?: string;
+            /**
+             * Low Balance Threshold
+             * @description Đồng, ≥ 0
+             */
+            low_balance_threshold?: number;
+            /** Goal Saving Day Of Month */
+            goal_saving_day_of_month?: number;
         };
         /**
          * GoalContributionCreate
@@ -2982,6 +3430,28 @@ export interface components {
              */
             updated_at: string;
         };
+        /** OverdueRecurring */
+        OverdueRecurring: {
+            /**
+             * Recurring Id
+             * Format: uuid
+             */
+            recurring_id: string;
+            /** Name */
+            name: string;
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "income" | "expense";
+            /** Amount */
+            amount: number;
+            /**
+             * Due On
+             * Format: date
+             */
+            due_on: string;
+        };
         /** PendingWeeklyReviewRead */
         PendingWeeklyReviewRead: {
             /**
@@ -3282,6 +3752,315 @@ export interface components {
             message: string;
             /** Amount */
             amount?: number | null;
+        };
+        /**
+         * RecurringCreate
+         * @description Tạo khoản định kỳ thủ công.
+         *
+         *     - `weekly`: `day_of_week` (hoặc suy từ `next_due_on`).
+         *     - `monthly`: `day_of_month` (hoặc suy từ `next_due_on`).
+         *     - `yearly`: bắt buộc `next_due_on` (lấy tháng); `day_of_month` mặc định ngày của nó.
+         *     - Bỏ trống `next_due_on` → kỳ đầu tiên **sau** hôm nay.
+         */
+        RecurringCreate: {
+            /** Name */
+            name: string;
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "income" | "expense";
+            /**
+             * Amount
+             * @description Số nguyên đồng, > 0
+             */
+            amount: number;
+            /**
+             * Category Id
+             * Format: uuid
+             */
+            category_id: string;
+            /**
+             * Spending Type
+             * @description Chỉ cho expense; bỏ trống thì dùng default_spending_type của category
+             */
+            spending_type?: ("essential" | "non_essential" | "irregular") | null;
+            /**
+             * Frequency
+             * @enum {string}
+             */
+            frequency: "weekly" | "monthly" | "yearly";
+            /** Day Of Month */
+            day_of_month?: number | null;
+            /** Day Of Week */
+            day_of_week?: number | null;
+            /** Next Due On */
+            next_due_on?: string | null;
+        };
+        /** RecurringDetectRequest */
+        RecurringDetectRequest: {
+            /**
+             * From Date
+             * @description Mặc định to_date − 180 ngày
+             */
+            from_date?: string | null;
+            /**
+             * To Date
+             * @description Mặc định hôm nay
+             */
+            to_date?: string | null;
+        };
+        /** RecurringList */
+        RecurringList: {
+            /**
+             * Items
+             * @description Đang bật trước, theo next_due_on (gần nhất trước)
+             */
+            items: components["schemas"]["RecurringRead"][];
+        };
+        /** RecurringRead */
+        RecurringRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "income" | "expense";
+            /** Amount */
+            amount: number;
+            /**
+             * Category Id
+             * Format: uuid
+             */
+            category_id: string;
+            category: components["schemas"]["CategoryBrief"];
+            /** Spending Type */
+            spending_type: ("essential" | "non_essential" | "irregular") | null;
+            /**
+             * Frequency
+             * @enum {string}
+             */
+            frequency: "weekly" | "monthly" | "yearly";
+            /** Day Of Month */
+            day_of_month: number | null;
+            /** Day Of Week */
+            day_of_week: number | null;
+            /**
+             * Next Due On
+             * Format: date
+             */
+            next_due_on: string;
+            /** Auto Detected */
+            auto_detected: boolean;
+            /** Active */
+            active: boolean;
+            /**
+             * Icon
+             * @description Icon lịch: 💰 thu nhập, 🏠 nhà, 💳 thẻ tín dụng, 📱 tiện ích…
+             */
+            icon: string;
+            /**
+             * Days Until Due
+             * @description next_due_on - hôm nay (âm = quá hạn)
+             */
+            days_until_due: number;
+            /**
+             * Due Status
+             * @description overdue (< hôm nay) | due_today | upcoming (≤ 14 ngày) | later
+             * @enum {string}
+             */
+            due_status: "overdue" | "due_today" | "upcoming" | "later";
+            /**
+             * Transaction Count
+             * @description Số giao dịch đã gắn khoản định kỳ này
+             */
+            transaction_count: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** RecurringSuggestion */
+        RecurringSuggestion: {
+            /**
+             * Id
+             * Format: uuid
+             * @description Ổn định theo (chiều, danh mục, loại chi, tần suất, ngày)
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "income" | "expense";
+            /**
+             * Amount
+             * @description Trung vị số tiền các lần xuất hiện
+             */
+            amount: number;
+            /**
+             * Category Id
+             * Format: uuid
+             */
+            category_id: string;
+            /** Category Name */
+            category_name: string;
+            /** Spending Type */
+            spending_type: ("essential" | "non_essential" | "irregular") | null;
+            /**
+             * Frequency
+             * @enum {string}
+             */
+            frequency: "weekly" | "monthly" | "yearly";
+            /** Day Of Month */
+            day_of_month: number | null;
+            /** Day Of Week */
+            day_of_week: number | null;
+            /**
+             * Next Due On
+             * Format: date
+             * @description Kỳ đầu tiên sau max(lần cuối, hôm nay)
+             */
+            next_due_on: string;
+            /** Icon */
+            icon: string;
+            /**
+             * Confidence
+             * @description 0.4 + amount_consistency × 0.3 + interval_consistency × 0.3 (≥ 0.75)
+             */
+            confidence: number;
+            /**
+             * Amount Consistency
+             * @description 1 − (độ lệch trung bình so với trung vị) / 10%, trong [0, 1]
+             */
+            amount_consistency: number;
+            /**
+             * Interval Consistency
+             * @description Tỉ lệ khoảng cách đúng nhịp tuần / tháng
+             */
+            interval_consistency: number;
+            /** Median Interval Days */
+            median_interval_days: number;
+            /** Occurrences */
+            occurrences: number;
+            /**
+             * First Occurred On
+             * Format: date
+             */
+            first_occurred_on: string;
+            /**
+             * Last Occurred On
+             * Format: date
+             */
+            last_occurred_on: string;
+            /**
+             * Amounts
+             * @description Số tiền các lần xuất hiện (cũ nhất trước)
+             */
+            amounts: number[];
+            /** Transaction Ids */
+            transaction_ids: string[];
+        };
+        /** RecurringSuggestionConfirm */
+        RecurringSuggestionConfirm: {
+            /** Name */
+            name?: string | null;
+            /** Amount */
+            amount?: number | null;
+            /** Next Due On */
+            next_due_on?: string | null;
+        };
+        /** RecurringSuggestionList */
+        RecurringSuggestionList: {
+            /** From Date */
+            from_date: string | null;
+            /** To Date */
+            to_date: string | null;
+            /**
+             * Suggestions
+             * @description Chưa tạo gì — user xác nhận qua …/suggestions/{id}/confirm
+             */
+            suggestions: components["schemas"]["RecurringSuggestion"][];
+        };
+        /**
+         * RecurringTransactionCreate
+         * @description Ghi kỳ đang đến hạn thành giao dịch thật (`source = 'recurring'`).
+         */
+        RecurringTransactionCreate: {
+            /**
+             * Occurred On
+             * @description Mặc định min(next_due_on, hôm nay)
+             */
+            occurred_on?: string | null;
+            /**
+             * Amount
+             * @description Số tiền thực tế kỳ này; mặc định số của khoản định kỳ
+             */
+            amount?: number | null;
+        };
+        /** RecurringTransactionResult */
+        RecurringTransactionResult: {
+            transaction: components["schemas"]["TransactionRead"];
+            /** @description Khoản định kỳ đã chuyển sang kỳ sau */
+            recurring: components["schemas"]["RecurringRead"];
+            /** @description Đề xuất Pay Yourself First khi là thu nhập (như POST /transactions) */
+            pyf_proposal?: components["schemas"]["PyfProposal"] | null;
+        };
+        /**
+         * RecurringUpdate
+         * @description PATCH: chỉ field được gửi mới cập nhật. Đổi lịch mà không gửi `next_due_on` → tính lại kỳ
+         *     đầu tiên sau hôm nay. Bật lại (`active: true`) khoản đã quá hạn → nhảy tới kỳ sau hôm nay.
+         */
+        RecurringUpdate: {
+            /** Name */
+            name?: string;
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction?: "income" | "expense";
+            /**
+             * Amount
+             * @description Số nguyên đồng, > 0
+             */
+            amount?: number;
+            /**
+             * Category Id
+             * Format: uuid
+             */
+            category_id?: string;
+            /** Spending Type */
+            spending_type?: ("essential" | "non_essential" | "irregular") | null;
+            /**
+             * Frequency
+             * @enum {string}
+             */
+            frequency?: "weekly" | "monthly" | "yearly";
+            /** Day Of Month */
+            day_of_month?: number | null;
+            /** Day Of Week */
+            day_of_week?: number | null;
+            /**
+             * Next Due On
+             * Format: date
+             */
+            next_due_on?: string;
+            /** Active */
+            active?: boolean;
         };
         /** ReferenceComparison */
         ReferenceComparison: {
@@ -3741,6 +4520,11 @@ export interface components {
                 [key: string]: unknown;
             } | null;
             /**
+             * Recurring Id
+             * @description Khoản định kỳ đã sinh / gắn giao dịch này (Phase 12)
+             */
+            recurring_id?: string | null;
+            /**
              * Created At
              * Format: date-time
              */
@@ -3887,6 +4671,11 @@ export interface components {
             ai_suggestion: {
                 [key: string]: unknown;
             } | null;
+            /**
+             * Recurring Id
+             * @description Khoản định kỳ đã sinh / gắn giao dịch này (Phase 12)
+             */
+            recurring_id?: string | null;
             /**
              * Created At
              * Format: date-time
@@ -6659,6 +7448,484 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_recurring_api_v1_recurring_transactions_get: {
+        parameters: {
+            query?: {
+                /** @description Lọc theo trạng thái bật / tắt */
+                active?: boolean | null;
+                /** @description Hôm nay phía user (mặc định của server) — dùng cho demo/test */
+                today?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurringList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_recurring_api_v1_recurring_transactions_post: {
+        parameters: {
+            query?: {
+                /** @description Hôm nay phía user (mặc định của server) — dùng cho demo/test */
+                today?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecurringCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurringRead"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    detect_recurring_api_v1_recurring_transactions_detect_post: {
+        parameters: {
+            query?: {
+                /** @description Hôm nay phía user (mặc định của server) — dùng cho demo/test */
+                today?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecurringDetectRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurringSuggestionList"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_suggestions_api_v1_recurring_transactions_suggestions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurringSuggestionList"];
+                };
+            };
+        };
+    };
+    confirm_suggestion_api_v1_recurring_transactions_suggestions__suggestion_id__confirm_post: {
+        parameters: {
+            query?: {
+                /** @description Hôm nay phía user (mặc định của server) — dùng cho demo/test */
+                today?: string | null;
+            };
+            header?: never;
+            path: {
+                suggestion_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecurringSuggestionConfirm"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurringRead"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    dismiss_suggestion_api_v1_recurring_transactions_suggestions__suggestion_id__dismiss_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                suggestion_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    deactivate_recurring_api_v1_recurring_transactions__recurring_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recurring_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_recurring_api_v1_recurring_transactions__recurring_id__patch: {
+        parameters: {
+            query?: {
+                /** @description Hôm nay phía user (mặc định của server) — dùng cho demo/test */
+                today?: string | null;
+            };
+            header?: never;
+            path: {
+                recurring_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecurringUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurringRead"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_transaction_api_v1_recurring_transactions__recurring_id__create_transaction_post: {
+        parameters: {
+            query?: {
+                /** @description Hôm nay phía user (mặc định của server) — dùng cho demo/test */
+                today?: string | null;
+            };
+            header?: never;
+            path: {
+                recurring_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecurringTransactionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurringTransactionResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_calendar_month_api_v1_calendar_month_get: {
+        parameters: {
+            query?: {
+                /** @description Ngày bất kỳ trong tháng; mặc định tháng này */
+                month?: string | null;
+                /** @description Hôm nay phía user (mặc định của server) — dùng cho demo/test */
+                today?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarMonth"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_forecast_api_v1_forecast_get: {
+        parameters: {
+            query?: {
+                /** @description Số ngày dự báo (UI dùng 30 / 60) */
+                days?: number;
+                /** @description Mặc định hôm nay */
+                start_date?: string | null;
+                /** @description Hôm nay phía user (mặc định của server) — dùng cho demo/test */
+                today?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForecastOutput"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_forecast_settings_api_v1_settings_forecast_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForecastSettings"];
+                };
+            };
+        };
+    };
+    update_forecast_settings_api_v1_settings_forecast_patch: {
+        parameters: {
+            query?: {
+                /** @description Hôm nay phía user (mặc định của server) — dùng cho demo/test */
+                today?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ForecastSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForecastSettings"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };

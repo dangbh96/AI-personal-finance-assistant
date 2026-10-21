@@ -23,6 +23,7 @@ CoachGuardStatus = Literal[
     "passed", "rewritten", "fallback", "refused_out_of_scope", "refused_write_request"
 ]
 GoalStatus = Literal["active", "achieved", "paused"]
+RecurringFrequency = Literal["weekly", "monthly", "yearly"]
 
 DIRECTIONS: tuple[str, ...] = get_args(Direction)
 SPENDING_TYPES: tuple[str, ...] = get_args(SpendingType)
@@ -37,6 +38,7 @@ ADVICE_STATUSES: tuple[str, ...] = get_args(AdviceStatus)
 ZONE_MODES: tuple[str, ...] = get_args(ZoneMode)
 CHAT_ROLES: tuple[str, ...] = get_args(ChatRole)
 GOAL_STATUSES: tuple[str, ...] = get_args(GoalStatus)
+RECURRING_FREQUENCIES: tuple[str, ...] = get_args(RecurringFrequency)
 
 
 def sql_in(values: tuple[str, ...]) -> str:

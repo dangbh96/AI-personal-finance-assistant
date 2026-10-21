@@ -96,6 +96,21 @@ def totals_by_direction(db: Session, date_from: date, date_to: date) -> dict[str
     return {direction: int(total) for direction, total in db.execute(stmt)}
 
 
+def daily_totals_by_direction(
+    db: Session, date_from: date, date_to: date
+) -> dict[date, dict[str, int]]:
+    """`{ngày: {direction: tổng}}` của mọi giao dịch trong kỳ (forecast Phase 12)."""
+    stmt = (
+        select(Transaction.occurred_on, Transaction.direction, func.sum(Transaction.amount))
+        .where(Transaction.occurred_on >= date_from, Transaction.occurred_on <= date_to)
+        .group_by(Transaction.occurred_on, Transaction.direction)
+    )
+    result: dict[date, dict[str, int]] = {}
+    for day, direction, total in db.execute(stmt):
+        result.setdefault(day, {})[direction] = int(total)
+    return result
+
+
 def expense_totals_by_category_and_spending_type(
     db: Session, date_from: date, date_to: date
 ) -> list[tuple[uuid.UUID, str, int, int]]:

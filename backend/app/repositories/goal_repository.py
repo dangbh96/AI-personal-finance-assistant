@@ -64,6 +64,24 @@ def contribution_totals(
     return {gid: ContributionTotals(int(total), int(n), last) for gid, total, n, last in rows}
 
 
+def contributed_between(
+    db: Session, goal_ids: Collection[uuid.UUID], date_from: date, date_to: date
+) -> dict[uuid.UUID, int]:
+    """Tổng khoản góp theo goal có `contributed_on` trong `[date_from, date_to]`."""
+    if not goal_ids:
+        return {}
+    rows = db.execute(
+        select(GoalContribution.goal_id, func.coalesce(func.sum(GoalContribution.amount), 0))
+        .where(
+            GoalContribution.goal_id.in_(list(goal_ids)),
+            GoalContribution.contributed_on >= date_from,
+            GoalContribution.contributed_on <= date_to,
+        )
+        .group_by(GoalContribution.goal_id)
+    )
+    return {gid: int(total) for gid, total in rows}
+
+
 def list_contributions(db: Session, goal_id: uuid.UUID) -> list[GoalContribution]:
     stmt = (
         select(GoalContribution)

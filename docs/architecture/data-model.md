@@ -172,14 +172,16 @@ erDiagram
     }
     RECURRING_TRANSACTION {
         uuid id PK
+        uuid user_id "nullable"
         text name
-        text direction
-        bigint amount
+        text direction "income | expense"
+        bigint amount "> 0"
         uuid category_id FK
-        text spending_type
+        text spending_type "null nếu income"
         text frequency "weekly | monthly | yearly"
-        int day_of_month
-        date next_due_on
+        int day_of_month "monthly / yearly: 1-31"
+        int day_of_week "weekly: 1-7 (ISO)"
+        date next_due_on "kỳ kế tiếp chưa ghi"
         bool auto_detected
         bool active
     }
@@ -255,7 +257,7 @@ Tên trong bảng dưới là **tên bảng thực tế** (số nhiều snake_ca
 | 9 | `budget_allocations.comfort_low/comfort_high/warning_threshold/zone_mode` (+ CHECK `zone_mode`) |
 | 10 | `chat_sessions`, `chat_messages` (+ cột `evidence` so với plan) |
 | 11 | `goals`, `goal_contributions` |
-| 12 | `recurring_transactions`, `transactions.recurring_id` |
+| 12 | `recurring_transactions`, `transactions.recurring_id`, `app_settings.forecast.*`, `app_settings.recurring.*` |
 | 13 | `receipts`, `transactions.receipt_id` |
 | 14 | `import_batches`, `import_mapping_profiles`, `transactions.import_batch_id`, `transactions.dedup_hash` |
 | 15 | `CREATE EXTENSION vector`, `transaction_embeddings` |
@@ -331,3 +333,10 @@ Tên trong bảng dưới là **tên bảng thực tế** (số nhiều snake_ca
 - `goal_contributions`: FK `goal_id` → `goals` `ON DELETE CASCADE`; FK `income_transaction_id` → `transactions` **`ON DELETE SET NULL`** (xoá thu nhập → giữ khoản góp, bỏ liên kết; plan chưa nói); `amount BIGINT` CHECK `ck_goal_contributions_amount_positive` (`> 0`); `contributed_on DATE NOT NULL` (= `occurred_on` của thu nhập với khoản góp PYF; khoản góp thủ công không ở tương lai). Index `ix_goal_contributions_goal_id_contributed_on`, `ix_goal_contributions_income_transaction_id`. `income_transaction_id` NULL = khoản góp thủ công (vd số tiền đã có sẵn).
 - Ràng buộc ở service (không ở DB): `income_transaction_id` phải là giao dịch `direction = 'income'`; một thu nhập chỉ được xác nhận phân bổ **một lần** (đã có khoản góp → 409 `income_already_allocated`); khoản góp chỉ cho goal `active` và không vượt phần còn thiếu; tổng goal + `budget_savings_amount` ≤ thu nhập; thu nhập đã cấp tiền không đổi được thành khoản chi / giảm dưới tổng đã phân bổ. `status` tự chuyển `active → achieved` khi đủ tiền và `achieved → active` khi xoá khoản góp / tăng target làm thiếu tiền.
 - `budget_savings_amount` (khoản tiết kiệm ngân sách chưa gắn goal) **không lưu** — chỉ để tính `available_spending`; `transactions` không thêm cột. Dòng nhóm `savings` của budget vẫn `not_tracked` (actual 0) như Phase 5.
+
+**Phase 12** (migration `20261022_a46a3e1b041a_calendar_forecast`):
+- `recurring_transactions`: `user_id UUID NULL`, `name TEXT NOT NULL` (API 1–100 ký tự), `direction`, `amount BIGINT`, `category_id` FK → `categories` `ON DELETE RESTRICT`, `spending_type`, `frequency`, `day_of_month INT NULL`, `day_of_week INT NULL`, `next_due_on DATE NOT NULL`, `auto_detected BOOL DEFAULT false`, `active BOOL DEFAULT true`, timestamps. CHECK `ck_recurring_transactions_amount_positive` (`> 0`), `_direction`, `_spending_type`, `_direction_spending_type` (income ⇔ `spending_type IS NULL`, như `transactions`), `_frequency` (`weekly | monthly | yearly`), **`_schedule`**: `weekly` ⇒ `day_of_week BETWEEN 1 AND 7` và `day_of_month IS NULL`; `monthly` / `yearly` ⇒ `day_of_month BETWEEN 1 AND 31` và `day_of_week IS NULL`. Index `ix_recurring_transactions_active_next_due_on (active, next_due_on)`, `ix_recurring_transactions_category_id`. Khác plan: thêm cột `day_of_week` vào sơ đồ (plan § 4.1 đã có); `yearly` dùng `day_of_month` làm ngày gốc + **tháng của `next_due_on`** (29/02 → 28/02 năm không nhuận rồi về lại 29/02) thay vì chỉ giữ ngày của `next_due_on`.
+- Ý nghĩa `next_due_on` = kỳ kế tiếp **chưa ghi** thành giao dịch; có thể < hôm nay (quá hạn, chưa xác nhận). Ràng buộc ở `recurring_service`: danh mục cùng chiều, chưa ẩn; `next_due_on` phải là một kỳ hợp lệ của lịch (422 `next_due_on_mismatch`); bỏ trống → kỳ đầu tiên **sau** hôm nay. DELETE chỉ tắt (`active = false`), không xoá dòng.
+- `transactions.recurring_id UUID NULL` FK → `recurring_transactions` **`ON DELETE SET NULL`** + index `ix_transactions_recurring_id`. Được đặt khi (a) "Tạo giao dịch" từ khoản định kỳ (`source = 'recurring'`) hoặc (b) user xác nhận đề xuất phát hiện → các giao dịch lịch sử của mẫu được gắn (giữ `source` cũ). API không cho sửa cột này.
+- `app_settings` (seed trong migration): `forecast.low_balance_threshold = 1000000`, `forecast.goal_saving_day_of_month = 10`. Không seed: `forecast.starting_balance` (số nguyên đồng, có thể âm / 0; NULL = chưa nhập), `forecast.starting_balance_on` (ISO date — số dư tính tại đầu ngày này; mặc định hôm nay khi user nhập số dư), `recurring.suggestions` (`RecurringSuggestionList` của lần phát hiện gần nhất — đề xuất **không** có bảng riêng, id ổn định = UUID5 của khoá mẫu), `recurring.dismissed_suggestions` (danh sách khoá mẫu user đã bỏ qua, tối đa 200). Downgrade xoá cả 6 key.
+- Forecast / lịch không có bảng / cache: `forecast_service` tính từ `recurring_transactions`, `transactions` (gộp theo ngày), `goals` + `goal_contributions`.

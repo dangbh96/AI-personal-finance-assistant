@@ -73,8 +73,11 @@ Mọi code, API, DB, prompt và tài liệu **phải** dùng đúng tên trong c
 |---|---|---|
 | Mục tiêu tiết kiệm | Goal | `Goal` |
 | Khoản góp mục tiêu | Goal contribution | `GoalContribution` |
-| Khoản định kỳ | Recurring transaction | `RecurringTransaction`, `frequency`: `weekly`, `monthly`, `yearly` |
-| Dự báo dòng tiền | Cashflow forecast | `forecast` |
+| Khoản định kỳ | Recurring transaction | `RecurringTransaction`, `frequency`: `weekly`, `monthly`, `yearly`; kỳ tới `next_due_on` |
+| Đề xuất định kỳ | Recurring suggestion | `RecurringSuggestion` (phát hiện từ lịch sử, user xác nhận mới tạo) |
+| Dự báo dòng tiền | Cashflow forecast | `forecast` (`projected_balance` theo ngày) |
+| Số dư đầu (user nhập) | Starting balance | `starting_balance`, `starting_balance_on` |
+| Ngưỡng cảnh báo số dư thấp | Low-balance threshold | `low_balance_threshold`, `low_balance_warning_day` |
 | Hoá đơn (ảnh) | Receipt | `Receipt` |
 | Lô import | Import batch | `ImportBatch` |
 | Kịch bản giả định | What-if scenario | `Scenario` |
