@@ -1,0 +1,9 @@
+# Ảnh tổng hợp — nhà hàng: cộng tiền hàng + phí phục vụ 5% + VAT 8%, tổng cuối có số lẻ.
+file: restaurant.jpg
+mime_type: image/jpeg
+merchant: Pho Co
+date: 2026-10-12
+total: 748440
+unreadable: false
+category_slug: food
+spending_type: non_essential

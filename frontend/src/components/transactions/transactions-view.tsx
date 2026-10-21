@@ -1,7 +1,9 @@
 "use client";
 
-import { PlusIcon } from "lucide-react";
+import { PlusIcon, ReceiptTextIcon } from "lucide-react";
 import { io } from "next/cache";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { use, useEffect, useState } from "react";
 
 import { PyfAllocationDialog } from "@/components/goals/pyf-allocation-dialog";
@@ -13,7 +15,7 @@ import {
 import { TransactionFormDialog } from "@/components/transactions/transaction-form-dialog";
 import { TransactionSummaryCards } from "@/components/transactions/transaction-summary-cards";
 import { TransactionTable } from "@/components/transactions/transaction-table";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useApiData } from "@/hooks/use-api-data";
 import {
@@ -29,14 +31,18 @@ import { currentMonth, monthToRange } from "@/lib/dates";
 import { formatMonthLabel } from "@/lib/format";
 
 const PAGE_SIZE = 20;
+const MONTH_PARAM = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 type FormState = { open: boolean; transaction: Transaction | null };
 
 export function TransactionsView() {
   // Tháng mặc định phụ thuộc thời điểm hiện tại → không đưa vào static shell (Cache Components).
   use(io());
+  // `?month=YYYY-MM` (vd link từ hoá đơn vừa lưu) chọn tháng ban đầu.
+  const monthParam = useSearchParams().get("month");
   const [filters, setFilters] = useState<Filters>(() => ({
-    month: currentMonth(),
+    month:
+      monthParam && MONTH_PARAM.test(monthParam) ? monthParam : currentMonth(),
     categoryId: null,
     spendingType: null,
     direction: null,
@@ -100,13 +106,19 @@ export function TransactionsView() {
             {list.data ? ` · ${list.data.total} giao dịch` : ""}
           </p>
         </div>
-        <Button
-          onClick={() => setForm({ open: true, transaction: null })}
-          disabled={!categories.data}
-        >
-          <PlusIcon data-icon="inline-start" />
-          Thêm giao dịch
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/import" className={buttonVariants({ variant: "outline" })}>
+            <ReceiptTextIcon data-icon="inline-start" />
+            Nhập từ hoá đơn
+          </Link>
+          <Button
+            onClick={() => setForm({ open: true, transaction: null })}
+            disabled={!categories.data}
+          >
+            <PlusIcon data-icon="inline-start" />
+            Thêm giao dịch
+          </Button>
+        </div>
       </div>
 
       <TransactionFilters

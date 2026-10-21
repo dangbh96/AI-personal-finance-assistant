@@ -130,6 +130,16 @@ export type ForecastPoint = Schemas["ForecastPoint"];
 export type CalendarMonth = Schemas["CalendarMonth"];
 export type CalendarEvent = Schemas["CalendarEvent"];
 export type CalendarEventKind = CalendarEvent["kind"];
+export type Receipt = Schemas["ReceiptRead"];
+export type ReceiptStatus = Receipt["status"];
+export type ReceiptDetail = Schemas["ReceiptDetail"];
+export type ReceiptExtraction = Schemas["ReceiptVisionOutput"];
+export type ReceiptItem = Schemas["ReceiptItem"];
+export type ReceiptManualPrefill = Schemas["ReceiptManualPrefill"];
+export type ReceiptList = Schemas["ReceiptList"];
+export type ReceiptListItem = Schemas["ReceiptListItem"];
+export type ReceiptConfirm = Schemas["ReceiptConfirm"];
+export type ReceiptConfirmResult = Schemas["ReceiptConfirmResult"];
 export type ZoneStatus = NonNullable<BudgetZone["zone"]>;
 export type ZoneMode = BudgetZone["zone_mode"];
 export type AdviceVerdict = BudgetAdvice["verdict"];
@@ -179,7 +189,8 @@ export function withQuery(
   return qs ? `${path}?${qs}` : path;
 }
 
-function errorMessage(body: unknown, fallback: string): string {
+/** Thông báo lỗi từ body `{"detail", "code"}` của backend (chuỗi hoặc danh sách lỗi validate). */
+export function errorMessage(body: unknown, fallback: string): string {
   if (!body || typeof body !== "object" || !("detail" in body)) return fallback;
   const detail = (body as { detail: unknown }).detail;
   if (typeof detail === "string") return detail;

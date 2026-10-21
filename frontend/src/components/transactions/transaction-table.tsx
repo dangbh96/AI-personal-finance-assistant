@@ -1,6 +1,6 @@
 "use client";
 
-import { PencilIcon, SparklesIcon, Trash2Icon } from "lucide-react";
+import { PencilIcon, ReceiptTextIcon, SparklesIcon, Trash2Icon } from "lucide-react";
 
 import { SpendingTypeBadge } from "@/components/spending-type-badge";
 import { Badge } from "@/components/ui/badge";
@@ -54,6 +54,7 @@ export function TransactionTable({
               {tx.source !== "manual" && (
                 <Badge variant="outline" className="mr-1.5">
                   {tx.source === "nl" && <SparklesIcon aria-hidden />}
+                  {tx.source === "receipt" && <ReceiptTextIcon aria-hidden />}
                   {SOURCE_LABELS[tx.source]}
                 </Badge>
               )}

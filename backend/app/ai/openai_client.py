@@ -4,7 +4,7 @@
 - Timeout + retry có backoff cho lỗi mạng / 429 / 5xx (tối đa 2 lần, do OpenAI SDK thực hiện).
 - Structured output: JSON schema strict sinh từ Pydantic, validate lại bằng Pydantic; nếu output
   không hợp lệ thì gửi lỗi cho model và thử lại 1 lần, sau đó raise `AIUnavailable`.
-- Log tác vụ, model, token, latency — không log API key / nội dung prompt.
+- Log tác vụ, model, token, latency — không log API key / nội dung prompt / ảnh (base64).
 """
 
 import logging
@@ -29,7 +29,8 @@ MAX_NETWORK_RETRIES = 2
 MAX_OUTPUT_RETRIES = 1
 _UNSUPPORTED_KEYWORDS = frozenset({"minLength", "maxLength", "default"})
 
-Message = dict[str, str]
+# `content` là chuỗi, hoặc danh sách phần tử (text + image_url) cho model vision (Phase 13).
+Message = dict[str, Any]
 
 
 class AIUnavailable(DomainError):

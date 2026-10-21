@@ -1,0 +1,9 @@
+# Ảnh tổng hợp (generate_receipts.py) — siêu thị: có tạm tính, giảm giá, tiền khách đưa / thối lại.
+file: supermarket.jpg
+mime_type: image/jpeg
+merchant: Xanh Mart
+date: 2026-10-05
+total: 352000
+unreadable: false
+category_slug: food
+spending_type: essential

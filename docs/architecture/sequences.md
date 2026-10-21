@@ -156,16 +156,20 @@ sequenceDiagram
     participant OAI as OpenAI
 
     U->>FE: upload ảnh hoá đơn
-    FE->>API: POST /receipts (multipart)
-    API->>API: validate mime/size, lưu file, Receipt(status=uploaded)
-    API->>V: extract(image)
-    V->>OAI: vision + structured output ReceiptExtraction
-    OAI-->>V: merchant, date, total, items
-    V-->>API: extraction + TransactionDraft
-    API-->>FE: draft (status=extracted)
+    FE->>API: POST /receipts?today= (multipart, có tiến độ upload)
+    API->>API: validate mime/đuôi/≤10MB/magic bytes, lưu file uuid, Receipt(status=uploaded)
+    API->>V: analyze(ảnh — HEIC đổi sang JPEG)
+    V->>OAI: vision + structured output ReceiptVisionOutput
+    OAI-->>V: merchant, date, total, items, confidence, category
+    V-->>API: extraction (+ phân loại theo sở thích đã học)
+    alt total > 0, VND, confidence ≥ 0.6
+        API-->>FE: 201 TransactionDraft (status=extracted)
+    else mờ / thiếu tổng / AI lỗi
+        API-->>FE: 201 manual_prefill (status=failed) — có thể POST /receipts/{id}/retry
+    end
     U->>FE: sửa nếu sai, xác nhận
-    FE->>API: POST /transactions {..., receipt_id}
-    API-->>FE: 201, Receipt(status=confirmed)
+    FE->>API: POST /receipts/{id}/confirm {amount, occurred_on, category_id, ...}
+    API-->>FE: 201 Transaction(source=receipt, receipt_id), Receipt(status=confirmed)
 ```
 
 ## 6. Import sao kê CSV (Phase 14)

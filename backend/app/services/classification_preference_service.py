@@ -239,12 +239,21 @@ def _keyword_for(transaction: Transaction, suggestion: _AiSuggestion) -> str | N
     return keyword
 
 
-def record_feedback(db: Session, transaction: Transaction) -> ClassificationPreference | None:
+def record_feedback(
+    db: Session,
+    transaction: Transaction,
+    *,
+    keyword: str | None = None,
+    guess_keyword: bool = True,
+) -> ClassificationPreference | None:
     """Gọi sau khi giao dịch đã flush, trước commit. Trả preference vừa học (nếu có).
 
     - User sửa category/spending_type so với `ai_suggestion` → lưu feedback + upsert preference
       (pattern của preference đã dùng cho draft, nếu không có thì keyword của giao dịch).
     - Không sửa và draft dùng preference → tăng `hit_count` của preference đó.
+
+    Phase 13: `guess_keyword=False` → không đoán keyword từ ghi chú, học theo `keyword` truyền vào
+    (hoá đơn học theo tên cửa hàng); `keyword=None` thì chỉ lưu feedback, không học preference mới.
     """
     suggestion = _parse_ai_suggestion(db, transaction.ai_suggestion)
     if suggestion is None:
@@ -281,8 +290,13 @@ def record_feedback(db: Session, transaction: Transaction) -> ClassificationPref
         ),
     )
 
-    pattern = matched.pattern if matched is not None else _keyword_for(transaction, suggestion)
-    if pattern is None or not is_specific(pattern):
+    if matched is not None:
+        pattern = matched.pattern
+    elif guess_keyword:
+        pattern = _keyword_for(transaction, suggestion)
+    else:
+        pattern = normalize_pattern(keyword) if keyword else None
+    if not pattern or not is_specific(pattern):
         return None
     return _upsert(
         db,

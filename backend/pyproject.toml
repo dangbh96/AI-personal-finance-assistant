@@ -18,6 +18,10 @@ dependencies = [
     "openai>=1.40",
     # ADR-006: API LangGraph đổi nhanh → pin minor.
     "langgraph>=1.2,<1.3",
+    # Phase 13: upload multipart + đổi ảnh HEIC/HEIF sang JPEG trước khi gửi model vision.
+    "python-multipart>=0.0.9",
+    "pillow>=10",
+    "pillow-heif>=0.18",
 ]
 
 [project.optional-dependencies]
@@ -25,6 +29,8 @@ dev = [
     "pytest>=8",
     "httpx>=0.27",
     "ruff>=0.6",
+    # Phase 13: file expected *.yaml của golden set hoá đơn.
+    "pyyaml>=6",
 ]
 
 [tool.setuptools.packages.find]

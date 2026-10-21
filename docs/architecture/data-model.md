@@ -187,10 +187,16 @@ erDiagram
     }
     RECEIPT {
         uuid id PK
-        text file_path
+        text file_path "tương đối trong UPLOAD_DIR"
         text mime_type
-        jsonb extracted
+        text original_filename
+        int file_size_bytes
+        text sha256 "cảnh báo upload trùng"
+        jsonb extracted "output model vision + suggestion"
+        jsonb draft "P13: TransactionDraft lúc trích xuất"
+        text model
         text status "uploaded | extracted | confirmed | failed"
+        text error_code
         uuid transaction_id FK "nullable"
     }
     IMPORT_BATCH {
@@ -258,7 +264,7 @@ Tên trong bảng dưới là **tên bảng thực tế** (số nhiều snake_ca
 | 10 | `chat_sessions`, `chat_messages` (+ cột `evidence` so với plan) |
 | 11 | `goals`, `goal_contributions` |
 | 12 | `recurring_transactions`, `transactions.recurring_id`, `app_settings.forecast.*`, `app_settings.recurring.*` |
-| 13 | `receipts`, `transactions.receipt_id` |
+| 13 | `receipts` (+ `draft`, `model` so với plan), `transactions.receipt_id` |
 | 14 | `import_batches`, `import_mapping_profiles`, `transactions.import_batch_id`, `transactions.dedup_hash` |
 | 15 | `CREATE EXTENSION vector`, `transaction_embeddings` |
 | 16 | `knowledge_documents`, `knowledge_chunks` |
@@ -340,3 +346,8 @@ Tên trong bảng dưới là **tên bảng thực tế** (số nhiều snake_ca
 - `transactions.recurring_id UUID NULL` FK → `recurring_transactions` **`ON DELETE SET NULL`** + index `ix_transactions_recurring_id`. Được đặt khi (a) "Tạo giao dịch" từ khoản định kỳ (`source = 'recurring'`) hoặc (b) user xác nhận đề xuất phát hiện → các giao dịch lịch sử của mẫu được gắn (giữ `source` cũ). API không cho sửa cột này.
 - `app_settings` (seed trong migration): `forecast.low_balance_threshold = 1000000`, `forecast.goal_saving_day_of_month = 10`. Không seed: `forecast.starting_balance` (số nguyên đồng, có thể âm / 0; NULL = chưa nhập), `forecast.starting_balance_on` (ISO date — số dư tính tại đầu ngày này; mặc định hôm nay khi user nhập số dư), `recurring.suggestions` (`RecurringSuggestionList` của lần phát hiện gần nhất — đề xuất **không** có bảng riêng, id ổn định = UUID5 của khoá mẫu), `recurring.dismissed_suggestions` (danh sách khoá mẫu user đã bỏ qua, tối đa 200). Downgrade xoá cả 6 key.
 - Forecast / lịch không có bảng / cache: `forecast_service` tính từ `recurring_transactions`, `transactions` (gộp theo ngày), `goals` + `goal_contributions`.
+
+**Phase 13** (migration `20261022_f74480029b52_receipt_ocr`):
+- `receipts`: `user_id UUID NULL`, `file_path TEXT NOT NULL` (**tương đối, posix** trong `UPLOAD_DIR`: `receipts/YYYY/MM/{id}.{jpg|png|webp|heic|heif}` — tên file = id receipt; `UPLOAD_DIR` tương đối tính từ thư mục `backend/`), `mime_type` (theo **magic bytes**, không theo content type khai báo), `original_filename` (đã bỏ thư mục, ≤ 255 ký tự), `file_size_bytes INT` CHECK `ck_receipts_file_size_positive` (`> 0`; API giới hạn 10MB = 10.485.760 byte), `sha256 TEXT NOT NULL`, `extracted JSONB` (`ReceiptVisionOutput` = `merchant`, `date`, `total`, `currency`, `items[{name, qty, amount}]`, `confidence`, `unreadable_reason`, `category_slug`, `spending_type`, `classification_reason` + khoá `suggestion` = `ClassificationSuggestion` sau khi áp sở thích phân loại; giữ cả khi `failed` vì chưa đủ tin cậy, NULL khi AI lỗi), **`draft JSONB`** (thêm so với plan — `TransactionDraft` dựng lúc trích xuất, chỉ khi `extracted`; thành `ai_suggestion` khi xác nhận), **`model TEXT`** (thêm so với plan), `status TEXT DEFAULT 'uploaded'` CHECK `ck_receipts_status` (`uploaded | extracted | confirmed | failed`), `error_code`, `error_message`, `transaction_id` FK → `transactions` **`ON DELETE SET NULL`** (xoá giao dịch → receipt vẫn `confirmed`, bỏ liên kết), timestamps (`created_at` đặt từ Python để thứ tự lịch sử đúng). Index `ix_receipts_status_created_at (status, created_at)`, `ix_receipts_sha256` (**không unique** — upload trùng chỉ cảnh báo `duplicate_of`).
+- `transactions.receipt_id UUID NULL` FK → `receipts` **`ON DELETE SET NULL`** + index `ix_transactions_receipt_id`; chỉ đặt bởi `POST /receipts/{id}/confirm` (`source = 'receipt'`, `raw_input = "Hoá đơn {merchant} ({tên file})"`, `ai_suggestion = draft gốc + model + receipt_extraction`). API giao dịch không sửa được cột này. Hai FK vòng (`receipts.transaction_id` ↔ `transactions.receipt_id`): ORM đặt `use_alter` cho `receipts.transaction_id`, migration tạo bảng sau `transactions` nên tạo FK trực tiếp.
+- Trạng thái: upload → `uploaded` (commit, file đã lưu) → trích xuất → `extracted` (có `total` > 0, VND, `confidence` ≥ 0.6, có danh mục chi) hoặc `failed` (`error_code`: mã AI `AI_*`, `unreadable`, `total_missing`, `invalid_total`, `unsupported_currency`, `low_confidence`, `image_unreadable`, `file_missing`, `category_missing`) → `confirmed` khi user xác nhận (kể cả từ `failed` qua form nhập tay). `retry` chỉ cho `uploaded` / `failed`, giữ id + file.

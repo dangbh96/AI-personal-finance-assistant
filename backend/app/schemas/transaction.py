@@ -85,6 +85,9 @@ class TransactionRead(BaseModel):
     recurring_id: uuid.UUID | None = Field(
         default=None, description="Khoản định kỳ đã sinh / gắn giao dịch này (Phase 12)"
     )
+    receipt_id: uuid.UUID | None = Field(
+        default=None, description="Ảnh hoá đơn đã tạo giao dịch này (Phase 13)"
+    )
     created_at: datetime
     updated_at: datetime
 

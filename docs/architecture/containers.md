@@ -40,7 +40,7 @@ flowchart LR
 | `OPENAI_MODEL_SMART` | backend | `gpt-4o` |
 | `OPENAI_EMBEDDING_MODEL` | backend | `text-embedding-3-small` |
 | `CORS_ORIGINS` | backend | `http://localhost:3000` |
-| `UPLOAD_DIR` | backend | `./uploads` |
+| `UPLOAD_DIR` | backend | `./uploads` (đường dẫn tương đối tính từ thư mục `backend/`; P13 lưu ảnh hoá đơn ở `receipts/YYYY/MM/{uuid}.ext`) |
 | `LOG_LEVEL` | backend | `INFO` |
 | `NEXT_PUBLIC_API_BASE_URL` | frontend | `http://localhost:8000/api/v1` |
 

@@ -1166,6 +1166,107 @@ export interface paths {
         patch: operations["update_forecast_settings_api_v1_settings_forecast_patch"];
         trace?: never;
     };
+    "/api/v1/receipts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Receipts
+         * @description Lịch sử hoá đơn đã upload, mới nhất trước.
+         */
+        get: operations["list_receipts_api_v1_receipts_get"];
+        put?: never;
+        /**
+         * Upload Receipt
+         * @description Upload ảnh hoá đơn và trích xuất ngay bằng AI vision. **Không tạo giao dịch** — trả draft
+         *     (`status = extracted`) hoặc form nhập tay điền sẵn (`status = failed`); user xác nhận qua
+         *     `POST /receipts/{id}/confirm`. Ảnh lưu local trong `UPLOAD_DIR` và được gửi tới OpenAI.
+         */
+        post: operations["upload_receipt_api_v1_receipts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/receipts/{receipt_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Receipt */
+        get: operations["get_receipt_api_v1_receipts__receipt_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/receipts/{receipt_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry Receipt
+         * @description Đọc lại hoá đơn `failed` / `uploaded` (cùng receipt, cùng file). Không tạo giao dịch.
+         */
+        post: operations["retry_receipt_api_v1_receipts__receipt_id__retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/receipts/{receipt_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Receipt
+         * @description Tạo giao dịch (`source='receipt'`, `receipt_id`) từ draft user đã kiểm tra / sửa;
+         *     receipt chuyển `confirmed`. Sửa danh mục so với đề xuất AI → học theo tên cửa hàng.
+         */
+        post: operations["confirm_receipt_api_v1_receipts__receipt_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/receipts/{receipt_id}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Receipt File */
+        get: operations["get_receipt_file_api_v1_receipts__receipt_id__file_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1468,6 +1569,14 @@ export interface components {
              * @description Ngưỡng đã lưu khác ngưỡng tính từ dữ liệu hiện tại
              */
             stale: boolean;
+        };
+        /** Body_upload_receipt_api_v1_receipts_post */
+        Body_upload_receipt_api_v1_receipts_post: {
+            /**
+             * File
+             * @description Ảnh hoá đơn (≤ 10MB)
+             */
+            file: string;
         };
         /** BudgetAdviceAcceptRequest */
         BudgetAdviceAcceptRequest: {
@@ -3754,6 +3863,256 @@ export interface components {
             amount?: number | null;
         };
         /**
+         * ReceiptConfirm
+         * @description Giá trị user đã kiểm tra / sửa từ draft (hoặc form nhập tay). `source`, `raw_input`,
+         *     `ai_suggestion`, `receipt_id` do backend đặt.
+         */
+        ReceiptConfirm: {
+            /**
+             * Direction
+             * @default expense
+             * @enum {string}
+             */
+            direction?: "income" | "expense";
+            /**
+             * Amount
+             * @description Số nguyên đồng, > 0
+             */
+            amount: number;
+            /**
+             * Occurred On
+             * Format: date
+             */
+            occurred_on: string;
+            /**
+             * Category Id
+             * Format: uuid
+             */
+            category_id: string;
+            /**
+             * Spending Type
+             * @description Chỉ cho expense; bỏ trống thì dùng default_spending_type của category
+             */
+            spending_type?: ("essential" | "non_essential" | "irregular") | null;
+            /** Note */
+            note?: string | null;
+        };
+        /** ReceiptConfirmResult */
+        ReceiptConfirmResult: {
+            transaction: components["schemas"]["TransactionRead"];
+            receipt: components["schemas"]["ReceiptRead"];
+            learned_preference?: components["schemas"]["PreferenceRead"] | null;
+            pyf_proposal?: components["schemas"]["PyfProposal"] | null;
+        };
+        /**
+         * ReceiptDetail
+         * @description Response upload / retry / chi tiết: trạng thái + extraction + draft (hoặc form nhập tay).
+         */
+        ReceiptDetail: {
+            receipt: components["schemas"]["ReceiptRead"];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "uploaded" | "extracted" | "confirmed" | "failed";
+            /** @description Output model vision (kể cả khi chưa đủ tin cậy); null nếu AI lỗi */
+            extraction: components["schemas"]["ReceiptVisionOutput"] | null;
+            /** @description Draft đầy đủ khi `status = extracted`; chưa lưu DB */
+            transaction_draft: components["schemas"]["TransactionDraft"] | null;
+            /** @description Khi `status = failed` (hoặc `uploaded`): điền sẵn phần đoán được */
+            manual_prefill: components["schemas"]["ReceiptManualPrefill"] | null;
+            /**
+             * Warnings
+             * @description Cảnh báo deterministic (ngày, tổng dòng hàng…)
+             */
+            warnings: string[];
+            /**
+             * Duplicate Of
+             * @description Receipt khác có cùng nội dung ảnh (sha256) đã upload trước đó
+             */
+            duplicate_of: string | null;
+            /** @description Giao dịch đã tạo khi `status = confirmed` (null nếu đã bị xoá) */
+            transaction: components["schemas"]["TransactionRead"] | null;
+        };
+        /** ReceiptItem */
+        ReceiptItem: {
+            /**
+             * Name
+             * @description Tên dòng hàng đúng như in trên hoá đơn
+             */
+            name: string;
+            /**
+             * Qty
+             * @description Số lượng nếu thấy rõ, không thì null
+             */
+            qty: number | null;
+            /**
+             * Amount
+             * @description Thành tiền của dòng (số nguyên đồng); null nếu không đọc rõ
+             */
+            amount: number | null;
+        };
+        /** ReceiptList */
+        ReceiptList: {
+            /** Items */
+            items: components["schemas"]["ReceiptListItem"][];
+        };
+        /** ReceiptListItem */
+        ReceiptListItem: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "uploaded" | "extracted" | "confirmed" | "failed";
+            /** Original Filename */
+            original_filename: string;
+            /** Merchant */
+            merchant: string | null;
+            /** Total */
+            total: number | null;
+            /** Receipt Date */
+            receipt_date: string | null;
+            /** Error Code */
+            error_code: string | null;
+            /** Transaction Id */
+            transaction_id: string | null;
+            /**
+             * Transaction Occurred On
+             * @description Ngày của giao dịch đã lưu (để link sang /transactions đúng tháng)
+             */
+            transaction_occurred_on: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * ReceiptManualPrefill
+         * @description Giá trị điền sẵn cho form nhập tay khi trích xuất thất bại / chưa đủ tin cậy.
+         */
+        ReceiptManualPrefill: {
+            /**
+             * Direction
+             * @default expense
+             * @enum {string}
+             */
+            direction?: "income" | "expense";
+            /** Amount */
+            amount: number | null;
+            /**
+             * Occurred On
+             * Format: date
+             */
+            occurred_on: string;
+            /** Note */
+            note: string;
+            /** Category Id */
+            category_id: string | null;
+            /** Category Slug */
+            category_slug: string | null;
+            /** Spending Type */
+            spending_type: ("essential" | "non_essential" | "irregular") | null;
+        };
+        /** ReceiptRead */
+        ReceiptRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "uploaded" | "extracted" | "confirmed" | "failed";
+            /** Mime Type */
+            mime_type: string;
+            /** Original Filename */
+            original_filename: string;
+            /** File Size Bytes */
+            file_size_bytes: number;
+            /** Sha256 */
+            sha256: string;
+            /** Model */
+            model: string | null;
+            /** Error Code */
+            error_code: string | null;
+            /** Error Message */
+            error_message: string | null;
+            /** Transaction Id */
+            transaction_id: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * ReceiptVisionOutput
+         * @description Structured output của model vision: extraction + đề xuất danh mục chi tiêu.
+         */
+        ReceiptVisionOutput: {
+            /**
+             * Merchant
+             * @description Tên cửa hàng / nơi bán
+             */
+            merchant: string | null;
+            /**
+             * Date
+             * @description Ngày trên hoá đơn (YYYY-MM-DD), null nếu không rõ
+             */
+            date: string | null;
+            /**
+             * Total
+             * @description Tổng khách phải thanh toán, số nguyên đồng; null nếu không đọc rõ
+             */
+            total: number | null;
+            /**
+             * Currency
+             * @description Mã tiền tệ, mặc định VND
+             */
+            currency: string;
+            /** Items */
+            items: components["schemas"]["ReceiptItem"][];
+            /**
+             * Confidence
+             * @description Độ tin cậy tổng thể của phần đọc được
+             */
+            confidence: number;
+            /**
+             * Unreadable Reason
+             * @description Lý do không đọc được (mờ, không phải hoá đơn…), null nếu đọc được
+             */
+            unreadable_reason: string | null;
+            /**
+             * Category Slug
+             * @description Slug danh mục chi tiêu thuộc danh sách gửi kèm
+             */
+            category_slug: string;
+            /**
+             * Spending Type
+             * @description Loại chi tiêu đề xuất
+             * @enum {string}
+             */
+            spending_type: "essential" | "non_essential" | "irregular";
+            /**
+             * Classification Reason
+             * @description Vì sao chọn danh mục
+             */
+            classification_reason: string;
+        };
+        /**
          * RecurringCreate
          * @description Tạo khoản định kỳ thủ công.
          *
@@ -4525,6 +4884,11 @@ export interface components {
              */
             recurring_id?: string | null;
             /**
+             * Receipt Id
+             * @description Ảnh hoá đơn đã tạo giao dịch này (Phase 13)
+             */
+            receipt_id?: string | null;
+            /**
              * Created At
              * Format: date-time
              */
@@ -4676,6 +5040,11 @@ export interface components {
              * @description Khoản định kỳ đã sinh / gắn giao dịch này (Phase 12)
              */
             recurring_id?: string | null;
+            /**
+             * Receipt Id
+             * @description Ảnh hoá đơn đã tạo giao dịch này (Phase 13)
+             */
+            receipt_id?: string | null;
             /**
              * Created At
              * Format: date-time
@@ -7926,6 +8295,280 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_receipts_api_v1_receipts_get: {
+        parameters: {
+            query?: {
+                status?: ("uploaded" | "extracted" | "confirmed" | "failed") | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceiptList"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    upload_receipt_api_v1_receipts_post: {
+        parameters: {
+            query?: {
+                /** @description Ngày hiện tại phía user (draft dùng khi hoá đơn không có ngày) */
+                today?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_receipt_api_v1_receipts_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceiptDetail"];
+                };
+            };
+            /** @description Ảnh lớn hơn 10MB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Không phải ảnh JPEG/PNG/WEBP/HEIC/HEIF */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_receipt_api_v1_receipts__receipt_id__get: {
+        parameters: {
+            query?: {
+                /** @description Ngày hiện tại phía user (draft dùng khi hoá đơn không có ngày) */
+                today?: string | null;
+            };
+            header?: never;
+            path: {
+                receipt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceiptDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retry_receipt_api_v1_receipts__receipt_id__retry_post: {
+        parameters: {
+            query?: {
+                /** @description Ngày hiện tại phía user (draft dùng khi hoá đơn không có ngày) */
+                today?: string | null;
+            };
+            header?: never;
+            path: {
+                receipt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceiptDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_receipt_api_v1_receipts__receipt_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                receipt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReceiptConfirm"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceiptConfirmResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_receipt_file_api_v1_receipts__receipt_id__file_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                receipt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ảnh hoá đơn (HEIC/HEIF → JPEG) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/*": unknown;
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

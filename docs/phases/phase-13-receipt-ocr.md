@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **ID** | `phase-13-receipt-ocr` |
-| **Trạng thái** | Not started |
+| **Trạng thái** | Done |
 | **Phụ thuộc** | Phase 2 |
 | **Mở khoá** | Phase 18 |
 | **Milestone** | — |
@@ -132,17 +132,17 @@ Golden tests `@pytest.mark.ai`:
 
 ## 5. Task breakdown
 
-- [ ] T1 Migration `receipts` + `transactions.receipt_id`, settings `UPLOAD_DIR` nếu chưa có
-- [ ] T2 File storage service: validate mime/size, uuid filename, sha256, safe relative path
-- [ ] T3 Pydantic schemas `ReceiptExtraction`, receipt read, manual prefill/draft response
-- [ ] T4 `ai/receipt_vision.py` + prompt `receipt_vision_v1.md` + OpenAI structured output
-- [ ] T5 Map extraction → `TransactionDraft`, tái dùng classifier/category validation
-- [ ] T6 Router `/api/v1/receipts/*` upload/list/detail/retry/confirm/file preview
-- [ ] T7 Unit/API tests upload validation, failed status, confirm creates transaction `source='receipt'`
-- [ ] T8 Golden AI tests `@pytest.mark.ai` với 5 ảnh mẫu + expected YAML placeholders
-- [ ] T9 UI `/import` tab Hoá đơn: dropzone, preview, extraction panel
-- [ ] T10 UI confirm/edit flow + failed/manual entry state + privacy note
-- [ ] T11 Cập nhật docs/PROGRESS, Handoff notes, commit `phase-13: receipt ocr`
+- [x] T1 Migration `receipts` + `transactions.receipt_id`, settings `UPLOAD_DIR` nếu chưa có
+- [x] T2 File storage service: validate mime/size, uuid filename, sha256, safe relative path
+- [x] T3 Pydantic schemas `ReceiptExtraction`, receipt read, manual prefill/draft response
+- [x] T4 `ai/receipt_vision.py` + prompt `receipt_vision_v1.md` + OpenAI structured output
+- [x] T5 Map extraction → `TransactionDraft`, tái dùng classifier/category validation
+- [x] T6 Router `/api/v1/receipts/*` upload/list/detail/retry/confirm/file preview
+- [x] T7 Unit/API tests upload validation, failed status, confirm creates transaction `source='receipt'`
+- [x] T8 Golden AI tests `@pytest.mark.ai` với 5 ảnh mẫu + expected YAML placeholders
+- [x] T9 UI `/import` tab Hoá đơn: dropzone, preview, extraction panel
+- [x] T10 UI confirm/edit flow + failed/manual entry state + privacy note
+- [x] T11 Cập nhật docs/PROGRESS, Handoff notes, commit `phase-13: receipt ocr`
 
 ## 6. Verify / Acceptance criteria
 
@@ -176,14 +176,14 @@ cd ../frontend && npm run gen:api && npm run lint && npm run dev
 
 ## 7. Definition of Done
 
-- [ ] Tất cả task mục 5 xong, verify mục 6 pass
-- [ ] `pytest` mặc định xanh không cần API key; AI golden chỉ chạy bằng `pytest -m ai`
-- [ ] Không log image bytes/base64 hoặc API key
-- [ ] Upload path an toàn, filename uuid, max size/mime enforced cả client và server
-- [ ] Receipt extraction chỉ tạo draft; transaction chỉ được tạo khi user confirm
-- [ ] Golden set có 5 mẫu/expected hoặc Handoff ghi rõ mẫu nào chưa thu thập được
-- [ ] [PROGRESS.md](../PROGRESS.md) cập nhật trạng thái phase = Done, Handoff notes điền
-- [ ] Commit `phase-13: receipt ocr`
+- [x] Tất cả task mục 5 xong, verify mục 6 pass
+- [x] `pytest` mặc định xanh không cần API key; AI golden chỉ chạy bằng `pytest -m ai`
+- [x] Không log image bytes/base64 hoặc API key
+- [x] Upload path an toàn, filename uuid, max size/mime enforced cả client và server
+- [x] Receipt extraction chỉ tạo draft; transaction chỉ được tạo khi user confirm
+- [x] Golden set có 5 mẫu/expected hoặc Handoff ghi rõ mẫu nào chưa thu thập được
+- [x] [PROGRESS.md](../PROGRESS.md) cập nhật trạng thái phase = Done, Handoff notes điền
+- [x] Commit `phase-13: receipt ocr`
 
 ## 8. Rủi ro / câu hỏi mở
 
@@ -195,9 +195,43 @@ cd ../frontend && npm run gen:api && npm run lint && npm run dev
 
 > Điền khi kết thúc phase.
 
-- **Ngày hoàn thành:**
+- **Ngày hoàn thành:** 2026-10-22 (bắt đầu 2026-10-21)
 - **Đã làm:**
+  - **Migration** `20261022_f74480029b52_receipt_ocr`: bảng `receipts` (cột plan + `draft JSONB`, `model TEXT`; CHECK `status`, `file_size_bytes > 0`; index `(status, created_at)`, `sha256` không unique; FK `transaction_id` `SET NULL`) + `transactions.receipt_id` (FK `SET NULL` + index). ORM `models/receipt.py`, enum `ReceiptStatus`. Chi tiết: [data-model.md § Phase 13](../architecture/data-model.md#ghi-chú-triển-khai-thực-tế). `UPLOAD_DIR` đã có trong settings (tương đối → tính từ `backend/`).
+  - **Deterministic, không AI:** `services/receipt_storage` (content type + đuôi + ≤ 10MB + **magic bytes**; HEIC thường bị trình duyệt gửi type rỗng / octet-stream → dựa vào đuôi + magic; mime lưu theo nội dung thật; tên file = uuid receipt; `resolve_path` chặn `..` / đường dẫn tuyệt đối / ổ đĩa; `vision_payload` / `to_jpeg` đổi HEIC/HEIF → JPEG bằng Pillow + pillow-heif). `services/receipt_mapping` (hàm thuần: `assess_extraction` — `total` > 0, VND, `confidence ≥ 0.6`; `build_draft` / `build_manual_prefill` / `extraction_warnings` / `merchant_pattern`). `services/receipt_service` (upload → `uploaded` commit → `analyzer` → `extracted` / `failed`; retry; detail / list; `confirm_receipt` 1 commit). `classification_preference_service.record_feedback` thêm `keyword` / `guess_keyword` (mặc định giữ hành vi Phase 3).
+  - **AI:** `ai/receipt_vision.py` + `prompts/receipt_vision_v1.md` — `OPENAI_MODEL_SMART` (gpt-4o), ảnh data URL `detail=high`, Structured Output `ReceiptVisionOutput` (extraction + `category_slug` / `spending_type` / `classification_reason` trong cùng lời gọi), validate slug chi / `total` > 0 (sai → model sửa 1 lần), rồi tên cửa hàng exact-match sở thích đã học → theo sở thích (`classifier.match_preference`). Lỗi AI không raise → `ReceiptAnalysis(error_code)`. `openai_client.Message` nhận `content` dạng danh sách (text + image_url). Log không có ảnh / base64 (có test).
+  - **API** (`api/routers/receipts.py`): `POST /receipts` (multipart `file`, `?today=`; 201 `ReceiptDetail` = `{receipt, status, extraction, transaction_draft, manual_prefill, warnings, duplicate_of, transaction}`; 415 `unsupported_file_type`, 413 `file_too_large`, 422 `empty_file`), `GET /receipts?status=&limit=1–100` (`{items[{id, status, original_filename, merchant, total, receipt_date, error_code, transaction_id, transaction_occurred_on, created_at}]}`), `GET /receipts/{id}`, `POST /receipts/{id}/retry` (409 `receipt_not_retryable` nếu đã `extracted` / `confirmed`), `POST /receipts/{id}/confirm` (body `ReceiptConfirm` → 201 `{transaction, receipt, learned_preference, pyf_proposal}`; 409 `receipt_already_confirmed`; dùng lại `category_*` 422), `GET /receipts/{id}/file` (HEIC → JPEG; 404 `receipt_file_missing`). `TransactionRead.receipt_id`. Dependency mới: `python-multipart`, `pillow`, `pillow-heif` (+ dev `pyyaml`).
+  - **Frontend:** route `/import` (`ImportPage`, `?tab=receipt`, tab CSV khoá tới P14) → `ReceiptImportPanel` + `ReceiptUploadDropzone` (validate client, tiến độ XHR, ghi chú quyền riêng tư), `ReceiptPreview`, `ReceiptExtractionPanel`, `ReceiptDraftForm` (dùng `TransactionFields`), `ReceiptHistoryTable`; `lib/receipts.ts`; nav "Nhập hoá đơn"; `/transactions?month=YYYY-MM` + nút "Nhập từ hoá đơn"; badge 🧾 "Hoá đơn" trong bảng giao dịch; `lib/api.ts` export `errorMessage`. `gen:api` chạy lại.
+  - **Test:** **913 pass** (+96, không cần key): `tests/unit/test_receipt_storage.py` (magic bytes, 415 / 413 / rỗng, tên file, đường dẫn an toàn, HEIC → JPEG thật bằng pillow-heif), `tests/unit/test_receipt_mapping.py` (test case 4, 5, ngưỡng confidence, VND alias, cảnh báo, prefill), `tests/api/test_receipts.py` (test case 1–3, 5–7 + AI chưa cấu hình, output sai 2 lần → `AI_INVALID_OUTPUT`, sửa được ở lần 2, HEIC octet-stream → model nhận JPEG + preview JPEG, upload trùng, không log base64, học theo cửa hàng rồi hoá đơn sau dùng sở thích, xác nhận từ form nhập tay, sai loại danh mục, body sai, xoá giao dịch giữ receipt, retry khi mất file, list / filter / detail).
+  - **Golden (`pytest -m ai`, gpt-4o, 2026-10-22):** 5 ảnh **tổng hợp** (Pillow, cửa hàng / số liệu giả) trong `tests/ai_golden/receipts/` + `*.yaml`: tổng đúng **5/5** (ngưỡng 4), tên cửa hàng **4/4** (ngưỡng 3), ảnh nhoè `total = null` → `failed unreadable`, danh mục + loại chi tiêu 4/4 (chỉ báo cáo). Chạy 3 lần: tổng / cửa hàng / ngày như nhau cả 3 lần; lần đầu (prompt nháp) quán cà phê ra `essential` → chỉnh prompt (ăn ngoài / cà phê → `non_essential`, siêu thị / tạp hoá giữ `essential`), 2 lần sau phân loại 4/4. ~2.900 prompt token / ảnh, 2–3 s. Toàn bộ `pytest -m ai`: **19/19**.
+  - **Verify:** `alembic upgrade head` + `downgrade -1` + `upgrade head` + `alembic check` (DB dev), `ruff check .`, `ruff format --check .`, `pytest` (913), `pytest -m ai` (19), `npm run gen:api`, `npm run lint`, `npm run typecheck`, `npm run build` xanh. Smoke với **DB tạm `pfa_smoke13`** + `UPLOAD_DIR=uploads/_smoke` (đã xoá cả hai): curl upload `supermarket.jpg` → `extracted` 352.000 / 2026-10-05 / food essential + cảnh báo tổng dòng hàng 369.000 ≠ 352.000; ảnh nhoè → `failed unreadable`; PDF → 415; 10.500.000 byte → 413 "…10MB…"; confirm → giao dịch `source=receipt`, confirm lại 409; `/file` 200 image/jpeg. `npm run start` → `/`, `/import`, `/import?tab=receipt`, `/transactions?month=2026-10`, `/calendar`, `/goals` 200. Kịch bản UI 1–6 trên trình duyệt: upload nhà hàng → preview + 748.440 ₫ + 4 dòng + độ tin cậy → đổi danh mục sang Giải trí → "Lưu giao dịch" → "Đã học cách phân loại cửa hàng này" + link sang `/transactions?month=2026-10` (badge Hoá đơn); ảnh nhoè → lý do + "Đọc lại" (vẫn mờ) + "Nhập thủ công từ ảnh này" (340k) → lưu; PDF / ảnh > 10MB → lỗi thân thiện phía client; lịch sử hiện confirmed / failed + link giao dịch, "Xem" mở lại chi tiết. Upload lại ảnh nhà hàng → draft Giải trí theo sở thích + cảnh báo trùng.
 - **Lệch so với plan (và lý do):**
+  - Phân loại nằm **trong cùng lời gọi vision** (`ReceiptVisionOutput` = `ReceiptExtraction` + `category_slug` / `spending_type` / `classification_reason`) thay vì gọi thêm classifier `OPENAI_MODEL_FAST`: Phase 2/3 không có classifier LLM độc lập (phân loại nằm trong NL parse), 1 lời gọi rẻ / nhanh hơn; phần "tái dùng classifier" là exact-match sở thích đã học theo **tên cửa hàng** (không theo dòng hàng — tránh khớp nhầm khi siêu thị có hàng chục món).
+  - `receipts` thêm `draft JSONB` (draft gốc → `ai_suggestion` khi xác nhận, dựng lại được khi mở từ lịch sử) và `model TEXT`; `extracted` chứa thêm khoá `suggestion` (phân loại sau khi áp sở thích) để form nhập tay điền danh mục. `sha256` index **không unique** — upload trùng chỉ cảnh báo (`duplicate_of` + warning), không chặn.
+  - Confirm nhận `ReceiptConfirm` (direction / amount / occurred_on / category_id / spending_type / note, `extra=forbid`) thay vì `TransactionCreate` đầy đủ: `source`, `raw_input`, `ai_suggestion`, `receipt_id` do backend đặt (client không giả được). Response `{transaction, receipt, learned_preference, pyf_proposal}` thay vì chỉ `TransactionRead`. Sequence diagram cũ ghi `POST /transactions {receipt_id}` → đổi theo plan § 4.2 (`/receipts/{id}/confirm`).
+  - Response upload / retry / detail dùng chung `ReceiptDetail` (thêm `warnings`, `duplicate_of`, `transaction`); list trả `{items}` (quy ước repo) + `receipt_date`, `transaction_occurred_on` (link đúng tháng). Mọi route nhận `?today=` (ngày mặc định khi hoá đơn không có ngày).
+  - Lỗi AI → receipt `failed` + `manual_prefill`, HTTP **201** (không 503) — ảnh đã lưu, user nhập tay / đọc lại. Chưa đủ điều kiện draft có mã riêng: `unreadable`, `total_missing`, `invalid_total`, `unsupported_currency` (khác VND → nhập tay, plan cho phép 422/manual), `low_confidence`, `image_unreadable`, `file_missing`, `category_missing`. Confirm được cả từ `failed` (form nhập tay); chỉ học sở thích khi có draft AI.
+  - Học sở thích từ hoá đơn dùng tên cửa hàng (≤ 5 từ) thay cho keyword đoán từ ghi chú (ghi chú "X - hoá đơn" cho ra từ khoá vô nghĩa như "hoa", "co", "ca").
+  - `ReceiptItem.amount` cho phép `null` (dòng hàng không rõ thành tiền — "không bịa"). `GET /receipts/{id}/file` đổi HEIC sang JPEG để xem trước (rủi ro § 8). `/transactions` nhận `?month=` để link sang giao dịch mới; nav thêm "Nhập hoá đơn".
+  - Golden set là ảnh **tổng hợp** do `generate_receipts.py` vẽ (không dùng ảnh thật có bản quyền / dữ liệu cá nhân); "viết tay" dùng font Ink Free, dòng hàng không dấu (font thiếu vài glyph tiếng Việt dựng sẵn).
 - **Nợ kỹ thuật / TODO để lại:**
+  - Chưa xoá ảnh theo retention, chưa có endpoint xoá receipt / ảnh (Phase 18); file mồ côi nếu commit receipt lỗi giữa chừng được xoá ngay, nhưng không có job dọn định kỳ.
+  - Golden 5 ảnh tổng hợp rất "sạch" so với ảnh chụp thật (nhăn, nghiêng mạnh, thiếu sáng, hoá đơn dài nhiều trang); nên bổ sung ảnh thật đã ẩn thông tin cá nhân khi có.
+  - Ảnh gửi nguyên kích thước (≤ 10MB, base64 ~13MB) — chưa thu nhỏ trước khi gửi; nếu tốn token / chậm có thể resize cạnh dài ~2048px trong `vision_payload`.
+  - Hoá đơn định kỳ (điện, internet) sau khi xác nhận chưa tự gắn khoản định kỳ khớp (`recurring_detection.within_tolerance`, handoff Phase 12) — chưa làm (ngoài scope).
+  - Upload trùng chỉ cảnh báo; không chặn tạo giao dịch trùng từ 2 receipt cùng ảnh.
+  - Chưa có test tự động frontend (Vitest / Playwright — Phase 18); kịch bản UI chạy tay bằng trình duyệt.
+  - Tiến độ upload dùng `XMLHttpRequest` riêng (`lib/receipts.uploadReceipt`), không qua `apiRequest`.
 - **Lệnh hữu ích:**
-- **Gợi ý cho phase tiếp theo:**
+  - `(cd backend && pytest tests/unit/test_receipt_storage.py tests/unit/test_receipt_mapping.py tests/api/test_receipts.py -q)`
+  - `(cd backend && PYTHONIOENCODING=utf-8 pytest -m ai tests/ai_golden/test_receipt_vision_golden.py -s)` — in bảng tổng / cửa hàng / ngày / danh mục từng ảnh
+  - `(cd backend && python tests/ai_golden/receipts/generate_receipts.py)` — sinh lại 5 ảnh tổng hợp (cần font Windows hoặc `RECEIPT_FONT_DIR`)
+  - `curl -s -X POST "localhost:8000/api/v1/receipts?today=2026-10-22" -F "file=@backend/tests/ai_golden/receipts/supermarket.jpg;type=image/jpeg"`
+  - `curl -s -X POST localhost:8000/api/v1/receipts/<id>/confirm -H 'Content-Type: application/json' -d '{"amount":352000,"occurred_on":"2026-10-05","category_id":"<food>"}'`
+  - UI: `/import`, `/transactions?month=2026-10`.
+- **Gợi ý cho phase tiếp theo (Phase 14 — CSV / Excel import):**
+  - `/import` đã có `ImportPage` với tab (`?tab=`) — thêm `TabsTrigger value="csv"` (đang `disabled`) + nội dung, thêm `"csv"` vào `TABS`.
+  - Tái dùng mẫu upload: `receipt_storage` (validate đuôi / content type / dung lượng, `upload_root()`, `resolve_path` an toàn, đường dẫn tương đối) — có thể tách phần chung thành `services/upload_storage`; `lib/receipts.uploadReceipt` (XHR có tiến độ) cho file CSV lớn. `python-multipart` đã có.
+  - Tạo giao dịch nội bộ theo mẫu `receipt_service.confirm_receipt` (resolve category / spending type, `transaction_repository.add`, 1 commit); `transactions` chưa có `import_batch_id` / `dedup_hash` — thêm qua migration như `receipt_id`, và `TransactionRead.import_batch_id`.
+  - Phân loại hàng loạt: chưa có classifier LLM độc lập (receipt phân loại trong lời gọi vision) — Phase 14 cần `classify_batch` riêng; sở thích exact-match dùng `classifier.match_preference(text, prefs, direction=…)`.
+  - DB dev đã `alembic upgrade head` (có `receipts`). Postgres vẫn ở **port 5433**.
