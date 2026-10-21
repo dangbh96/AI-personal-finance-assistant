@@ -24,12 +24,15 @@ WEEK_1 = date(2026, 10, 5)
 WEEK_2 = date(2026, 10, 12)
 
 CATEGORY_NAMES = {
+    "housing": "Nhà ở",
     "food": "Ăn uống",
     "transport": "Đi lại",
     "utilities": "Hoá đơn & tiện ích",
     "shopping": "Mua sắm",
     "entertainment": "Giải trí",
     "health": "Sức khoẻ",
+    "electronics": "Điện tử",
+    "other": "Khác",
     "salary": "Lương",
 }
 

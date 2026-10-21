@@ -4,10 +4,13 @@
                                                ↘ (AI lỗi / fail sau 2 lần retry) fallback ↗
 
 - `collect_metrics`, `detect_highlights`, `validate`, `fallback` là deterministic (services).
-- `write_narrative` gọi OpenAI (model smart) qua `ai/review_writer`; output không qua kiểm tra
-  (số ngoài metrics, cụm từ cấm, thiếu tầng) → gửi lỗi cho model viết lại, tối đa `MAX_RETRIES`.
+  Kỳ `month`: `collect_metrics` gom thêm budget vs actual + phản tư các review tuần trong tháng,
+  `detect_highlights` dựng `MonthlyReviewMetrics` (tiết kiệm, tỉ trọng, khoản bất thường…).
+- `write_narrative` gọi OpenAI (model smart) qua `ai/review_writer` (prompt theo kỳ); output không
+  qua kiểm tra (số ngoài metrics, cụm từ cấm, thiếu tầng) → gửi lỗi cho model viết lại, tối đa
+  `MAX_RETRIES`.
 - AI chưa cấu hình / lỗi mạng → bỏ qua retry, dùng template dự phòng (`fallback_used = true`).
-- `persist` lưu theo kỳ: `week` → `weekly_reviews` (Phase 6); `month` thêm ở Phase 7.
+- `persist` lưu theo kỳ: `week` → `weekly_reviews`, `month` → `monthly_reviews`.
 """
 
 import logging
@@ -22,13 +25,15 @@ from sqlalchemy.orm import Session
 from app.ai import review_writer
 from app.ai.openai_client import AIUnavailable, Message
 from app.core.errors import DomainError
-from app.models import WeeklyReview
+from app.models import MonthlyReview, WeeklyReview
 from app.models.enums import ReviewPeriod
 from app.schemas.review import (
+    MonthlyBudgetSummary,
     PeriodMetrics,
     ReviewMetrics,
     ReviewNarrative,
     ReviewNarrativeOutput,
+    WeeklyReflectionDigest,
 )
 from app.services import analytics_service, review_metrics, review_narrative, review_service
 from app.services.review_metrics import TxRow
@@ -48,6 +53,8 @@ class ReviewState(TypedDict, total=False):
     today: date
     metrics: PeriodMetrics
     transactions: list[TxRow]
+    budget: MonthlyBudgetSummary | None
+    reflections: list[WeeklyReflectionDigest]
     review_metrics: ReviewMetrics
     allowed: set[Decimal]
     messages: list[Message]
@@ -60,7 +67,10 @@ class ReviewState(TypedDict, total=False):
     review: Any
 
 
-PERSISTERS: dict[str, Persister] = {"week": review_service.save_weekly_review}
+PERSISTERS: dict[str, Persister] = {
+    "week": review_service.save_weekly_review,
+    "month": review_service.save_monthly_review,
+}
 
 
 def build_review_graph(db: Session, *, writer: Writer | None = None):
@@ -71,11 +81,20 @@ def build_review_graph(db: Session, *, writer: Writer | None = None):
         data = analytics_service.get_review_metrics(
             db, state["period"], state["period_start"], state["today"]
         )
-        return {"metrics": data.metrics, "transactions": data.transactions}
+        return {
+            "metrics": data.metrics,
+            "transactions": data.transactions,
+            "budget": data.budget,
+            "reflections": data.reflections,
+        }
 
     def detect_highlights(state: ReviewState) -> ReviewState:
-        highlights = review_metrics.detect_highlights(state["metrics"], state["transactions"])
-        metrics = ReviewMetrics(**state["metrics"].model_dump(), highlights=highlights)
+        metrics = review_metrics.build_review_metrics(
+            state["metrics"],
+            state["transactions"],
+            budget=state.get("budget"),
+            reflections=state.get("reflections", []),
+        )
         return {
             "review_metrics": metrics,
             "allowed": review_narrative.allowed_numbers(metrics),
@@ -195,3 +214,14 @@ def get_or_generate_weekly_review(
     if existing is not None and not regenerate:
         return existing
     return run_review(db, "week", week_start, today)["review"]
+
+
+def get_or_generate_monthly_review(
+    db: Session, month: date, *, today: date, regenerate: bool = False
+) -> MonthlyReview:
+    """Như `get_or_generate_weekly_review` cho tháng (`month` = ngày 1)."""
+    review_service.ensure_month_started(month, today)
+    existing = review_service.get_monthly_by_month(db, month)
+    if existing is not None and not regenerate:
+        return existing
+    return run_review(db, "month", month, today)["review"]

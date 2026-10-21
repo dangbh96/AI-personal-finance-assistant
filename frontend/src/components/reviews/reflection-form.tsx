@@ -20,27 +20,58 @@ import {
   type ReflectionAnswer,
   type ReflectionCreate,
   type TransactionList,
-  type WeeklyReview,
 } from "@/lib/api";
 import { formatVND } from "@/lib/format";
 
 const MAX_ANSWER_LENGTH = 2000;
 
-/** Câu hỏi phản tư + tick giao dịch "không đáng tiền"; lưu xong review thành `completed`. */
+type ReviewKind = ReflectionAnswer["review_kind"];
+
+const COPY: Record<
+  ReviewKind,
+  { pickerTitle: string; flaggedPrefix: string; placeholder: string; empty: string }
+> = {
+  weekly: {
+    pickerTitle: "Khoản nào không đáng tiền?",
+    flaggedPrefix: "Không đáng tiền",
+    placeholder: "Ví dụ: Có, 2 lần đặt đồ ăn lúc muộn.",
+    empty: "Tuần này chưa có khoản chi nào.",
+  },
+  monthly: {
+    pickerTitle: "Khoản nào bạn muốn nhìn lại?",
+    flaggedPrefix: "Khoản đã chọn",
+    placeholder: "Ví dụ: Giữ mức ăn uống; laptop là khoản một lần.",
+    empty: "Tháng này chưa có khoản chi nào.",
+  },
+};
+
+/** Câu hỏi phản tư + tick khoản chi trong kỳ; lưu xong review thành `completed`. */
 export function ReflectionForm({
-  review,
+  kind,
+  reviewId,
+  question,
+  reflections,
+  from,
+  to,
+  markedIds,
+  markLabel,
   onSaved,
 }: {
-  review: WeeklyReview;
+  kind: ReviewKind;
+  reviewId: string;
+  question: string;
+  reflections: ReflectionAnswer[];
+  /** Kỳ của review (YYYY-MM-DD) — danh sách khoản chi để tick. */
+  from: string;
+  to: string;
+  /** Giao dịch được gắn nhãn `markLabel` (vd "Lặp lại", "Bất thường"). */
+  markedIds: ReadonlySet<string>;
+  markLabel: string;
   onSaved: (answer: ReflectionAnswer) => void;
 }) {
+  const copy = COPY[kind];
   const transactions = useApiData<TransactionList>(
-    withQuery("/transactions", {
-      from: review.week_start,
-      to: review.week_end,
-      direction: "expense",
-      page_size: 200,
-    }),
+    withQuery("/transactions", { from, to, direction: "expense", page_size: 200 }),
   );
   const [answer, setAnswer] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -50,13 +81,6 @@ export function ReflectionForm({
 
   const items = useMemo(() => transactions.data?.items ?? [], [transactions.data]);
   const byId = useMemo(() => new Map(items.map((t) => [t.id, t])), [items]);
-  const repeatedIds = useMemo(
-    () =>
-      new Set(
-        review.metrics.highlights.repeated_clusters.flatMap((c) => c.transaction_ids),
-      ),
-    [review.metrics.highlights.repeated_clusters],
-  );
 
   function toggle(id: string) {
     setSelected((prev) => {
@@ -79,7 +103,7 @@ export function ReflectionForm({
       };
       const saved = await apiRequest<ReflectionAnswer>(
         "POST",
-        `/reviews/weekly/${review.id}/reflections`,
+        `/reviews/${kind}/${reviewId}/reflections`,
         body,
       );
       setAnswer("");
@@ -99,17 +123,17 @@ export function ReflectionForm({
     <Card>
       <CardHeader>
         <CardTitle>Phản tư</CardTitle>
-        <CardDescription>{review.narrative.reflection_question}</CardDescription>
+        <CardDescription>{question}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        {review.reflections.length > 0 && (
+        {reflections.length > 0 && (
           <ul className="flex flex-col gap-2">
-            {review.reflections.map((r) => (
+            {reflections.map((r) => (
               <li key={r.id} className="rounded-lg bg-muted/60 px-3 py-2 text-sm">
                 {r.answer && <p>“{r.answer}”</p>}
                 {r.flagged_transaction_ids.length > 0 && (
                   <p className="text-xs text-muted-foreground">
-                    Không đáng tiền:{" "}
+                    {copy.flaggedPrefix}:{" "}
                     {r.flagged_transaction_ids
                       .map((id) => {
                         const t = byId.get(id);
@@ -126,19 +150,19 @@ export function ReflectionForm({
         )}
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="reflection-answer">Câu trả lời của bạn</Label>
+            <Label htmlFor={`reflection-answer-${kind}`}>Câu trả lời của bạn</Label>
             <textarea
-              id="reflection-answer"
+              id={`reflection-answer-${kind}`}
               value={answer}
               maxLength={MAX_ANSWER_LENGTH}
               onChange={(e) => setAnswer(e.target.value)}
-              placeholder="Ví dụ: Có, 2 lần đặt đồ ăn lúc muộn."
+              placeholder={copy.placeholder}
               className="min-h-20 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
             />
           </div>
           <div className="flex flex-col gap-2">
             <span className="text-sm font-medium">
-              Khoản nào không đáng tiền?{" "}
+              {copy.pickerTitle}{" "}
               <span className="font-normal text-muted-foreground">
                 (tuỳ chọn{selected.size > 0 ? ` · đã chọn ${selected.size}` : ""})
               </span>
@@ -154,7 +178,10 @@ export function ReflectionForm({
                 transactions={items}
                 selected={selected}
                 onToggle={toggle}
-                repeatedIds={repeatedIds}
+                markedIds={markedIds}
+                markLabel={markLabel}
+                checkboxLabel={copy.flaggedPrefix}
+                emptyText={copy.empty}
                 disabled={saving}
               />
             )}

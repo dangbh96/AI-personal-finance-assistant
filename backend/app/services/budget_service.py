@@ -87,6 +87,14 @@ GROUP_LABELS = {
     "savings": "Tiết kiệm",
     "irregular": "Bất thường",
 }
+# Tên hũ preset (lưu tiếng Anh trong `jar_name`) → tên hiển thị (khớp frontend `JAR_LABELS`).
+JAR_LABELS = {
+    "Essential": "Thiết yếu",
+    "Fun": "Vui chơi",
+    "Shopping": "Mua sắm",
+    "Saving": "Tiết kiệm",
+    "Unexpected": "Dự phòng",
+}
 STATUS_TRANSITIONS: dict[str, set[str]] = {
     "draft": {"active"},
     "active": {"draft", "closed"},
@@ -287,6 +295,14 @@ def list_jars(db: Session) -> BudgetJarList:
 
 
 # ---------- validate ----------
+
+
+def allocation_label(category_name: str | None, jar_name: str | None) -> str:
+    """Tên hiển thị của dòng phân bổ: danh mục, hũ preset, nhóm, hoặc `jar_name` gốc."""
+    if category_name:
+        return category_name
+    jar = jar_name or ""
+    return JAR_LABELS.get(jar) or GROUP_LABELS.get(jar, jar)
 
 
 def _row_label(allocation: _AllocationLike, categories: Mapping[uuid.UUID, Category]) -> str:

@@ -5,21 +5,22 @@ import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils";
 
-type NavItem = { href: string; label: string; phase?: number };
+type NavItem = { href: string; label: string; phase?: number; match?: string };
 
 // Route theo docs/architecture/frontend-structure.md; mục có `phase` chưa được xây.
 const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Tổng quan" },
   { href: "/transactions", label: "Giao dịch" },
   { href: "/budget", label: "Ngân sách" },
-  { href: "/reviews/weekly", label: "Review" },
+  { href: "/reviews/weekly", label: "Review", match: "/reviews" },
   { href: "/coach", label: "Financial Coach", phase: 10 },
   { href: "/goals", label: "Mục tiêu", phase: 11 },
   { href: "/settings", label: "Cài đặt" },
 ];
 
-function isActive(pathname: string, href: string): boolean {
-  return href === "/" ? pathname === "/" : pathname.startsWith(href);
+function isActive(pathname: string, item: NavItem): boolean {
+  const prefix = item.match ?? item.href;
+  return prefix === "/" ? pathname === "/" : pathname.startsWith(prefix);
 }
 
 export function AppNav() {
@@ -35,10 +36,10 @@ export function AppNavLinks({ pathname }: { pathname: string }) {
           <Link
             key={item.href}
             href={item.href}
-            aria-current={isActive(pathname, item.href) ? "page" : undefined}
+            aria-current={isActive(pathname, item) ? "page" : undefined}
             className={cn(
               "rounded-md px-3 py-2 font-medium hover:bg-muted",
-              isActive(pathname, item.href) && "bg-muted",
+              isActive(pathname, item) && "bg-muted",
             )}
           >
             {item.label}

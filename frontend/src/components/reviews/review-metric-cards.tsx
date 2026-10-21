@@ -7,18 +7,20 @@ import { SPENDING_TYPE_LABELS, SPENDING_TYPES } from "@/lib/labels";
 export function ChangeText({
   pct,
   previous,
+  periodWord = "tuần",
 }: {
   pct: number | null | undefined;
   previous: number;
+  periodWord?: string;
 }) {
   if (pct === null || pct === undefined) {
-    return <span>Tuần trước chưa có khoản chi để so sánh</span>;
+    return <span>{periodWord[0].toUpperCase() + periodWord.slice(1)} trước chưa có khoản chi để so sánh</span>;
   }
   const sign = pct > 0 ? "+" : pct < 0 ? "−" : "±";
   return (
     <span>
       {sign}
-      {Math.abs(pct)}% so với tuần trước ({formatVND(previous)})
+      {Math.abs(pct)}% so với {periodWord} trước ({formatVND(previous)})
     </span>
   );
 }

@@ -31,6 +31,13 @@ export const SPENDING_TYPES = Object.keys(
   SPENDING_TYPE_LABELS,
 ) as SpendingType[];
 
+/** Màu biểu đồ theo spending type (khớp tông badge). */
+export const SPENDING_TYPE_COLORS: Record<SpendingType, string> = {
+  essential: "#0ea5e9",
+  non_essential: "#f59e0b",
+  irregular: "#8b5cf6",
+};
+
 /** “giay” → Mua sắm · Thiết yếu */
 export function describePreference(preference: {
   pattern: string;

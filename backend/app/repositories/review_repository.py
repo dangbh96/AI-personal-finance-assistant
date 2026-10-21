@@ -5,7 +5,7 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import ReflectionAnswer, WeeklyReview
+from app.models import MonthlyReview, ReflectionAnswer, WeeklyReview
 
 
 def get_weekly(db: Session, review_id: uuid.UUID) -> WeeklyReview | None:
@@ -27,7 +27,26 @@ def list_weekly(
     return list(db.scalars(stmt))
 
 
-def add(db: Session, entity: WeeklyReview | ReflectionAnswer) -> None:
+def get_monthly(db: Session, review_id: uuid.UUID) -> MonthlyReview | None:
+    return db.get(MonthlyReview, review_id)
+
+
+def get_monthly_by_month(db: Session, month: date) -> MonthlyReview | None:
+    return db.scalar(select(MonthlyReview).where(MonthlyReview.month == month))
+
+
+def list_monthly(
+    db: Session, date_from: date | None = None, date_to: date | None = None
+) -> list[MonthlyReview]:
+    stmt = select(MonthlyReview).order_by(MonthlyReview.month.desc())
+    if date_from is not None:
+        stmt = stmt.where(MonthlyReview.month >= date_from)
+    if date_to is not None:
+        stmt = stmt.where(MonthlyReview.month <= date_to)
+    return list(db.scalars(stmt))
+
+
+def add(db: Session, entity: WeeklyReview | MonthlyReview | ReflectionAnswer) -> None:
     db.add(entity)
     db.flush()
 

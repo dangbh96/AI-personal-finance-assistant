@@ -8,11 +8,13 @@
   `pace_status` so used % với % tháng đã qua, dung sai `PACE_TOLERANCE` (10 điểm %).
 - Top contributor: dòng đang vượt mà giao dịch lớn nhất chiếm ≥ `TOP_CONTRIBUTOR_MIN_SHARE`
   (60%) phần vượt.
+- Review (Phase 6, 7): đọc giao dịch kỳ này / kỳ trước cho `review_metrics`; kỳ tháng gom thêm
+  budget vs actual (`summarize_budget`) và phản tư các review tuần trong tháng.
 """
 
 import uuid
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 from fractions import Fraction
@@ -35,8 +37,14 @@ from app.schemas.analytics import (
     TopContributorRead,
 )
 from app.schemas.category import CategoryBrief
-from app.schemas.review import PeriodMetrics
-from app.services import budget_service, review_metrics
+from app.schemas.review import (
+    BudgetLineSummary,
+    MonthlyBudgetSummary,
+    PeriodMetrics,
+    ReviewMetrics,
+    WeeklyReflectionDigest,
+)
+from app.services import budget_service, review_metrics, review_service
 from app.services.budget_service import AllocationScope
 from app.services.money import month_range, round_vnd
 from app.services.review_metrics import TxRow
@@ -422,15 +430,20 @@ def list_allocation_transactions(
     )
 
 
-# ---------- review (Phase 6) ----------
+# ---------- review (Phase 6, 7) ----------
+
+MAX_BUDGET_OVER_LINES = 3
 
 
 @dataclass(frozen=True)
 class ReviewData:
-    """Metrics của kỳ + giao dịch kỳ này (để `detect_highlights` tìm cụm / khoản lớn)."""
+    """Metrics của kỳ + giao dịch kỳ này (để `detect_highlights` tìm cụm / khoản lớn).
+    Kỳ `month` có thêm budget vs actual và phản tư của các review tuần trong tháng."""
 
     metrics: PeriodMetrics
     transactions: list[TxRow]
+    budget: MonthlyBudgetSummary | None = None
+    reflections: list[WeeklyReflectionDigest] = field(default_factory=list)
 
 
 def _tx_row(t: Transaction) -> TxRow:
@@ -452,10 +465,76 @@ def load_period_rows(db: Session, date_from: date, date_to: date) -> list[TxRow]
     return [_tx_row(t) for t in transaction_repository.list_between(db, date_from, date_to)]
 
 
+def summarize_budget(status: BudgetStatusRead) -> MonthlyBudgetSummary:
+    """Rút gọn Budget vs Actual (Phase 5) cho metrics review tháng."""
+    lines = [
+        BudgetLineSummary(
+            allocation_id=a.id,
+            label=budget_service.allocation_label(
+                a.category.name if a.category else None, a.jar_name
+            ),
+            group=a.group,
+            planned=a.planned,
+            actual=a.actual,
+            variance=a.variance,
+            used_percent=a.used_percent,
+            status=a.status,
+        )
+        for a in sorted(status.allocations, key=lambda a: a.position)
+    ]
+    over = sorted(
+        (line for line in lines if line.status == "over_budget"),
+        key=lambda line: -line.variance,
+    )
+    t = status.totals
+    return MonthlyBudgetSummary(
+        budget_id=status.budget_id,
+        status=status.status,
+        strategy=status.strategy,
+        expense_planned=t.expense_planned,
+        expense_actual=t.expense_actual,
+        expense_variance=t.expense_variance,
+        unbudgeted_actual=t.unbudgeted_actual,
+        over_budget_count=t.over_budget_count,
+        lines=lines,
+        over_lines=over[:MAX_BUDGET_OVER_LINES],
+    )
+
+
+def get_monthly_budget_summary(
+    db: Session, month: date, today: date
+) -> MonthlyBudgetSummary | None:
+    """Budget vs actual của tháng nếu có budget active / closed (nháp → `None`)."""
+    budget = budget_repository.get_by_month(db, month)
+    if budget is None or budget.status not in TRACKED_BUDGET_STATUSES:
+        return None
+    return summarize_budget(get_budget_status(db, budget, today))
+
+
 def get_review_metrics(db: Session, period: ReviewPeriod, start: date, today: date) -> ReviewData:
     """Thu/chi, breakdown spending_type, theo danh mục, % thay đổi so với kỳ trước."""
     rng = review_metrics.period_range(period, start)
     current = load_period_rows(db, rng.start, rng.end)
     previous = load_period_rows(db, rng.previous_start, rng.previous_end)
     metrics = review_metrics.compute_period_metrics(period, start, current, previous, today)
-    return ReviewData(metrics=metrics, transactions=current)
+    if period != "month":
+        return ReviewData(metrics=metrics, transactions=current)
+    return ReviewData(
+        metrics=metrics,
+        transactions=current,
+        budget=get_monthly_budget_summary(db, start, today),
+        reflections=review_service.weekly_reflections_in_month(db, start),
+    )
+
+
+def build_review_metrics(data: ReviewData) -> ReviewMetrics:
+    return review_metrics.build_review_metrics(
+        data.metrics, data.transactions, budget=data.budget, reflections=data.reflections
+    )
+
+
+def preview_review_metrics(
+    db: Session, period: ReviewPeriod, start: date, today: date
+) -> ReviewMetrics:
+    """Metrics đầy đủ (kèm highlights) như graph sẽ dùng — không gọi AI, không lưu."""
+    return build_review_metrics(get_review_metrics(db, period, start, today))

@@ -38,15 +38,17 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export function ReviewNarrative({
   narrative,
   model,
+  title = "Nhìn lại tuần",
 }: {
   narrative: Narrative;
   model: string | null;
+  title?: string;
 }) {
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex flex-wrap items-center gap-2">
-          Nhìn lại tuần
+          {title}
           {narrative.fallback_used && (
             <Badge
               variant="secondary"

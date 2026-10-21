@@ -204,7 +204,18 @@ export function WeeklyReviewPage({ week }: { week: string }) {
           <HighlightList highlights={data.metrics.highlights} />
           <ReflectionForm
             key={data.id}
-            review={data}
+            kind="weekly"
+            reviewId={data.id}
+            question={data.narrative.reflection_question}
+            reflections={data.reflections}
+            from={data.week_start}
+            to={data.week_end}
+            markedIds={
+              new Set(
+                data.metrics.highlights.repeated_clusters.flatMap((c) => c.transaction_ids),
+              )
+            }
+            markLabel="Lặp lại"
             onSaved={() => {
               setGenerated(null);
               review.reload();

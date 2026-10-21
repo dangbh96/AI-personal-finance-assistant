@@ -474,6 +474,94 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reviews/monthly": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Monthly Reviews
+         * @description Danh sách review tháng (lọc theo `month`), tháng mới nhất trước.
+         */
+        get: operations["list_monthly_reviews_api_v1_reviews_monthly_get"];
+        put?: never;
+        /**
+         * Generate Monthly Review
+         * @description Tạo review tháng on-demand (cùng LangGraph `review_graph` với review tuần).
+         *     Tháng đã có review và `regenerate=false` → trả review cũ (không gọi AI).
+         *     `regenerate=true` → tính lại metrics + narrative, status về `generated`, giữ reflection cũ.
+         *     AI lỗi / output không qua kiểm tra → narrative dự phòng (`narrative.fallback_used = true`).
+         */
+        post: operations["generate_monthly_review_api_v1_reviews_monthly_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reviews/monthly/{month}/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview Monthly Metrics
+         * @description Xem trước metrics deterministic của tháng chứa `month` (không gọi AI, không lưu).
+         */
+        get: operations["preview_monthly_metrics_api_v1_reviews_monthly__month__metrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reviews/monthly/{month}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Monthly Review
+         * @description Review của tháng chứa `month` (vd `2026-10-01`); chưa có → 404.
+         */
+        get: operations["get_monthly_review_api_v1_reviews_monthly__month__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reviews/monthly/{review_id}/reflections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Monthly Reflection
+         * @description Lưu câu trả lời phản tư tháng + giao dịch muốn nhìn lại (phải là khoản chi trong tháng);
+         *     review chuyển `completed`.
+         */
+        post: operations["add_monthly_reflection_api_v1_reviews_monthly__review_id__reflections_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -703,6 +791,43 @@ export interface components {
             default_percent: number | null;
             /** Categories */
             categories: components["schemas"]["CategoryBrief"][];
+        };
+        /**
+         * BudgetLineSummary
+         * @description Một dòng phân bổ: planned vs actual cả tháng (từ Budget vs Actual — Phase 5).
+         */
+        BudgetLineSummary: {
+            /**
+             * Allocation Id
+             * Format: uuid
+             */
+            allocation_id: string;
+            /**
+             * Label
+             * @description Tên danh mục / hũ / nhóm
+             */
+            label: string;
+            /**
+             * Group
+             * @enum {string}
+             */
+            group: "essential" | "wants" | "savings" | "irregular";
+            /** Planned */
+            planned: number;
+            /** Actual */
+            actual: number;
+            /**
+             * Variance
+             * @description actual - planned (dương = vượt)
+             */
+            variance: number;
+            /** Used Percent */
+            used_percent: number | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "on_track" | "ahead_of_pace" | "over_budget" | "not_tracked";
         };
         /** BudgetList */
         BudgetList: {
@@ -1077,6 +1202,27 @@ export interface components {
             /** Comparison */
             comparison: components["schemas"]["ReferenceComparison"][];
         };
+        /** FlaggedTransaction */
+        FlaggedTransaction: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Occurred On
+             * Format: date
+             */
+            occurred_on: string;
+            /** Note */
+            note: string | null;
+            /** Amount */
+            amount: number;
+            /** Category Name */
+            category_name: string;
+            /** Spending Type */
+            spending_type: ("essential" | "non_essential" | "irregular") | null;
+        };
         /** GroupTotals */
         GroupTotals: {
             /**
@@ -1182,6 +1328,270 @@ export interface components {
             budget: components["schemas"]["BudgetStatusTotals"] | null;
             /** @description Dòng vượt nhiều nhất (nếu có) */
             top_over: components["schemas"]["AllocationStatusRead"] | null;
+        };
+        /**
+         * MonthlyBudgetSummary
+         * @description Budget vs actual của tháng (chỉ khi tháng có budget active / closed).
+         */
+        MonthlyBudgetSummary: {
+            /**
+             * Budget Id
+             * Format: uuid
+             */
+            budget_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "active" | "closed";
+            /**
+             * Strategy
+             * @enum {string}
+             */
+            strategy: "envelope" | "fifty_thirty_twenty" | "pyf";
+            /** Expense Planned */
+            expense_planned: number;
+            /** Expense Actual */
+            expense_actual: number;
+            /**
+             * Expense Variance
+             * @description expense_actual - expense_planned
+             */
+            expense_variance: number;
+            /**
+             * Unbudgeted Actual
+             * @description Chi tiêu không thuộc dòng phân bổ nào
+             */
+            unbudgeted_actual: number;
+            /** Over Budget Count */
+            over_budget_count: number;
+            /**
+             * Lines
+             * @description Theo thứ tự dòng của budget
+             */
+            lines: components["schemas"]["BudgetLineSummary"][];
+            /**
+             * Over Lines
+             * @description Tối đa 3 dòng vượt ngân sách, vượt nhiều nhất trước
+             */
+            over_lines: components["schemas"]["BudgetLineSummary"][];
+        };
+        /** MonthlyReviewGenerateRequest */
+        MonthlyReviewGenerateRequest: {
+            /**
+             * Month
+             * Format: date
+             * @description Ngày 1 của tháng
+             */
+            month: string;
+            /**
+             * Regenerate
+             * @description true: tạo lại narrative/metrics cho review đã có (giữ reflection cũ)
+             * @default false
+             */
+            regenerate?: boolean;
+            /**
+             * Today
+             * @description Ngày hiện tại phía user (mặc định hôm nay của server)
+             */
+            today?: string | null;
+        };
+        /** MonthlyReviewList */
+        MonthlyReviewList: {
+            /** Items */
+            items: components["schemas"]["MonthlyReviewRead"][];
+        };
+        /**
+         * MonthlyReviewMetrics
+         * @description Lưu ở `monthly_reviews.metrics`: số liệu tháng (dùng chung với tuần) + phần riêng tháng.
+         *
+         *     `saved = income - expense` (có thể âm); `savings_rate_pct = saved / income × 100`
+         *     (1 chữ số, null khi income = 0). "Chi thường xuyên" = chi trừ khoản bất thường.
+         */
+        MonthlyReviewMetrics: {
+            /**
+             * Period
+             * @enum {string}
+             */
+            period: "week" | "month";
+            /**
+             * Period Start
+             * Format: date
+             */
+            period_start: string;
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+            /**
+             * Previous Start
+             * Format: date
+             */
+            previous_start: string;
+            /**
+             * Previous End
+             * Format: date
+             */
+            previous_end: string;
+            /**
+             * As Of
+             * Format: date
+             * @description Ngày tính số liệu (≤ period_end)
+             */
+            as_of: string;
+            /**
+             * Days Elapsed
+             * @description Số ngày của kỳ đã qua, tính cả `as_of`
+             */
+            days_elapsed: number;
+            /** Days In Period */
+            days_in_period: number;
+            /**
+             * Complete
+             * @description Kỳ đã kết thúc (days_elapsed = days_in_period)
+             */
+            complete: boolean;
+            /** Income */
+            income: number;
+            /** Expense */
+            expense: number;
+            /**
+             * Net
+             * @description income - expense
+             */
+            net: number;
+            /**
+             * Expense Count
+             * @description Số giao dịch chi trong kỳ
+             */
+            expense_count: number;
+            /** Previous Income */
+            previous_income: number;
+            /** Previous Expense */
+            previous_expense: number;
+            /**
+             * Expense Change
+             * @description expense - previous_expense
+             */
+            expense_change: number;
+            /** Expense Change Pct */
+            expense_change_pct: number | null;
+            by_spending_type: components["schemas"]["SpendingTypeAmounts"];
+            previous_by_spending_type: components["schemas"]["SpendingTypeAmounts"];
+            /**
+             * By Category
+             * @description Danh mục chi có phát sinh ở kỳ này hoặc kỳ trước, chi nhiều nhất trước
+             */
+            by_category: components["schemas"]["CategoryChange"][];
+            highlights: components["schemas"]["ReviewHighlights"];
+            /** Saved */
+            saved: number;
+            /** Savings Rate Pct */
+            savings_rate_pct: number | null;
+            /** Previous Saved */
+            previous_saved: number;
+            /** Previous Savings Rate Pct */
+            previous_savings_rate_pct: number | null;
+            /**
+             * Saved Change
+             * @description saved - previous_saved
+             */
+            saved_change: number;
+            /**
+             * Income Change
+             * @description income - previous_income
+             */
+            income_change: number;
+            /** Income Change Pct */
+            income_change_pct: number | null;
+            spending_type_pct: components["schemas"]["SpendingTypePercents"];
+            /**
+             * Regular Expense
+             * @description Chi thường xuyên: thiết yếu + không thiết yếu
+             */
+            regular_expense: number;
+            /** Previous Regular Expense */
+            previous_regular_expense: number;
+            /** Regular Expense Change Pct */
+            regular_expense_change_pct: number | null;
+            /**
+             * Irregular Change
+             * @description Chi bất thường tháng này - tháng trước
+             */
+            irregular_change: number;
+            /**
+             * Increase Driver
+             * @description Khi chi tăng so với tháng trước (có chi): `irregular` nếu chi bất thường tăng ≥ 50% mức tăng tổng (khoản một lần), ngược lại `regular`; null nếu chi không tăng hoặc tháng trước không có chi
+             */
+            increase_driver: ("irregular" | "regular") | null;
+            /**
+             * Irregular Items
+             * @description Tối đa 5 khoản chi bất thường lớn nhất
+             */
+            irregular_items: components["schemas"]["ReviewTransaction"][];
+            budget: components["schemas"]["MonthlyBudgetSummary"] | null;
+            /**
+             * Weekly Reflections
+             * @description Tuần cũ nhất trước
+             */
+            weekly_reflections: components["schemas"]["WeeklyReflectionDigest"][];
+            /**
+             * Flagged Count
+             * @description Số giao dịch khác nhau được đánh dấu trong các tuần
+             */
+            flagged_count: number;
+            /**
+             * Flagged Total
+             * @description Tổng tiền các giao dịch được đánh dấu
+             */
+            flagged_total: number;
+        };
+        /** MonthlyReviewRead */
+        MonthlyReviewRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Month
+             * Format: date
+             * @description Ngày 1 của tháng
+             */
+            month: string;
+            /**
+             * Month End
+             * Format: date
+             */
+            month_end: string;
+            metrics: components["schemas"]["MonthlyReviewMetrics"];
+            narrative: components["schemas"]["ReviewNarrative"];
+            /**
+             * Model
+             * @description Model AI đã viết narrative; `fallback_template` nếu dùng bản tự động
+             */
+            model: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "generated" | "completed";
+            /**
+             * Reflections
+             * @description Cũ nhất trước
+             */
+            reflections: components["schemas"]["ReflectionAnswerRead"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
         /** PendingWeeklyReviewRead */
         PendingWeeklyReviewRead: {
@@ -1360,7 +1770,7 @@ export interface components {
             answer?: string;
             /**
              * Flagged Transaction Ids
-             * @description Giao dịch chi trong tuần user thấy "không đáng tiền"
+             * @description Khoản chi thuộc kỳ của review (tuần: “không đáng tiền”; tháng: khoản user muốn nhìn lại)
              */
             flagged_transaction_ids?: string[];
         };
@@ -1503,7 +1913,7 @@ export interface components {
         };
         /**
          * ReviewNarrative
-         * @description Lưu ở `weekly_reviews.narrative`.
+         * @description Lưu ở `weekly_reviews.narrative` / `monthly_reviews.narrative`.
          */
         ReviewNarrative: {
             /**
@@ -1583,6 +1993,18 @@ export interface components {
             non_essential: number;
             /** Irregular */
             irregular: number;
+        };
+        /**
+         * SpendingTypePercents
+         * @description Tỉ trọng từng spending type trong tổng chi (%, 1 chữ số); null khi tháng không có chi.
+         */
+        SpendingTypePercents: {
+            /** Essential */
+            essential: number | null;
+            /** Non Essential */
+            non_essential: number | null;
+            /** Irregular */
+            irregular: number | null;
         };
         /** SpendingTypeTotals */
         SpendingTypeTotals: {
@@ -1937,6 +2359,39 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /**
+         * WeeklyReflectionDigest
+         * @description Một câu trả lời phản tư của review tuần thuộc tháng (tuần có Thứ Hai trong tháng).
+         */
+        WeeklyReflectionDigest: {
+            /**
+             * Reflection Id
+             * Format: uuid
+             */
+            reflection_id: string;
+            /**
+             * Weekly Review Id
+             * Format: uuid
+             */
+            weekly_review_id: string;
+            /**
+             * Week Start
+             * Format: date
+             */
+            week_start: string;
+            /** Question */
+            question: string;
+            /**
+             * Answer
+             * @description Tối đa 300 ký tự
+             */
+            answer: string;
+            /**
+             * Flagged
+             * @description Giao dịch user đánh dấu "không đáng tiền" (bỏ qua giao dịch đã xoá)
+             */
+            flagged: components["schemas"]["FlaggedTransaction"][];
         };
         /** WeeklyReviewGenerateRequest */
         WeeklyReviewGenerateRequest: {
@@ -3229,6 +3684,191 @@ export interface operations {
         };
     };
     add_reflection_api_v1_reviews_weekly__review_id__reflections_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReflectionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReflectionAnswerRead"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_monthly_reviews_api_v1_reviews_monthly_get: {
+        parameters: {
+            query?: {
+                /** @description Từ tháng (bao gồm) */
+                from?: string | null;
+                /** @description Đến tháng (bao gồm) */
+                to?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonthlyReviewList"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    generate_monthly_review_api_v1_reviews_monthly_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MonthlyReviewGenerateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonthlyReviewRead"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    preview_monthly_metrics_api_v1_reviews_monthly__month__metrics_get: {
+        parameters: {
+            query?: {
+                /** @description Hôm nay phía user (mặc định của server) */
+                today?: string | null;
+            };
+            header?: never;
+            path: {
+                month: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonthlyReviewMetrics"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_monthly_review_api_v1_reviews_monthly__month__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                month: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonthlyReviewRead"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    add_monthly_reflection_api_v1_reviews_monthly__review_id__reflections_post: {
         parameters: {
             query?: never;
             header?: never;

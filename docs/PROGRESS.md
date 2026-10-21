@@ -5,9 +5,9 @@
 
 ## Phase hiện tại
 
-**Tiếp theo: [Phase 7 — Monthly review](./phases/phase-07-monthly-review.md)** · đạt **M4 (MVP)** sau phase này
+**Tiếp theo: [Phase 8 — Budget adjustment advisor](./phases/phase-08-budget-advisor.md)** · **M4 (MVP) đã đạt** sau Phase 7
 
-Handoff Phase 6: xem [phase-06-weekly-review.md § 9](./phases/phase-06-weekly-review.md#9-handoff-notes). LangGraph `agents/review_graph` (generic `period=week|month`): metrics + highlights deterministic (`services/review_metrics`), narrative `OPENAI_MODEL_SMART`, validate số ⊆ metrics + cụm cấm + 3 tầng (`services/review_narrative`), retry ≤ 2, fallback template. Phase 7 chỉ cần bảng `monthly_reviews` + persister `month` + router/UI; `reflection_answers` đã hỗ trợ `monthly`. API `/reviews/weekly*`, UI `/reviews/weekly/[week]` + banner Thứ Hai. Thêm dependency `langgraph 1.2.x`. Postgres vẫn ở **port 5433**.
+Handoff Phase 7: xem [phase-07-monthly-review.md § 9](./phases/phase-07-monthly-review.md#9-handoff-notes). Review tháng chạy cùng LangGraph `review_graph` (`period=month`, persister `month`, prompt `review_narrative_month.v1.md`); `MonthlyReviewMetrics` có tiết kiệm/tỉ lệ, tỉ trọng spending_type, `increase_driver` + `irregular_items`, `budget` (planned/actual, `over_lines`) và phản tư các tuần — đủ evidence cho advisor. API `/reviews/monthly*` (+ preview `/{month}/metrics`), UI `/reviews/monthly/[month]` (Recharts) với CTA tới trang giữ chỗ `/budget/advice?month=YYYY-MM-01` mà Phase 8 thay bằng UI thật. Lưu ý: `adjust_budget`/`adjust_behavior` là cụm cấm trong narrative review. Postgres vẫn ở **port 5433**.
 
 ## Bảng trạng thái
 
@@ -21,7 +21,7 @@ Handoff Phase 6: xem [phase-06-weekly-review.md § 9](./phases/phase-06-weekly-r
 | 4 | [Budget engine](./phases/phase-04-budget-engine.md) | Done | 2026-10-19 | 2026-10-19 | | 333 test; dòng nhóm khớp theo spending_type |
 | 5 | [Budget vs Actual](./phases/phase-05-budget-vs-actual.md) | Done | 2026-10-20 | 2026-10-20 | M3 ✅ | 369 test; thêm `not_tracked` (savings), `unbudgeted_actual` |
 | 6 | [Weekly review](./phases/phase-06-weekly-review.md) | Done | 2026-10-20 | 2026-10-21 | | 440 test; golden AI 2/2 (gpt-4o); LangGraph 1.2 |
-| 7 | [Monthly review](./phases/phase-07-monthly-review.md) | Not started | | | M4 (MVP) | |
+| 7 | [Monthly review](./phases/phase-07-monthly-review.md) | Done | 2026-10-21 | 2026-10-21 | M4 (MVP) ✅ | 491 test; golden AI 2/2 (gpt-4o); Recharts 3 |
 | 8 | [Budget adjustment advisor](./phases/phase-08-budget-advisor.md) | Not started | | | | |
 | 9 | [Flexible budget zones](./phases/phase-09-flexible-zones.md) | Not started | | | | |
 | 10 | [Financial Coach](./phases/phase-10-financial-coach.md) | Not started | | | M5 | |
@@ -73,6 +73,9 @@ Handoff Phase 6: xem [phase-06-weekly-review.md § 9](./phases/phase-06-weekly-r
 | 2026-10-21 | 6 | `weekly_reviews.metrics` chứa cả `highlights` + tiến độ tuần (cho phép review tuần đang chạy, tuần tương lai → 422); `% thay đổi` là số nguyên; `narrative.fallback_reason`; `model = fallback_template` | Narrative chỉ được dùng số có trong metrics; UI hiển thị evidence và lý do dùng bản tự động |
 | 2026-10-21 | 6 | AI lỗi → fallback ngay, chỉ retry (≤ 2) khi output không qua validate; validate thêm "action phải có điều kiện"; reflection chỉ nhận khoản chi trong tuần; pending chỉ khi tuần trước có giao dịch | Tránh 3 × timeout; giữ giọng văn không ra lệnh; dữ liệu phản tư nhất quán |
 | 2026-10-21 | 6 | `agents` được gọi trực tiếp `services` + `ai/review_writer` (cập nhật `backend-components.md`); `AppNav` bọc `<Suspense>` | Graph review cần collect/persist qua services; route động đầu tiên làm `usePathname()` thành dữ liệu runtime (Cache Components) |
+| 2026-10-21 | 7 | `MonthlyReviewMetrics` giữ tên chung `income`/`expense`/`net` + `saved`; so sánh tháng trước trải phẳng (`income_change_pct`, `saved_change`…); % tỉ trọng ở `spending_type_pct` (1 chữ số); thêm `regular_expense*`, `irregular_change`, `increase_driver` | Dùng chung schema/fallback/UI với review tuần; cần tín hiệu deterministic "tăng do khoản một lần" để AI không quy kết thói quen |
+| 2026-10-21 | 7 | Validate tháng: chi tăng chủ yếu do khoản bất thường → phải nêu khoản đó; cụm cấm thêm "kém kỷ luật", "ngân sách sai", `adjust_budget`… (áp cho cả tuần); số được phép / prompt bỏ ID theo tên khoá | Guardrail mục 4.3; review không đưa verdict trước Phase 8 |
+| 2026-10-21 | 7 | Phản tư tuần thuộc tháng = review tuần có Thứ Hai trong tháng; thêm `/reviews/monthly` (index) và trang giữ chỗ `/budget/advice`; thêm `recharts` + `react-is` | Quy tắc gán tuần rõ ràng; CTA điều hướng được trước khi có Phase 8 |
 
 ## Câu hỏi mở xuyên suốt
 

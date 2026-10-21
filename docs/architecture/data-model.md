@@ -122,11 +122,11 @@ erDiagram
     }
     MONTHLY_REVIEW {
         uuid id PK
-        date month UK
-        jsonb metrics
+        date month UK "ngày 1"
+        jsonb metrics "số liệu tháng + budget + phản tư tuần"
         jsonb narrative
         text model
-        text status
+        text status "generated | completed"
     }
     REFLECTION_ANSWER {
         uuid id PK
@@ -296,3 +296,7 @@ Tên trong bảng dưới là **tên bảng thực tế** (số nhiều snake_ca
 **Phase 6** (migration `20261020_63c5cd20a0e3_weekly_review`):
 - `weekly_reviews`: `UNIQUE (week_start)`, CHECK `extract(isodow from week_start) = 1`, `status IN (generated, completed)`. `metrics` JSONB = `ReviewMetrics` (thu/chi/net, kỳ trước, `expense_change(_pct)`, `by_spending_type`, `by_category` có `change_pct`, tiến độ tuần `days_elapsed`/`complete`/`as_of`, `highlights`: top 3 danh mục, `top_increase`/`top_decrease`, cụm lặp, top 3 khoản chi). `narrative` JSONB = `ReviewNarrative` (`observation`, `explanation`, `notice[1..3]`, `action`, `reflection_question`, `tone`, `fallback_used`, `fallback_reason`). `model` = tên model AI hoặc `fallback_template`. Regenerate ghi đè `metrics`/`narrative`/`model` và đặt lại `status = generated` (cùng row).
 - `reflection_answers`: CHECK `review_kind IN (weekly, monthly)`; **không có FK** `review_id` (trỏ `weekly_reviews` hoặc `monthly_reviews` tuỳ `review_kind`); index `(review_kind, review_id)`. `question` = `narrative.reflection_question` lúc trả lời; `flagged_transaction_ids UUID[]` default `'{}'` — `review_service` chỉ nhận khoản **chi** thuộc tuần của review (khác tuần → 422 `flagged_transaction_out_of_week`, thu nhập → 422 `flagged_transaction_not_expense`). Lưu reflection → review `completed`. Reflection giữ nguyên khi regenerate.
+
+**Phase 7** (migration `20261021_79e40a3c073b_monthly_review`):
+- `monthly_reviews`: `UNIQUE (month)`, CHECK `extract(day from month) = 1`, `status IN (generated, completed)`; cùng cột với `weekly_reviews` (`metrics`, `narrative`, `model`, `status`, `user_id` nullable). `metrics` JSONB = `MonthlyReviewMetrics` = `ReviewMetrics` (chung với tuần) + `saved`, `savings_rate_pct` (1 chữ số, `null` khi thu = 0), `previous_saved`, `previous_savings_rate_pct`, `saved_change`, `income_change(_pct)`, `spending_type_pct` (tỉ trọng 1 chữ số), `regular_expense` (= chi − bất thường), `previous_regular_expense`, `regular_expense_change_pct`, `irregular_change`, `increase_driver` (`irregular` khi chi bất thường tăng ≥ 50% mức tăng tổng; `null` khi chi không tăng / tháng trước không có chi), `irregular_items` (≤ 5), `budget` (`MonthlyBudgetSummary` — chỉ khi budget active/closed: dòng planned/actual/variance/status, tối đa 3 `over_lines`, `unbudgeted_actual`), `weekly_reflections` (phản tư của các review tuần có **Thứ Hai trong tháng**, câu trả lời cắt 300 ký tự, giao dịch đánh dấu đã xoá bị bỏ), `flagged_count` / `flagged_total` (giao dịch khác nhau). `narrative` cùng shape với tuần.
+- `reflection_answers` dùng lại với `review_kind = 'monthly'`, `review_id = monthly_reviews.id`; giao dịch đánh dấu phải là khoản **chi** trong tháng (khác tháng → 422 `flagged_transaction_out_of_month`).

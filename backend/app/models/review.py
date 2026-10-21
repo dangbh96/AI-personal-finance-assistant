@@ -32,6 +32,27 @@ class WeeklyReview(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
 
 
+class MonthlyReview(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Review 1 tháng (`month` = ngày 1). Cùng cấu trúc với `WeeklyReview`; `metrics` có thêm
+    tiết kiệm, tỉ lệ theo spending_type, khoản bất thường, budget vs actual, phản tư các tuần."""
+
+    __tablename__ = "monthly_reviews"
+    __table_args__ = (
+        UniqueConstraint("month"),
+        CheckConstraint("extract(day from month) = 1", name="month_first_day"),
+        CheckConstraint(f"status IN ({sql_in(REVIEW_STATUSES)})", name="status"),
+    )
+
+    user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    month: Mapped[date] = mapped_column(Date, nullable=False)
+    metrics: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    narrative: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    model: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(
+        Text, nullable=False, default="generated", server_default="generated"
+    )
+
+
 class ReflectionAnswer(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """Câu trả lời phản tư của user cho một review (weekly — Phase 6, monthly — Phase 7).
 

@@ -7,6 +7,7 @@ from app.api.routers import (
     classification_preferences,
     dashboard,
     health,
+    monthly_reviews,
     reviews,
     transactions,
 )
@@ -20,3 +21,4 @@ api_router.include_router(budgets.router)
 api_router.include_router(budget_allocations.router)
 api_router.include_router(dashboard.router)
 api_router.include_router(reviews.router)
+api_router.include_router(monthly_reviews.router)

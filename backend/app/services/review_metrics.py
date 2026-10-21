@@ -5,6 +5,9 @@
 - Highlights: top 3 danh mục chi, danh mục tăng / giảm nhiều nhất (theo đồng), cụm giao dịch lặp
   (≥ `MIN_CLUSTER_SIZE` khoản cùng danh mục + cùng buổi trong ngày, hoặc cùng từ khoá ghi chú),
   top 3 khoản chi lớn nhất.
+- Riêng tháng (Phase 7, `compute_monthly_metrics`): tiết kiệm + tỉ lệ tiết kiệm, tỉ trọng
+  spending_type (% 1 chữ số), chi thường xuyên vs bất thường, nguyên nhân tăng
+  (`increase_driver`), khoản bất thường lớn nhất, budget vs actual, phản tư các tuần.
 """
 
 import re
@@ -14,18 +17,26 @@ from collections import Counter
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import date, timedelta
+from decimal import ROUND_HALF_UP, Decimal
 from fractions import Fraction
 
 from app.core.errors import DomainError
 from app.models.enums import SPENDING_TYPES
 from app.schemas.review import (
+    MAX_IRREGULAR_ITEMS,
     CategoryChange,
+    IncreaseDriver,
+    MonthlyBudgetSummary,
+    MonthlyReviewMetrics,
     PeriodMetrics,
     RepeatedCluster,
     ReviewHighlights,
+    ReviewMetrics,
     ReviewTransaction,
     SpendingTypeAmounts,
+    SpendingTypePercents,
     TimeBucket,
+    WeeklyReflectionDigest,
 )
 from app.services.classification_text import normalize_pattern
 from app.services.money import add_months, month_range, round_vnd
@@ -289,3 +300,89 @@ def detect_highlights(metrics: PeriodMetrics, current: Sequence[TxRow]) -> Revie
         repeated_clusters=repeated_clusters(current),
         top_transactions=[_to_review_transaction(r) for r in top_transactions(current)],
     )
+
+
+# ---------- riêng tháng (Phase 7) ----------
+
+
+def share_pct(part: int, total: int) -> float | None:
+    """`part / total × 100`, 1 chữ số thập phân (half-up); `None` nếu total ≤ 0.
+
+    >>> share_pct(6_600_000, 25_000_000)
+    26.4
+    """
+    if total <= 0:
+        return None
+    exact = Decimal(part * 100) / Decimal(total)
+    return float(exact.quantize(Decimal("0.1"), rounding=ROUND_HALF_UP))
+
+
+def increase_driver(
+    expense_change: int, irregular_change: int, previous_expense: int
+) -> IncreaseDriver | None:
+    """Chi tăng chủ yếu do khoản bất thường (≥ 50% mức tăng) → `irregular`, ngược lại
+    `regular`; chi không tăng hoặc kỳ trước không có chi (không có mốc so sánh) → `None`."""
+    if expense_change <= 0 or previous_expense <= 0:
+        return None
+    return "irregular" if irregular_change * 2 >= expense_change else "regular"
+
+
+def irregular_items(rows: Iterable[TxRow], limit: int = MAX_IRREGULAR_ITEMS) -> list[TxRow]:
+    return top_transactions((r for r in rows if r.spending_type == "irregular"), limit)
+
+
+def compute_monthly_metrics(
+    metrics: ReviewMetrics,
+    current: Sequence[TxRow],
+    budget: MonthlyBudgetSummary | None = None,
+    reflections: Sequence[WeeklyReflectionDigest] = (),
+) -> MonthlyReviewMetrics:
+    """Bổ sung phần riêng của review tháng vào metrics chung (đã có highlights)."""
+    if metrics.period != "month":
+        raise ValueError("compute_monthly_metrics chỉ dùng cho kỳ month")
+    current_types, previous_types = metrics.by_spending_type, metrics.previous_by_spending_type
+    saved = metrics.income - metrics.expense
+    previous_saved = metrics.previous_income - metrics.previous_expense
+    regular = metrics.expense - current_types.irregular
+    previous_regular = metrics.previous_expense - previous_types.irregular
+    irregular_change = current_types.irregular - previous_types.irregular
+    flagged = {f.id: f.amount for r in reflections for f in r.flagged}
+    return MonthlyReviewMetrics(
+        **metrics.model_dump(),
+        saved=saved,
+        savings_rate_pct=share_pct(saved, metrics.income),
+        previous_saved=previous_saved,
+        previous_savings_rate_pct=share_pct(previous_saved, metrics.previous_income),
+        saved_change=saved - previous_saved,
+        income_change=metrics.income - metrics.previous_income,
+        income_change_pct=change_pct(metrics.income, metrics.previous_income),
+        spending_type_pct=SpendingTypePercents(
+            **{t: share_pct(getattr(current_types, t), metrics.expense) for t in SPENDING_TYPES}
+        ),
+        regular_expense=regular,
+        previous_regular_expense=previous_regular,
+        regular_expense_change_pct=change_pct(regular, previous_regular),
+        irregular_change=irregular_change,
+        increase_driver=increase_driver(
+            metrics.expense_change, irregular_change, metrics.previous_expense
+        ),
+        irregular_items=[_to_review_transaction(r) for r in irregular_items(current)],
+        budget=budget,
+        weekly_reflections=list(reflections),
+        flagged_count=len(flagged),
+        flagged_total=sum(flagged.values()),
+    )
+
+
+def build_review_metrics(
+    metrics: PeriodMetrics,
+    current: Sequence[TxRow],
+    *,
+    budget: MonthlyBudgetSummary | None = None,
+    reflections: Sequence[WeeklyReflectionDigest] = (),
+) -> ReviewMetrics:
+    """Metrics + highlights; kỳ `month` thêm phần riêng tháng (`MonthlyReviewMetrics`)."""
+    review = ReviewMetrics(**metrics.model_dump(), highlights=detect_highlights(metrics, current))
+    if metrics.period == "month":
+        return compute_monthly_metrics(review, current, budget, reflections)
+    return review

@@ -27,7 +27,10 @@ export function WeeklyReviewIndex() {
         <h1 className="font-heading text-2xl font-semibold">Review tuần</h1>
         <p className="text-sm text-muted-foreground">
           Mỗi tuần nhìn lại chi tiêu: chuyện gì đã xảy ra, vì sao, điều gì đáng chú ý — rồi tự
-          hỏi khoản nào chưa đáng tiền.
+          hỏi khoản nào chưa đáng tiền.{" "}
+          <Link href="/reviews/monthly" className="underline underline-offset-3">
+            Review tháng
+          </Link>
         </p>
       </div>
       <div className="flex flex-wrap gap-2">

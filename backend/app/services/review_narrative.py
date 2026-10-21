@@ -3,7 +3,8 @@
 - `allowed_numbers(metrics)`: mọi con số narrative được phép dùng (tiền, %, số lượng, ngày/tháng/
   năm, số trong ghi chú / tên danh mục) — lấy từ metrics đã tính sẵn.
 - `extract_numbers(text)`: đọc số kiểu Việt Nam ("1.180.000", "18%", "0,5 triệu", "620k").
-- `validate_narrative`: số ⊆ allowed, không có cụm từ cấm, đủ 3 tầng, action có điều kiện.
+- `validate_narrative`: số ⊆ allowed, không có cụm từ cấm, đủ 3 tầng, action có điều kiện; tháng:
+  chi tăng chủ yếu do khoản bất thường thì phải nêu khoản đó.
 - `fallback_narrative`: narrative dạng template từ metrics (luôn qua được `validate_narrative`).
 """
 
@@ -14,12 +15,18 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from app.core.text import strip_accents
-from app.schemas.review import ReviewMetrics, ReviewNarrative, ReviewNarrativeOutput
+from app.schemas.review import (
+    MonthlyReviewMetrics,
+    ReviewMetrics,
+    ReviewNarrative,
+    ReviewNarrativeOutput,
+)
 from app.services.money import format_vnd
 
 FALLBACK_MODEL = "fallback_template"
 
-# Giọng văn không phán xét (docs/architecture/ai-architecture.md § 2).
+# Giọng văn không phán xét (docs/architecture/ai-architecture.md § 2). Review không tự đưa ra kết
+# luận "ngân sách sai / hành vi sai" — việc đó thuộc Budget advisor (Phase 8).
 BANNED_PHRASES: tuple[str, ...] = (
     "bạn tiêu quá nhiều",
     "lãng phí",
@@ -28,6 +35,16 @@ BANNED_PHRASES: tuple[str, ...] = (
     "vô trách nhiệm",
     "phung phí",
     "hoang phí",
+    "kém kỷ luật",
+    "thiếu kỷ luật",
+    "thói quen xấu",
+    "ngân sách sai",
+    "đặt sai ngân sách",
+    "ngân sách đặt sai",
+    "ngân sách không hợp lý",
+    "ngân sách chưa hợp lý",
+    "adjust_budget",
+    "adjust_behavior",
 )
 # Action phải là gợi ý có điều kiện, không ra lệnh.
 CONDITIONAL_MARKERS: tuple[str, ...] = ("nếu", "có thể", "cân nhắc", "thử")
@@ -100,24 +117,33 @@ def _collect(node: Any, out: set[Decimal]) -> None:
             _collect(value, out)
 
 
+# UUID / khoá kỹ thuật không phải "số liệu" (và có thể chứa chữ số) → bỏ khi gom số / dựng prompt.
+_ID_KEYS = frozenset({"id", "key", "icon"})
+
+
+def _is_id_key(key: str) -> bool:
+    return key in _ID_KEYS or key.endswith(("_id", "_ids"))
+
+
+def strip_ids(node: Any) -> Any:
+    """Bỏ mọi khoá `id`, `key`, `icon`, `*_id`, `*_ids` (đệ quy) khỏi metrics đã dump JSON."""
+    if isinstance(node, dict):
+        return {k: strip_ids(v) for k, v in node.items() if not _is_id_key(k)}
+    if isinstance(node, list):
+        return [strip_ids(v) for v in node]
+    return node
+
+
+def metrics_payload(metrics: ReviewMetrics) -> dict[str, Any]:
+    """Metrics dạng JSON (không có ID) — nguồn duy nhất cho prompt và tập số được phép."""
+    return strip_ids(metrics.model_dump(mode="json"))
+
+
 def allowed_numbers(metrics: ReviewMetrics) -> set[Decimal]:
     """Mọi giá trị số có trong metrics + highlights (giá trị tuyệt đối)."""
     out: set[Decimal] = {Decimal(0)}
-    _collect(metrics.model_dump(mode="json", exclude=_ID_FIELDS), out)
+    _collect(metrics_payload(metrics), out)
     return out
-
-
-# UUID không phải "số liệu" (và có thể chứa chữ số) → bỏ khi gom số.
-_ID_FIELDS: Any = {
-    "by_category": {"__all__": {"category_id"}},
-    "highlights": {
-        "top_categories": {"__all__": {"category_id"}},
-        "top_increase": {"category_id"},
-        "top_decrease": {"category_id"},
-        "repeated_clusters": {"__all__": {"category_id", "transaction_ids", "key"}},
-        "top_transactions": {"__all__": {"id", "category_id"}},
-    },
-}
 
 
 def prompt_numbers(metrics: ReviewMetrics) -> list[str]:
@@ -188,7 +214,24 @@ def validate_narrative(
         for raw, value in extract_numbers(text):
             if value not in allowed:
                 problems.append(f"{name} có số “{raw}” không có trong metrics")
+    if isinstance(metrics, MonthlyReviewMetrics):
+        problems += _monthly_problems(narrative, metrics)
     return problems
+
+
+def _monthly_problems(narrative: ReviewNarrativeOutput, m: MonthlyReviewMetrics) -> list[str]:
+    """Chi tăng chủ yếu do khoản bất thường → phải nêu khoản đó (không quy kết thói quen)."""
+    if m.increase_driver != "irregular" or not m.irregular_items:
+        return []
+    top = m.irregular_items[0]
+    mentioned = {v for _, v in extract_numbers(f"{narrative.observation} {narrative.explanation}")}
+    if Decimal(top.amount) in mentioned:
+        return []
+    return [
+        f"chi tiêu tăng chủ yếu do khoản bất thường “{top.note or top.category_name}” "
+        f"{format_vnd(top.amount)} — observation hoặc explanation cần nêu khoản này "
+        "(khoản một lần, không phải thói quen)"
+    ]
 
 
 # ---------- bản dự phòng (template) ----------
@@ -285,6 +328,8 @@ def _action(m: ReviewMetrics, word: str) -> str | None:
 
 def fallback_narrative(metrics: ReviewMetrics, reason: str | None) -> ReviewNarrative:
     """Narrative template từ metrics, dùng khi AI lỗi hoặc output không qua kiểm tra."""
+    if isinstance(metrics, MonthlyReviewMetrics):
+        return _monthly_fallback(metrics, reason)
     word = _PERIOD_WORDS[metrics.period]
     return ReviewNarrative(
         observation=_observation(metrics, word),
@@ -292,6 +337,162 @@ def fallback_narrative(metrics: ReviewMetrics, reason: str | None) -> ReviewNarr
         notice=_notice(metrics, word)[:3],
         action=_action(metrics, word),
         reflection_question=f"Có khoản nào trong {word} này bạn thấy không đáng tiền không?",
+        tone="neutral",
+        fallback_used=True,
+        fallback_reason=reason,
+    )
+
+
+# ---------- bản dự phòng cho tháng (Phase 7) ----------
+
+MONTHLY_REFLECTION_QUESTION = (
+    "Điều gì trong tháng này bạn muốn giữ, và điều gì bạn muốn điều chỉnh cho tháng tới?"
+)
+
+
+def format_pct(value: float) -> str:
+    """26.4 → "26,4%", 50.0 → "50%" (giá trị đã tính sẵn trong metrics)."""
+    text = str(int(value)) if value == int(value) else f"{value:.1f}".replace(".", ",")
+    return f"{text}%"
+
+
+def _tx_label(note: str | None, category_name: str) -> str:
+    return f"“{note}”" if note else category_name
+
+
+def _monthly_observation(m: MonthlyReviewMetrics) -> str:
+    label = period_label(m)
+    if m.expense == 0 and m.income == 0:
+        text = f"{label} chưa có giao dịch nào được ghi."
+    else:
+        text = f"{label} bạn thu {format_vnd(m.income)}, chi {format_vnd(m.expense)}"
+        if m.savings_rate_pct is not None and m.saved >= 0:
+            text += (
+                f", còn lại {format_vnd(m.saved)} "
+                f"(tỉ lệ tiết kiệm {format_pct(m.savings_rate_pct)})."
+            )
+        elif m.saved < 0:
+            text += f", chi nhiều hơn thu {format_vnd(abs(m.saved))}."
+        else:
+            text += "."
+        pct = m.expense_change_pct
+        if pct is None:
+            text += " Tháng trước chưa có khoản chi nào để so sánh."
+        elif pct > 0:
+            text += f" Chi tiêu cao hơn tháng trước {pct}% ({format_vnd(m.previous_expense)})."
+        elif pct < 0:
+            text += (
+                f" Chi tiêu thấp hơn tháng trước {abs(pct)}% ({format_vnd(m.previous_expense)})."
+            )
+        else:
+            text += " Chi tiêu tương đương tháng trước."
+    if not m.complete:
+        text += f" Tháng chưa kết thúc — số liệu tính đến {_dm(m.as_of)}."
+    return text
+
+
+def _breakdown_sentence(m: MonthlyReviewMetrics) -> str:
+    s, p = m.by_spending_type, m.spending_type_pct
+    parts = []
+    for name, amount, pct in (
+        ("thiết yếu", s.essential, p.essential),
+        ("không thiết yếu", s.non_essential, p.non_essential),
+        ("bất thường", s.irregular, p.irregular),
+    ):
+        share = f" ({format_pct(pct)})" if pct is not None else ""
+        parts.append(f"{name} {format_vnd(amount)}{share}")
+    return "Theo loại chi tiêu: " + ", ".join(parts) + "."
+
+
+def _monthly_explanation(m: MonthlyReviewMetrics) -> str:
+    h = m.highlights
+    if m.increase_driver == "irregular" and m.irregular_items:
+        t = m.irregular_items[0]
+        text = (
+            f"Phần lớn mức tăng đến từ khoản bất thường {_tx_label(t.note, t.category_name)} "
+            f"{format_vnd(t.amount)} ({t.category_name}, {_dm(t.occurred_on)})."
+        )
+        pct = m.regular_expense_change_pct
+        if pct is not None:
+            if pct > 0:
+                trend = f"cao hơn tháng trước {pct}%"
+            elif pct < 0:
+                trend = f"thấp hơn tháng trước {abs(pct)}%"
+            else:
+                trend = "tương đương tháng trước"
+            text += f" Không tính khoản bất thường, chi thường xuyên {trend}."
+    elif m.expense_change > 0 and h.top_increase is not None:
+        c = h.top_increase
+        text = (
+            f"Phần tăng nhiều nhất đến từ {c.name}: {format_vnd(c.amount)}, "
+            f"cao hơn tháng trước {format_vnd(c.change)}."
+        )
+    elif m.expense_change < 0 and h.top_decrease is not None:
+        c = h.top_decrease
+        text = (
+            f"Khoản giảm nhiều nhất là {c.name}: {format_vnd(c.amount)}, "
+            f"thấp hơn tháng trước {format_vnd(abs(c.change))}."
+        )
+    elif h.top_categories:
+        c = h.top_categories[0]
+        text = f"Danh mục chi nhiều nhất là {c.name}: {format_vnd(c.amount)}."
+    else:
+        return "Chưa có đủ dữ liệu chi tiêu để giải thích xu hướng."
+    return f"{text} {_breakdown_sentence(m)}"
+
+
+def _monthly_notice(m: MonthlyReviewMetrics) -> list[str]:
+    items: list[str] = []
+    if m.budget and m.budget.over_lines:
+        line = m.budget.over_lines[0]
+        items.append(
+            f"{line.label} vượt ngân sách {format_vnd(line.variance)} "
+            f"(thực chi {format_vnd(line.actual)} / kế hoạch {format_vnd(line.planned)})."
+        )
+    if m.irregular_items and m.increase_driver != "irregular":
+        t = m.irregular_items[0]
+        items.append(
+            f"Khoản bất thường lớn nhất: {_tx_label(t.note, t.category_name)} "
+            f"{format_vnd(t.amount)} ({t.category_name})."
+        )
+    if m.flagged_count:
+        items.append(
+            f"Trong các review tuần, bạn đã đánh dấu {m.flagged_count} khoản chưa đáng tiền, "
+            f"tổng {format_vnd(m.flagged_total)}."
+        )
+    if m.highlights.repeated_clusters:
+        c = m.highlights.repeated_clusters[0]
+        items.append(f"{c.count} khoản “{c.label}”, tổng {format_vnd(c.total)}.")
+    if m.highlights.top_transactions and not m.irregular_items:
+        t = m.highlights.top_transactions[0]
+        items.append(
+            f"Khoản chi lớn nhất: {_tx_label(t.note, t.category_name)} {format_vnd(t.amount)} "
+            f"({t.category_name}, {_dm(t.occurred_on)})."
+        )
+    return items[:3] or ["Chưa có khoản chi nào trong tháng này."]
+
+
+def _monthly_action(m: MonthlyReviewMetrics) -> str | None:
+    if m.budget and m.budget.over_lines:
+        return (
+            "Nếu bạn muốn, bạn có thể xem phần tư vấn điều chỉnh ngân sách để cân nhắc "
+            "kế hoạch cho tháng tới."
+        )
+    if m.expense > 0 or m.income > 0:
+        return (
+            "Nếu bạn muốn, bạn có thể chọn một điểm muốn giữ và một điểm muốn điều chỉnh "
+            "cho tháng tới."
+        )
+    return None
+
+
+def _monthly_fallback(m: MonthlyReviewMetrics, reason: str | None) -> ReviewNarrative:
+    return ReviewNarrative(
+        observation=_monthly_observation(m),
+        explanation=_monthly_explanation(m),
+        notice=_monthly_notice(m),
+        action=_monthly_action(m),
+        reflection_question=MONTHLY_REFLECTION_QUESTION,
         tone="neutral",
         fallback_used=True,
         fallback_reason=reason,

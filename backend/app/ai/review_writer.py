@@ -12,38 +12,30 @@ from app.ai import openai_client
 from app.schemas.review import ReviewMetrics, ReviewNarrativeOutput
 from app.services import review_narrative
 
-PROMPT_FILE = Path(__file__).parent / "prompts" / "review_narrative.v1.md"
+PROMPTS_DIR = Path(__file__).parent / "prompts"
+PROMPT_FILES = {
+    "week": PROMPTS_DIR / "review_narrative.v1.md",
+    "month": PROMPTS_DIR / "review_narrative_month.v1.md",
+}
 TASK = "review_narrative"
 TIMEOUT_SECONDS = 60.0
 _PERIOD_WORDS = {"week": "tuần", "month": "tháng"}
 
-# Trường định danh không giúp gì cho việc viết văn → bỏ khỏi prompt (bớt token, tránh nhầm số).
-_PROMPT_EXCLUDE = {
-    "by_category": {"__all__": {"category_id", "icon"}},
-    "highlights": {
-        "top_categories": {"__all__": {"category_id", "icon"}},
-        "top_increase": {"category_id", "icon"},
-        "top_decrease": {"category_id", "icon"},
-        "repeated_clusters": {"__all__": {"category_id", "transaction_ids", "key"}},
-        "top_transactions": {"__all__": {"id", "category_id"}},
-    },
-}
-
 
 @cache
-def _prompt_template() -> str:
-    return PROMPT_FILE.read_text(encoding="utf-8")
+def _prompt_template(period: str) -> str:
+    return PROMPT_FILES[period].read_text(encoding="utf-8")
 
 
 def metrics_for_prompt(metrics: ReviewMetrics) -> str:
-    data = metrics.model_dump(mode="json", exclude=_PROMPT_EXCLUDE)  # type: ignore[arg-type]
-    return json.dumps(data, ensure_ascii=False, indent=1)
+    """Metrics JSON không kèm ID (bớt token, tránh nhầm số)."""
+    return json.dumps(review_narrative.metrics_payload(metrics), ensure_ascii=False, indent=1)
 
 
 def build_messages(metrics: ReviewMetrics) -> list[openai_client.Message]:
     word = _PERIOD_WORDS[metrics.period]
     system = (
-        _prompt_template()
+        _prompt_template(metrics.period)
         .replace("{{period_word}}", word)
         .replace("{{period_label}}", review_narrative.period_label(metrics))
         .replace("{{metrics_json}}", metrics_for_prompt(metrics))

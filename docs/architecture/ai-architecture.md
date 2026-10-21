@@ -21,12 +21,12 @@ Tên model đọc từ env (`OPENAI_MODEL_FAST`, `OPENAI_MODEL_SMART`) — khôn
 ## 2. Nguyên tắc nội dung (áp dụng mọi prompt sinh văn bản)
 
 1. **3 tầng:** Observation (số liệu) → Explanation (nguyên nhân, dựa trên dữ liệu) → Action (gợi ý, có điều kiện "nếu bạn muốn...").
-2. **Không phán xét:** cấm các cụm như "bạn tiêu quá nhiều", "lãng phí", "bạn phải", "bạn nên ngay lập tức". Dùng "cao hơn tháng trước X%", "phần lớn mức tăng đến từ...", "bạn có thể cân nhắc...".
+2. **Không phán xét:** cấm các cụm như "bạn tiêu quá nhiều", "lãng phí", "bạn phải", "bạn nên ngay lập tức", "kém kỷ luật". Dùng "cao hơn tháng trước X%", "phần lớn mức tăng đến từ...", "bạn có thể cân nhắc...". Review không tự kết luận "ngân sách sai / hành vi sai" — việc đó thuộc Budget advisor (Phase 8).
 3. **Không bịa số:** mọi con số trong output phải có trong input metrics. Kiểm tra tự động: trích số từ narrative và đối chiếu với metrics (golden test).
 4. **AI không quyết định thay user:** luôn trả draft/gợi ý, user xác nhận.
 5. Ngôn ngữ: tiếng Việt, xưng "bạn".
 
-Prompt lưu ở `backend/app/ai/prompts/*.md` (có version trong tên hoặc header), không inline dài trong code. Phase 3: `nl_transaction_parse.v3.md` (placeholder `{{today}}`, `{{calendar}}`, `{{categories}}`, `{{preferences}}`, `{{amount_hints}}`… do `nl_transaction_parser.build_messages` điền; v3 = v2 + mục "Sở thích phân loại của người dùng") và `classification_preference_parse.v1.md`. Phase 6: `review_narrative.v1.md` (`{{period_word}}`, `{{period_label}}`, `{{metrics_json}}`, `{{allowed_numbers}}`).
+Prompt lưu ở `backend/app/ai/prompts/*.md` (có version trong tên hoặc header), không inline dài trong code. Phase 3: `nl_transaction_parse.v3.md` (placeholder `{{today}}`, `{{calendar}}`, `{{categories}}`, `{{preferences}}`, `{{amount_hints}}`… do `nl_transaction_parser.build_messages` điền; v3 = v2 + mục "Sở thích phân loại của người dùng") và `classification_preference_parse.v1.md`. Phase 6: `review_narrative.v1.md` (`{{period_word}}`, `{{period_label}}`, `{{metrics_json}}`, `{{allowed_numbers}}`). Phase 7: `review_narrative_month.v1.md` (cùng placeholder).
 
 ## 3. Structured output chính (phác thảo)
 
@@ -85,7 +85,13 @@ Triển khai Phase 6 (`app/agents/review_graph.py`, LangGraph 1.2):
 - `write_narrative` → `ai/review_writer` (prompt `review_narrative.v1.md`, model `OPENAI_MODEL_SMART`, timeout 60s); prompt kèm metrics JSON (bỏ UUID) + **danh sách số được phép** định dạng kiểu Việt Nam.
 - `validate` → `services/review_narrative.validate_narrative`: trích mọi số trong văn bản ("1.180.000", "18%", "0,5 triệu", "620k", ngày "12/10") và so với tập số có trong metrics (tiền, %, số lượng, ngày/tháng/năm, số trong ghi chú; giá trị tuyệt đối); cụm từ cấm (so khớp cả không dấu); đủ observation/explanation/notice/reflection; có `action` khi tuần có giao dịch và action phải có điều kiện ("nếu", "có thể", "cân nhắc", "thử"). Fail → gửi danh sách lỗi cho model viết lại (retry ≤ 2, tức tối đa 3 lần gọi).
 - AI lỗi (`AIUnavailable`: chưa cấu hình, timeout, 5xx…) → **không retry**, sang `fallback` ngay. `fallback_template` dựng narrative từ metrics (luôn qua validate), `fallback_reason` = mã lỗi AI hoặc `validation_failed`.
-- `persist` theo `period` (`week` → `review_service.save_weekly_review`); Phase 7 chỉ cần thêm persister `month`. Endpoint `POST /reviews/weekly` không chạy graph nếu tuần đã có review và `regenerate=false`.
+- `persist` theo `period` (`week` → `review_service.save_weekly_review`, `month` → `save_monthly_review`). Endpoint `POST /reviews/weekly|monthly` không chạy graph nếu kỳ đã có review và `regenerate=false`.
+
+Mở rộng Phase 7 (`period = month`, cùng graph — không có workflow riêng):
+- `collect_metrics` gom thêm `analytics_service.get_monthly_budget_summary` (budget vs actual Phase 5, chỉ budget active/closed) và `review_service.weekly_reflections_in_month`; `detect_highlights` gọi `review_metrics.build_review_metrics` → `MonthlyReviewMetrics` (tiết kiệm, tỉ lệ, tỉ trọng spending_type, chi thường xuyên vs bất thường, `increase_driver`, khoản bất thường). `GET /reviews/monthly/{month}/metrics` chạy đúng 2 bước này (không AI, không lưu).
+- `review_writer` chọn prompt theo kỳ: `review_narrative_month.v1.md` (bắt buộc nêu khoản bất thường khi `increase_driver = irregular`, chỉ gợi ý "xem tư vấn điều chỉnh ngân sách", không tự kết luận ngân sách/hành vi sai). Metrics gửi model và tập số được phép dùng chung `review_narrative.metrics_payload` (bỏ mọi khoá `id`/`*_id`/`*_ids`/`key`/`icon`).
+- `validate` thêm cho tháng: chi tăng chủ yếu do khoản bất thường → observation/explanation phải chứa số tiền khoản bất thường lớn nhất. Cụm cấm thêm (cả tuần): "kém kỷ luật", "thiếu kỷ luật", "thói quen xấu", "ngân sách sai", "đặt sai ngân sách", "ngân sách đặt sai", "ngân sách không/chưa hợp lý", `adjust_budget`, `adjust_behavior`.
+- Fallback tháng: thu/chi/còn lại/tỉ lệ tiết kiệm, nguyên nhân (khoản bất thường hoặc danh mục), cơ cấu kèm %, ý đáng chú ý ưu tiên dòng vượt ngân sách → khoản bất thường → khoản đã đánh dấu trong tuần → cụm lặp; câu hỏi "giữ gì / điều chỉnh gì cho tháng tới".
 
 ## 5. LangGraph — Financial Coach graph (Phase 10, 16)
 

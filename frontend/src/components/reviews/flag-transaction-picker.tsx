@@ -6,22 +6,28 @@ import type { Transaction } from "@/lib/api";
 import { formatDate, formatVND } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-/** Danh sách khoản chi trong tuần để tick "không đáng tiền". */
+/** Danh sách khoản chi trong kỳ để tick (tuần: "không đáng tiền"; tháng: khoản muốn nhìn lại). */
 export function FlagTransactionPicker({
   transactions,
   selected,
   onToggle,
-  repeatedIds,
+  markedIds,
+  markLabel,
+  checkboxLabel = "Không đáng tiền",
+  emptyText = "Tuần này chưa có khoản chi nào.",
   disabled,
 }: {
   transactions: Transaction[];
   selected: ReadonlySet<string>;
   onToggle: (id: string) => void;
-  repeatedIds: ReadonlySet<string>;
+  markedIds: ReadonlySet<string>;
+  markLabel: string;
+  checkboxLabel?: string;
+  emptyText?: string;
   disabled?: boolean;
 }) {
   if (transactions.length === 0) {
-    return <p className="text-sm text-muted-foreground">Tuần này chưa có khoản chi nào.</p>;
+    return <p className="text-sm text-muted-foreground">{emptyText}</p>;
   }
   return (
     <ul className="flex max-h-80 flex-col divide-y overflow-y-auto rounded-lg border">
@@ -42,14 +48,14 @@ export function FlagTransactionPicker({
                 checked={checked}
                 disabled={disabled}
                 onChange={() => onToggle(t.id)}
-                aria-label={`Không đáng tiền: ${t.note ?? t.category.name}`}
+                aria-label={`${checkboxLabel}: ${t.note ?? t.category.name}`}
               />
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate">{t.note ?? t.category.name}</span>
                 <span className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
                   {t.category.name} · {formatDate(t.occurred_on)}
                   {t.spending_type && <SpendingTypeBadge value={t.spending_type} />}
-                  {repeatedIds.has(t.id) && <Badge variant="outline">Lặp lại</Badge>}
+                  {markedIds.has(t.id) && <Badge variant="outline">{markLabel}</Badge>}
                 </span>
               </span>
               <span className="tabular-nums">{formatVND(t.amount)}</span>
