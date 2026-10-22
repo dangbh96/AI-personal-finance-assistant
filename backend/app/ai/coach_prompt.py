@@ -1,4 +1,4 @@
-"""Prompt Financial Coach (`prompts/coach_v4.md`) + thông điệp yêu cầu viết lại khi guard fail."""
+"""Prompt Financial Coach (`prompts/coach_v5.md`) + thông điệp yêu cầu viết lại khi guard fail."""
 
 from datetime import date
 from functools import cache
@@ -6,8 +6,8 @@ from pathlib import Path
 
 from app.services.money import add_months
 
-PROMPT_FILE = Path(__file__).parent / "prompts" / "coach_v4.md"
-PROMPT_VERSION = "coach_v4"
+PROMPT_FILE = Path(__file__).parent / "prompts" / "coach_v5.md"
+PROMPT_VERSION = "coach_v5"
 TASK = "coach"
 TIMEOUT_SECONDS = 60.0
 _WEEKDAYS = ("Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật")

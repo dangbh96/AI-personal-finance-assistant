@@ -1495,10 +1495,90 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/simulator/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run
+         * @description Chạy kịch bản what-if trên mức trung bình các tháng gần nhất — **không ghi** giao dịch,
+         *     ngân sách hay mục tiêu. `with_narrative` → diễn giải 3 tầng (AI `OPENAI_MODEL_FAST`; AI lỗi →
+         *     bản mẫu, không trả 503).
+         */
+        post: operations["run_api_v1_simulator_run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/simulator/scenarios": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Scenarios */
+        get: operations["list_scenarios_api_v1_simulator_scenarios_get"];
+        put?: never;
+        /**
+         * Create Scenario
+         * @description Lưu kịch bản (tên + tham số) kèm kết quả mô phỏng tại thời điểm lưu.
+         */
+        post: operations["create_scenario_api_v1_simulator_scenarios_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/simulator/scenarios/{scenario_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Scenario */
+        delete: operations["delete_scenario_api_v1_simulator_scenarios__scenario_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AddRecurringExpenseParam */
+        AddRecurringExpenseParam: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "add_recurring_expense";
+            /** Name */
+            name: string;
+            /**
+             * Amount
+             * @description Số tiền mỗi tháng
+             */
+            amount: number;
+            /**
+             * Category Id
+             * Format: uuid
+             */
+            category_id: string;
+        };
         /** AdviceHistoryMonth */
         AdviceHistoryMonth: {
             /**
@@ -1752,6 +1832,30 @@ export interface components {
              * @description true nếu vừa tạo nháp (copy từ tháng của advice)
              */
             created: boolean;
+        };
+        /** AppliedParam */
+        AppliedParam: {
+            /** Index */
+            index: number;
+            /** Type */
+            type: string;
+            /**
+             * Label
+             * @description Mô tả tiếng Việt, vd 'Giảm Ăn uống 20%'
+             */
+            label: string;
+            /** Percent */
+            percent?: number | null;
+            /**
+             * Amount
+             * @description Số tiền tham số (thu nhập / khoản mới)
+             */
+            amount?: number | null;
+            /**
+             * Delta Monthly Savings
+             * @description Tiết kiệm / tháng thay đổi do riêng tham số này
+             */
+            delta_monthly_savings: number;
         };
         /**
          * AutoZoneDetailRead
@@ -2475,6 +2579,27 @@ export interface components {
              */
             confirm_over_income?: boolean;
         };
+        /** BudgetVarianceImpact */
+        BudgetVarianceImpact: {
+            /** Label */
+            label: string;
+            /** Planned */
+            planned: number;
+            /**
+             * Baseline Actual
+             * @description Chi trung bình / tháng của dòng (mức nền)
+             */
+            baseline_actual: number;
+            /** Projected Actual */
+            projected_actual: number;
+            /**
+             * Variance Before
+             * @description baseline_actual − planned (dương = vượt)
+             */
+            variance_before: number;
+            /** Variance After */
+            variance_after: number;
+        };
         /** BudgetWarning */
         BudgetWarning: {
             /**
@@ -2783,6 +2908,37 @@ export interface components {
             default_spending_type?: ("essential" | "non_essential" | "irregular") | null;
             /** Is Archived */
             is_archived?: boolean;
+        };
+        /** ChangeGoalDeadlineParam */
+        ChangeGoalDeadlineParam: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "change_goal_deadline";
+            /**
+             * Goal Id
+             * Format: uuid
+             */
+            goal_id: string;
+            /**
+             * New Deadline
+             * Format: date
+             */
+            new_deadline: string;
+        };
+        /** ChangeIncomeParam */
+        ChangeIncomeParam: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "change_income";
+            /**
+             * Delta Amount
+             * @description Thu nhập / tháng tăng (+) / giảm (−)
+             */
+            delta_amount: number;
         };
         /** ChatMessageMetadata */
         ChatMessageMetadata: {
@@ -3342,6 +3498,70 @@ export interface components {
              * @description Mới nhất trước
              */
             contributions: components["schemas"]["GoalContributionRead"][];
+        };
+        /** GoalImpact */
+        GoalImpact: {
+            /**
+             * Goal Id
+             * Format: uuid
+             */
+            goal_id: string;
+            /** Name */
+            name: string;
+            /** Priority */
+            priority: number;
+            /** Remaining Amount */
+            remaining_amount: number;
+            /**
+             * Deadline Before
+             * Format: date
+             */
+            deadline_before: string;
+            /**
+             * Deadline After
+             * Format: date
+             */
+            deadline_after: string;
+            /**
+             * Months Before
+             * @description Số tháng để đạt (2 chữ số); null = không đạt
+             */
+            months_before: number | null;
+            /** Months After */
+            months_after: number | null;
+            /**
+             * Days Before
+             * @description Số ngày để đạt (1 tháng = 30 ngày, làm tròn lên)
+             */
+            days_before: number | null;
+            /** Days After */
+            days_after: number | null;
+            /** Completion Date Before */
+            completion_date_before: string | null;
+            /** Completion Date After */
+            completion_date_after: string | null;
+            /**
+             * Days Earlier
+             * @description days_before − days_after (dương = sớm hơn)
+             */
+            days_earlier: number | null;
+            /**
+             * Required Monthly Before
+             * @description Cần để dành / tháng để kịp hạn cũ
+             */
+            required_monthly_before: number;
+            /**
+             * Required Monthly After
+             * @description Cần để dành / tháng để kịp hạn mới
+             */
+            required_monthly_after: number;
+            /**
+             * On Track Before
+             * @description Ngày hoàn thành ≤ hạn
+             */
+            on_track_before: boolean;
+            /** On Track After */
+            on_track_after: boolean;
         };
         /** GoalList */
         GoalList: {
@@ -5206,6 +5426,24 @@ export interface components {
             /** Active */
             active?: boolean;
         };
+        /** ReduceCategoryParam */
+        ReduceCategoryParam: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "reduce_category";
+            /**
+             * Category Id
+             * Format: uuid
+             */
+            category_id: string;
+            /**
+             * Percent
+             * @description Giảm bao nhiêu % chi tiêu trung bình / tháng
+             */
+            percent: number;
+        };
         /** ReferenceComparison */
         ReferenceComparison: {
             /**
@@ -5510,6 +5748,200 @@ export interface components {
             category_name: string;
             /** Spending Type */
             spending_type: ("essential" | "non_essential" | "irregular") | null;
+        };
+        /** ScenarioCreate */
+        ScenarioCreate: {
+            /** Params */
+            params: (components["schemas"]["ReduceCategoryParam"] | components["schemas"]["ChangeIncomeParam"] | components["schemas"]["AddRecurringExpenseParam"] | components["schemas"]["ChangeGoalDeadlineParam"])[];
+            /**
+             * Baseline Months
+             * @description Số tháng đã trọn gần nhất dùng làm mức nền
+             * @default 3
+             */
+            baseline_months?: number;
+            /**
+             * Include Irregular
+             * @description Tính cả khoản chi bất thường (một lần) vào mức nền
+             * @default false
+             */
+            include_irregular?: boolean;
+            /** Name */
+            name: string;
+            /** Start Date */
+            start_date?: string | null;
+        };
+        /** ScenarioList */
+        ScenarioList: {
+            /**
+             * Items
+             * @description Mới nhất trước
+             */
+            items: components["schemas"]["ScenarioRead"][];
+        };
+        /** ScenarioRead */
+        ScenarioRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            params: components["schemas"]["SimulationOptions"];
+            result: components["schemas"]["SimulationResult"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** SimulationCategoryChange */
+        SimulationCategoryChange: {
+            /** Category Id */
+            category_id: string | null;
+            /** Name */
+            name: string;
+            /** Baseline */
+            baseline: number;
+            /** Projected */
+            projected: number;
+            /**
+             * Delta
+             * @description projected − baseline
+             */
+            delta: number;
+        };
+        /** SimulationNarrative */
+        SimulationNarrative: {
+            /**
+             * Observation
+             * @description Kịch bản thay đổi gì (số từ kết quả)
+             */
+            observation: string;
+            /**
+             * Explanation
+             * @description Vì sao (dựa trên kết quả)
+             */
+            explanation: string;
+            /**
+             * Action
+             * @description Gợi ý có điều kiện; null nếu không cần
+             */
+            action: string | null;
+            /**
+             * Caveats
+             * @description Giả định / lưu ý (0–3 ý)
+             */
+            caveats: string[];
+        };
+        /** SimulationOptions */
+        SimulationOptions: {
+            /** Params */
+            params: (components["schemas"]["ReduceCategoryParam"] | components["schemas"]["ChangeIncomeParam"] | components["schemas"]["AddRecurringExpenseParam"] | components["schemas"]["ChangeGoalDeadlineParam"])[];
+            /**
+             * Baseline Months
+             * @description Số tháng đã trọn gần nhất dùng làm mức nền
+             * @default 3
+             */
+            baseline_months?: number;
+            /**
+             * Include Irregular
+             * @description Tính cả khoản chi bất thường (một lần) vào mức nền
+             * @default false
+             */
+            include_irregular?: boolean;
+        };
+        /** SimulationRequest */
+        SimulationRequest: {
+            /** Params */
+            params: (components["schemas"]["ReduceCategoryParam"] | components["schemas"]["ChangeIncomeParam"] | components["schemas"]["AddRecurringExpenseParam"] | components["schemas"]["ChangeGoalDeadlineParam"])[];
+            /**
+             * Baseline Months
+             * @description Số tháng đã trọn gần nhất dùng làm mức nền
+             * @default 3
+             */
+            baseline_months?: number;
+            /**
+             * Include Irregular
+             * @description Tính cả khoản chi bất thường (một lần) vào mức nền
+             * @default false
+             */
+            include_irregular?: boolean;
+            /**
+             * Start Date
+             * @description Ngày bắt đầu tính tiến độ mục tiêu (mặc định hôm nay)
+             */
+            start_date?: string | null;
+            /**
+             * With Narrative
+             * @description Viết diễn giải 3 tầng (AI / mẫu)
+             * @default false
+             */
+            with_narrative?: boolean;
+        };
+        /** SimulationResult */
+        SimulationResult: {
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
+            /**
+             * Baseline From
+             * Format: date
+             */
+            baseline_from: string;
+            /**
+             * Baseline To
+             * Format: date
+             */
+            baseline_to: string;
+            /** Baseline Months */
+            baseline_months: number;
+            /** Include Irregular */
+            include_irregular: boolean;
+            /** Baseline Monthly Income */
+            baseline_monthly_income: number;
+            /** Projected Monthly Income */
+            projected_monthly_income: number;
+            /** Baseline Monthly Expense */
+            baseline_monthly_expense: number;
+            /** Projected Monthly Expense */
+            projected_monthly_expense: number;
+            /** Baseline Monthly Savings */
+            baseline_monthly_savings: number;
+            /** Projected Monthly Savings */
+            projected_monthly_savings: number;
+            /** Delta Monthly Savings */
+            delta_monthly_savings: number;
+            /** Applied */
+            applied: components["schemas"]["AppliedParam"][];
+            /** Category Changes */
+            category_changes: components["schemas"]["SimulationCategoryChange"][];
+            /**
+             * Goal Impacts
+             * @description Mục tiêu đang thực hiện theo priority
+             */
+            goal_impacts: components["schemas"]["GoalImpact"][];
+            /**
+             * Budget Month
+             * @description Tháng ngân sách dùng để so (null = không có)
+             */
+            budget_month: string | null;
+            /** Budget Variance After */
+            budget_variance_after: components["schemas"]["BudgetVarianceImpact"][];
+            /** Warnings */
+            warnings: string[];
+            narrative?: components["schemas"]["SimulationNarrative"] | null;
+            /** Narrative Source */
+            narrative_source?: ("ai" | "template") | null;
+            /** Narrative Model */
+            narrative_model?: string | null;
         };
         /** SpendingTypeAmounts */
         SpendingTypeAmounts: {
@@ -9997,6 +10429,136 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    run_api_v1_simulator_run_post: {
+        parameters: {
+            query?: {
+                /** @description Hôm nay phía user (mặc định của server) — demo / test */
+                today?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SimulationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SimulationResult"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_scenarios_api_v1_simulator_scenarios_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScenarioList"];
+                };
+            };
+        };
+    };
+    create_scenario_api_v1_simulator_scenarios_post: {
+        parameters: {
+            query?: {
+                /** @description Hôm nay phía user (mặc định của server) — demo / test */
+                today?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScenarioCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScenarioRead"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_scenario_api_v1_simulator_scenarios__scenario_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scenario_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -18,6 +18,7 @@ from app.api.routers import (
     recurring_transactions,
     reviews,
     search,
+    simulator,
     transactions,
 )
 
@@ -40,3 +41,4 @@ api_router.include_router(receipts.router)
 api_router.include_router(imports.router)
 api_router.include_router(search.router)
 api_router.include_router(knowledge.router)
+api_router.include_router(simulator.router)

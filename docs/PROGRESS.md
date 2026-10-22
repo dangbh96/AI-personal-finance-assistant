@@ -5,9 +5,9 @@
 
 ## Phase hiện tại
 
-**Tiếp theo: [Phase 17 — What-if simulator](./phases/phase-17-whatif-simulator.md)** · **M6 (Full AI curriculum) đã đạt** sau Phase 16 · M5 (AI Agent) sau Phase 10 · M4 (MVP) sau Phase 7
+**Tiếp theo: [Phase 18 — Hardening & wrap-up](./phases/phase-18-hardening.md)** · **M6 (Full AI curriculum) đã đạt** sau Phase 16 · M5 (AI Agent) sau Phase 10 · M4 (MVP) sau Phase 7
 
-Handoff Phase 16: xem [phase-16-rag-knowledge.md § 9](./phases/phase-16-rag-knowledge.md#9-handoff-notes). Bảng `knowledge_documents` (`source` unique, `content_hash` UNIQUE) / `knowledge_chunks` (`vector(1536)` HNSW cosine, CASCADE) + `chat_messages.citations`. 6 bài tự viết ở `backend/knowledge/`; `services/knowledge_chunking` (md + PDF `pypdf`, chia đoạn ước lượng ký tự / 3, ≤ 800, overlap 100 khi cắt giữa mục) + `services/knowledge_service` (ingest idempotent / đổi tên / prune, search cosine ngưỡng 0.3, `resolve_ingest_path` chỉ trong `backend/`). API `/knowledge/search|documents|chunks/{id}|reindex`, script `python -m app.scripts.ingest_knowledge knowledge/`. Coach: tool `search_knowledge`, prompt `coach_v4.md`, guard nguồn (`check_citations`) + bắt buộc tool số liệu khi hỏi "phù hợp với tao" (`check_tool_usage`), `CoachAnswer.citations`; `get_spending_summary` thêm `income_share_pct` / `net_income_pct`. Fixture `fake_llm` ở `tests/api/conftest.py`. UI `/coach` khối Nguồn + drawer. Phase 17: đăng ký tool `simulate` + cập nhật `TOOLS` (test_coach) và danh sách registry (test_coach_tools). Postgres vẫn ở **port 5433**.
+Handoff Phase 17: xem [phase-17-whatif-simulator.md § 9](./phases/phase-17-whatif-simulator.md#9-handoff-notes). Bảng `scenarios` (tên + `params` + `result` JSONB). `services/simulator_service` (mức nền chỉ đọc: TB N tháng trọn gần nhất, bỏ `irregular` mặc định; hàm thuần `apply_params`, `compute_goal_completion` (30 ngày / tháng, làm tròn lên), `goal_impacts` theo priority, `compute_budget_variance`), `services/simulator_narrative` + `ai/simulator_writer` (`OPENAI_MODEL_FAST`, lỗi → bản mẫu). API `POST /simulator/run`, `GET/POST /simulator/scenarios`, `DELETE /simulator/scenarios/{id}`; tool Coach `simulate`, prompt `coach_v5.md`. UI `/simulator`. Phase 18: các lời gọi AI đều log `ai task=… model=… tokens` (gom vào `ai_call_logs`), guard từ khoá cấm dùng chung `coach_guard.BANNED_PHRASES`. Postgres vẫn ở **port 5433**.
 
 ## Bảng trạng thái
 
@@ -31,7 +31,7 @@ Handoff Phase 16: xem [phase-16-rag-knowledge.md § 9](./phases/phase-16-rag-kno
 | 14 | [CSV / Excel import](./phases/phase-14-csv-import.md) | Done | 2026-10-21 | 2026-10-22 | | 1051 test; golden phân loại import 22/22 (gpt-4o-mini), `pytest -m ai` 21/21; fixture sao kê giả (VCB / Techcombank cp1258 / XLSX) |
 | 15 | [Semantic search](./phases/phase-15-semantic-search.md) | Done | 2026-10-22 | 2026-10-22 | | 1095 test; golden search precision@10 0,90 / 1,00, coach 8/8, `pytest -m ai` 26/26; query "Chi tiêu {q}" |
 | 16 | [RAG knowledge base](./phases/phase-16-rag-knowledge.md) | Done | 2026-10-22 | 2026-10-22 | M6 ✅ | 1130 test; retrieval hit@3 12/12, golden RAG coach 5/5, `pytest -m ai` 32/32; KB 6 bài / 12 đoạn |
-| 17 | [What-if simulator](./phases/phase-17-whatif-simulator.md) | Not started | | | | Stretch |
+| 17 | [What-if simulator](./phases/phase-17-whatif-simulator.md) | Done | 2026-10-22 | 2026-10-22 | | 1166 test; số chính xác +300.000 / 150 → 141 ngày; golden narrative + coach 3/3, `pytest -m ai` 35/35 |
 | 18 | [Hardening & wrap-up](./phases/phase-18-hardening.md) | Not started | | | M7 | |
 
 ## Milestones
@@ -106,6 +106,7 @@ Handoff Phase 16: xem [phase-16-rag-knowledge.md § 9](./phases/phase-16-rag-kno
 | 2026-10-22 | 15 | Response search thêm `income_total` / `expense_total` / `net` / `result_count` / `missing_embedding_count` (`total_amount` = tổng chi); thiếu key → 503 `AI_NOT_CONFIGURED`; reindex đồng bộ trả `{processed_count, unchanged_count, remaining_count}`; embed best-effort cả khi xác nhận hoá đơn / khoản định kỳ / commit import (≤ 500 / request); prompt Coach `coach_v3`; `/transactions` nhận `?q=` | Thẻ tổng thu / chi / net trên UI; mã lỗi thống nhất của repo; giao dịch từ mọi nguồn tìm được ngay; Coach biết dùng tool mới và coi ghi chú là dữ liệu |
 | 2026-10-22 | 16 | Token ước lượng = ký tự / 3 (chưa `tiktoken`); overlap chỉ khi cắt giữa mục; `knowledge_documents.source` unique + ingest nhận đổi tên / prune; thêm `chat_messages.citations`, `GET /knowledge/documents`, `GET /knowledge/chunks/{id}`, reindex trả số liệu chi tiết | CI offline; tránh lặp nội dung giữa mục ngắn; ingest lại an toàn; UI cần lưu nguồn + mở toàn văn đoạn |
 | 2026-10-22 | 16 | Coach giữ câu trả lời văn bản (không dùng schema `CoachAnswerWithCitations`); citations do backend dựng từ mục **Nguồn:** và guard kiểm tra (nguồn phải thuộc kết quả tra cứu; câu hỏi "phù hợp với tao" phải có tool số liệu); `get_spending_summary` thêm `income_share_pct` / `net_income_pct`; prompt `coach_v4` | Giữ luồng function calling Phase 10; chống bịa nguồn deterministic; model không phải tự tính % thu nhập (guard cấm số tự tính) |
+| 2026-10-22 | 17 | Mức nền = TB N tháng trọn gần nhất (mặc định 3), mặc định bỏ khoản `irregular`; nhiều mục tiêu → tiết kiệm dồn theo priority; đổi hạn mục tiêu chỉ đổi "cần / tháng" + "kịp hạn"; response thêm `applied[]`, `category_changes`, `warnings`, thu / chi trước – sau; schema `SimulationCategoryChange`; bảng `scenarios` (tuỳ chọn) có làm; tool Coach `simulate` nhận slug + 3 loại thay đổi; prompt `coach_v5` | Plan chưa định nghĩa baseline / nhiều mục tiêu; khoản một lần làm sai mức tiết kiệm hằng tháng; UI cần giải thích đóng góp từng thay đổi; trùng tên schema review; model không biết UUID |
 
 ## Câu hỏi mở xuyên suốt
 

@@ -338,6 +338,57 @@ class CitationItem(BaseModel):
     score: float
 
 
+# ---------- tool: simulate (Phase 17) ----------
+
+
+class SimulateInput(BaseModel):
+    """Mô phỏng what-if trên mức trung bình các tháng gần nhất (không ghi dữ liệu)."""
+
+    reduce_category_slug: str | None = Field(
+        default=None,
+        max_length=60,
+        description="Slug danh mục chi muốn giảm, vd food (Ăn uống), shopping, entertainment, "
+        "transport",
+    )
+    reduce_percent: int | None = Field(default=None, ge=1, le=100, description="Giảm bao nhiêu %")
+    income_delta: int | None = Field(
+        default=None,
+        ge=-10_000_000_000,
+        le=10_000_000_000,
+        description="Thu nhập / tháng tăng (+) hoặc giảm (−), đồng",
+    )
+    add_expense_name: str | None = Field(default=None, max_length=100)
+    add_expense_amount: int | None = Field(
+        default=None, gt=0, le=10**15, description="Khoản chi định kỳ mới mỗi tháng, đồng"
+    )
+    add_expense_category_slug: str | None = Field(default=None, max_length=60)
+    months: int = Field(default=3, ge=1, le=12, description="Số tháng làm mức nền")
+
+
+class SimulateGoalItem(BaseModel):
+    name: str
+    remaining_amount: int
+    days_before: int | None
+    days_after: int | None
+    days_earlier: int | None = Field(description="Dương = đạt sớm hơn")
+    completion_date_before: date | None
+    completion_date_after: date | None
+
+
+class SimulateOutput(BaseModel):
+    start_date: date
+    baseline_from: date
+    baseline_to: date
+    changes: list[str] = Field(description="Các thay đổi đã áp dụng")
+    baseline_monthly_savings: int
+    projected_monthly_savings: int
+    delta_monthly_savings: int
+    goals: list[SimulateGoalItem]
+    warnings: list[str]
+    link: str
+    note: str
+
+
 # ---------- tool trace / evidence ----------
 
 

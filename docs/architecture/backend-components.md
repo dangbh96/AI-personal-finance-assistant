@@ -31,13 +31,14 @@ flowchart TB
         cp["coach_prompt"]
         vis["receipt_vision<br/>(P13: vision + Structured Output,<br/>phân loại theo sở thích đã học)"]
         emb["embeddings<br/>(P15: embed_documents / embed_queries)"]
+        simw["simulator_writer<br/>(P17: diễn giải What-if)"]
         prompts["prompts/*.md"]
     end
 
     subgraph agents ["agents/ (LangGraph)"]
         g_review["review_graph"]
         g_coach["coach_graph"]
-        tools["tools/*<br/>(registry + finance_tools,<br/>read-only, bọc services;<br/>P11: get_goals, P15: search_transactions,<br/>P16: search_knowledge)"]
+        tools["tools/*<br/>(registry + finance_tools,<br/>read-only, bọc services;<br/>P11: get_goals, P15: search_transactions,<br/>P16: search_knowledge, P17: simulate)"]
     end
 
     subgraph services ["services/ (deterministic)"]
@@ -56,7 +57,7 @@ flowchart TB
         s_imp["import_reader (CSV / XLSX, bảng mã, dấu phân cách)<br/>import_parsing (mapping, ngày / số tiền, dedup_hash)<br/>import_service (preview, mapping, commit, profile)"]
         s_search["embedding_service (nội dung embed, khoảng tiền,<br/>best-effort, backfill)<br/>search_service (hybrid vector + ILIKE, điểm, tổng tiền)"]
         s_kb["knowledge_chunking (đọc md / pdf, chia đoạn, citation)<br/>knowledge_service (ingest idempotent, search, tool search_knowledge)"]
-        s_sim["simulator_service"]
+        s_sim["simulator_service<br/>(mức nền chỉ đọc, apply_params,<br/>ngày đạt mục tiêu, budget variance,<br/>kịch bản đã lưu, tool simulate)<br/>simulator_narrative (validate, mẫu)"]
     end
 
     repos["repositories/"]
@@ -108,6 +109,7 @@ Hệ quả: toàn bộ `services/` test được **không cần OpenAI key**. Te
 - CSV / Excel import (Phase 14): router `imports` → `import_service.preview_import / update_mapping(db, …, classifier)` — `classifier` là closure router truyền vào gọi `ai/classifier.classify_batch_import` (như `analyzer` Phase 13). Service: `import_reader.read_table` (đuôi `.csv` / `.xlsx` + content type + ≤ 10MB + zip / không NUL; `utf-8-sig` → `cp1258`; đoán `,` `;` tab; `pandas` + `openpyxl`; ≤ 5.000 dòng; 413 / 415 / 422) → `import_parsing` (hàm thuần: dòng tiêu đề, `guess_mapping` hoặc `import_mapping_profiles` đã lưu, `parse_rows` → chuẩn hoá ngày / số tiền / chiều, `dedup_hash`, trùng trong file) → `transaction_repository.existing_dedup_hashes` (trùng với giao dịch đã import) + `non_import_keys_between` (cảnh báo trùng nhập tay) → `classifier` cho dòng hợp lệ (nội dung đã che số dài; không raise lỗi AI — thiếu đề xuất → `other` / `other_income`, confidence 0) → lưu `import_batches` (`previewed`, bảng thô + dòng preview trong JSONB; commit). **Không tạo giao dịch** ở preview / đổi mapping. `POST /imports/{id}/commit` → `import_service.commit_import`: kiểm tra mọi dòng đã chọn (`transaction_service.resolve_category/resolve_spending_type`) rồi mới ghi; giao dịch `source='import'` + `import_batch_id` + `dedup_hash`; giữ đề xuất từ sở thích → `classification_preference_service.record_feedback` (hit_count), sửa đề xuất → chỉ `classification_feedback` (không học sở thích mới); batch `committed`; upsert mapping profile — **1 commit**, lỗi → rollback, unique `dedup_hash` vi phạm → 409 `import_conflict`. File đã commit → 409 `IMPORT_ALREADY_COMMITTED` (body kèm `import_batch_id` qua `DomainError.extra`).
 - Semantic search (Phase 15): router `search` → `search_service.search_transactions(db, q, embedder, …)` — `embedder` = `ai/embeddings.embed_queries` (router / `coach_graph` truyền vào, `services` không import `ai`). `ai/embeddings` bọc `openai_client.create_embeddings` (`OPENAI_EMBEDDING_MODEL`, chia lô 100, timeout 15s, retry SDK, log task / số input / token / latency; seam test `openai_client._embed_raw`). Service: embed `"Chi tiêu {q}"` → `embedding_repository.vector_candidates` (top `limit × 5`, cosine `<=>`, HNSW, lọc ngày) ∪ `keyword_candidates` (ghi chú / tên danh mục ILIKE cả cụm + từ ≥ 3 ký tự, escape `%` `_`) → điểm `0.75 × (1 − distance) + 0.25 × keyword_boost` (1 = ghi chú chứa cụm, 0.5 = tên danh mục chứa cụm, còn lại 0.5 × tỉ lệ từ khoá có trong ghi chú; so khớp bỏ dấu) → bỏ dòng chỉ khớp ngữ nghĩa < 0.3 → tổng thu / chi bằng Python. Embed khi ghi: `api/embedding_hook.index_transactions / index_import_batch` (gọi **sau** khi dựng response) → `embedding_service.embed_transactions_best_effort` (không bao giờ raise; rollback + log). `embedding_service.backfill` dùng chung cho script `backfill_embeddings` và `POST /search/transactions/reindex`. Tool Coach `search_transactions` (`finance_tools.search_transactions_tool` → `search_service.search_for_coach`, dùng `CoachToolContext.embedder`).
 - RAG knowledge base (Phase 16): router `knowledge` (`GET /knowledge/search`, `GET /knowledge/documents`, `GET /knowledge/chunks/{id}`, `POST /knowledge/reindex`) → `knowledge_service` (phụ thuộc `knowledge_repository`, `knowledge_chunking`, `embedding_service.Embedder / current_model`; nhận `embedder` = `ai/embeddings.embed_knowledge` (ingest) / `embed_queries` (tìm)). `knowledge_chunking` là hàm thuần (đọc markdown / PDF bằng `pypdf`, chia đoạn, citation). `POST /knowledge/reindex` chỉ nhận đường dẫn **trong `backend/`** (`resolve_ingest_path`, 422 `invalid_path` — chống path traversal). Tool Coach `search_knowledge` → `knowledge_service.search_for_coach`; `coach_graph.response_guard` gọi thêm `coach_guard.check_tool_usage` + `check_citations`; `coach_evidence.select_citations` → `CoachAnswer.citations` → `coach_service` lưu `chat_messages.citations`.
+- What-if simulator (Phase 17): router `simulator` (`POST /simulator/run?today=`, `GET/POST /simulator/scenarios`, `DELETE /simulator/scenarios/{id}`) → `simulator_service` (phụ thuộc `transaction_repository`, `goal_repository`, `budget_repository`, `category_repository`, `scenario_repository`, `budget_service.allocation_scope / allocation_label / load_jar_categories`, `goal_service.months_remaining / suggested_monthly_saving`). `build_snapshot` chỉ đọc; `simulate` / `apply_params` / `compute_goal_completion` / `goal_impacts` / `compute_budget_variance` là hàm thuần. `with_narrative` → router gọi `ai/simulator_writer.write_narrative` (AI lỗi → bản mẫu). Chỉ `POST /simulator/scenarios` ghi (bảng `scenarios`); run **không ghi** gì. Tool Coach `simulate` → `simulator_service.simulate_for_coach`.
 
 ## API conventions
 

@@ -25,6 +25,7 @@ from app.schemas.coach import (
     RecentReviewsOutput,
     SearchKnowledgeOutput,
     SearchTransactionsOutput,
+    SimulateOutput,
     SpendingSummaryOutput,
 )
 from app.services import coach_guard
@@ -144,6 +145,12 @@ def evidence_rows(tool: str, output: BaseModel) -> list[EvidenceRow]:
             add(f"Kết quả tìm “{output.query}”", span, "Tổng chi", output.expense_total)
             if output.income_total:
                 add(f"Kết quả tìm “{output.query}”", span, "Tổng thu", output.income_total)
+    elif isinstance(output, SimulateOutput):
+        label = "Mô phỏng: " + "; ".join(output.changes)
+        period = "mỗi tháng"
+        add(label, period, "Tiết kiệm hiện tại", output.baseline_monthly_savings)
+        add(label, period, "Tiết kiệm theo kịch bản", output.projected_monthly_savings)
+        add(label, period, "Chênh lệch", output.delta_monthly_savings)
     return rows
 
 
@@ -218,6 +225,8 @@ def summarize_result(output: BaseModel) -> tuple[str, int]:
             return "Không tìm thấy nguồn kiến thức phù hợp", 0
         titles = ", ".join(dict.fromkeys(r.title for r in output.results))
         return f"Đã tra kiến thức: {titles} ({n} đoạn)", n
+    if isinstance(output, SimulateOutput):
+        return f"Mô phỏng: {'; '.join(output.changes)}", len(output.changes)
     return "Đã đọc dữ liệu", 0
 
 

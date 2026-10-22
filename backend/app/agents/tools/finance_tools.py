@@ -19,9 +19,16 @@ from app.schemas.coach import (
     RecentReviewsInput,
     SearchKnowledgeInput,
     SearchTransactionsInput,
+    SimulateInput,
     SpendingSummaryInput,
 )
-from app.services import goal_service, insight_service, knowledge_service, search_service
+from app.services import (
+    goal_service,
+    insight_service,
+    knowledge_service,
+    search_service,
+    simulator_service,
+)
 
 
 def spending_summary_tool(ctx: CoachToolContext) -> BaseTool:
@@ -160,6 +167,38 @@ def search_knowledge_tool(ctx: CoachToolContext) -> BaseTool:
     return search_knowledge
 
 
+def simulate_tool(ctx: CoachToolContext) -> BaseTool:
+    @tool(
+        "simulate",
+        args_schema=SimulateInput,
+        description="Mô phỏng what-if (KHÔNG ghi dữ liệu): giảm chi một danh mục theo %, tăng / "
+        "giảm thu nhập mỗi tháng, hoặc thêm một khoản chi định kỳ mỗi tháng — trên mức trung "
+        "bình các tháng gần nhất. Trả tiết kiệm / tháng trước / sau / chênh lệch và số ngày đạt "
+        "từng mục tiêu trước / sau (sớm hơn bao nhiêu ngày). Dùng cho câu 'Nếu … thì sao?'.",
+    )
+    def simulate(
+        reduce_category_slug: str | None = None,
+        reduce_percent: int | None = None,
+        income_delta: int | None = None,
+        add_expense_name: str | None = None,
+        add_expense_amount: int | None = None,
+        add_expense_category_slug: str | None = None,
+        months: int = 3,
+    ) -> str:
+        data = SimulateInput(
+            reduce_category_slug=reduce_category_slug,
+            reduce_percent=reduce_percent,
+            income_delta=income_delta,
+            add_expense_name=add_expense_name,
+            add_expense_amount=add_expense_amount,
+            add_expense_category_slug=add_expense_category_slug,
+            months=months,
+        )
+        return ctx.recorder.store(simulator_service.simulate_for_coach(ctx.db, data, ctx.today))
+
+    return simulate
+
+
 def default_registry() -> CoachToolRegistry:
     registry = CoachToolRegistry()
     registry.register("get_spending_summary", spending_summary_tool)
@@ -170,4 +209,5 @@ def default_registry() -> CoachToolRegistry:
     registry.register("get_goals", goals_tool)
     registry.register("search_transactions", search_transactions_tool)
     registry.register("search_knowledge", search_knowledge_tool)
+    registry.register("simulate", simulate_tool)
     return registry

@@ -14,6 +14,7 @@ from app.models.knowledge import KnowledgeChunk, KnowledgeDocument
 from app.models.receipt import Receipt
 from app.models.recurring import RecurringTransaction
 from app.models.review import MonthlyReview, ReflectionAnswer, WeeklyReview
+from app.models.scenario import Scenario
 from app.models.transaction import Transaction
 
 __all__ = [
@@ -38,6 +39,7 @@ __all__ = [
     "KnowledgeDocument",
     "Receipt",
     "RecurringTransaction",
+    "Scenario",
     "Transaction",
     "TransactionEmbedding",
 ]

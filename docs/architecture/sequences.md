@@ -260,3 +260,29 @@ sequenceDiagram
 ```
 
 Ingest: `python -m app.scripts.ingest_knowledge knowledge/` → đọc `.md` / `.pdf` → chia đoạn → embed → `knowledge_documents` / `knowledge_chunks` (bỏ qua file không đổi `content_hash`).
+## 9. Mô phỏng What-if (Phase 17)
+
+```mermaid
+sequenceDiagram
+    actor U as User
+    participant FE as /simulator
+    participant API as FastAPI
+    participant S as simulator_service
+    participant DB as Postgres
+    participant W as ai/simulator_writer
+
+    U->>FE: "Giảm Ăn uống 20%"
+    FE->>API: POST /simulator/run {params, baseline_months, with_narrative}
+    API->>S: run_simulation
+    S->>DB: đọc (chỉ đọc) thu / chi 3 tháng trọn gần nhất, mục tiêu active, ngân sách tháng này
+    S->>S: apply_params → tiết kiệm / tháng trước / sau,<br/>ngày đạt mục tiêu (×30 ngày, làm tròn lên), budget variance
+    opt with_narrative
+        API->>W: diễn giải (OPENAI_MODEL_FAST, validate số / giọng văn)
+        W-->>API: narrative (lỗi → bản mẫu)
+    end
+    API-->>FE: SimulationResult (+300.000 ₫ / tháng, Laptop sớm hơn 9 ngày)
+    opt Lưu kịch bản
+        FE->>API: POST /simulator/scenarios {name, params}
+        API->>DB: INSERT scenarios (chỉ bảng này)
+    end
+```

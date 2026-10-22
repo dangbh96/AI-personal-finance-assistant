@@ -39,6 +39,7 @@ export const TOOL_LABELS: Record<string, string> = {
   get_goals: "Mục tiêu tiết kiệm",
   search_transactions: "Tìm giao dịch theo ý nghĩa",
   search_knowledge: "Tra thư viện kiến thức",
+  simulate: "Mô phỏng what-if",
 };
 
 const SOURCE_HEADER = /^[\s>*_#-]*nguồn[\s*_]*:?/i;

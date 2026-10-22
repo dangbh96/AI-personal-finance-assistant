@@ -59,6 +59,7 @@ uvicorn app.main:app --reload --port 8000
 - Kịch bản Budget vs Actual cố định (tháng 10/2026, ngân sách active 5 danh mục + 59 giao dịch): `python -m app.scripts.seed_scenario [--reset]` — `--reset` xoá ngân sách và **mọi** giao dịch tháng 10/2026 trước khi tạo. Xem ở `/budget?month=2026-10` (thêm `&today=2026-10-15` để thử nhịp chi pro-rata).
 - Semantic search (Phase 15): giao dịch tạo qua API được embed ngay (best-effort); dữ liệu seed / cũ cần `python -m app.scripts.backfill_embeddings [--batch-size 100] [--limit N] [--force]` (cần `OPENAI_API_KEY`). Tìm ở `/search`.
 - Knowledge base cho Coach (Phase 16): `python -m app.scripts.ingest_knowledge knowledge/ [--prune]` — ingest 6 bài tự viết trong `backend/knowledge/` (thêm `.md` / `.pdf` vào thư mục này rồi chạy lại; file không đổi được bỏ qua). Hỏi ở `/coach`, ví dụ "50/30/20 là gì, có phù hợp với tao không?" → câu trả lời kèm mục Nguồn.
+- Mô phỏng What-if (Phase 17): `/simulator` — thử giảm chi danh mục, đổi thu nhập, thêm khoản định kỳ, đổi hạn mục tiêu trên mức trung bình 3 tháng gần nhất (không ghi dữ liệu thật); thêm `?today=YYYY-MM-DD` để chọn "hôm nay". Coach cũng trả lời "Nếu giảm ăn ngoài 20% thì sao?".
 
 ### 3. Frontend (Next.js) — http://localhost:3000
 

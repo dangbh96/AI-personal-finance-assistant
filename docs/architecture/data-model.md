@@ -249,9 +249,10 @@ erDiagram
     }
     SCENARIO {
         uuid id PK
+        uuid user_id "nullable"
         text name
-        jsonb params
-        jsonb result
+        jsonb params "SimulationOptions"
+        jsonb result "SimulationResult lúc lưu"
     }
 ```
 
@@ -277,7 +278,7 @@ Tên trong bảng dưới là **tên bảng thực tế** (số nhiều snake_ca
 | 14 | `import_batches` (+ `source_rows`, `rows`, `file_info`… so với plan), `import_mapping_profiles` (+ `headers`), `transactions.import_batch_id`, `transactions.dedup_hash` (unique partial index) |
 | 15 | `CREATE EXTENSION vector`, `transaction_embeddings` (+ `embedded_at`, HNSW cosine) |
 | 16 | `knowledge_documents` (+ `source_type`, unique `source`), `knowledge_chunks` (HNSW cosine), `chat_messages.citations` |
-| 17 | `scenarios` (tuỳ chọn — chỉ khi cần lưu kịch bản) |
+| 17 | `scenarios` (đã làm — lưu tên + tham số + kết quả mô phỏng) |
 
 ## Ràng buộc quan trọng
 
@@ -377,3 +378,6 @@ Tên trong bảng dưới là **tên bảng thực tế** (số nhiều snake_ca
 - `knowledge_chunks`: `document_id` FK → `knowledge_documents` **`ON DELETE CASCADE`**, `chunk_index` (CHECK ≥ 0, UNIQUE `(document_id, chunk_index)` — đồng thời là index tra theo tài liệu), `heading TEXT NULL` (mục đầu tiên của đoạn), `content TEXT`, `embedding vector(1536)` + **HNSW** `ix_knowledge_chunks_embedding_hnsw` (`vector_cosine_ops`, `m = 16`, `ef_construction = 64`), `model`, `metadata JSONB` (`source_path`, `heading_path`, `headings` (mọi mục trong đoạn), `tags`, `language`, `token_estimate`, PDF thêm `pages`), timestamps.
 - Ingest (`knowledge_service.ingest_path`): file không đổi hash → bỏ qua (không gọi AI); nội dung đổi → xoá tài liệu cũ (cascade) + tạo lại; cùng nội dung ở file khác mà file cũ không còn → **đổi tên** (giữ đoạn + embedding); cùng nội dung ở 2 file đang tồn tại → bỏ qua file sau; `--prune` xoá tài liệu của thư mục mà file không còn. Embed chuỗi `"{tiêu đề} › {heading_path}\n\n{nội dung}"`.
 - `chat_messages.citations JSONB NULL` (thêm so với plan): danh sách `CitationItem` (`ref` S1…, `chunk_id`, `document_id`, `title`, `heading`, `source`, `citation`, `snippet` ≤ 600 ký tự, `score`) của câu trả lời Coach.
+**Phase 17** (migration `20261022_36ad973fa6c3_whatif_simulator`):
+- `scenarios` (tuỳ chọn trong plan — **có làm** để lưu kịch bản): `user_id UUID NULL`, `name TEXT` (≤ 100 ký tự ở API), `params JSONB` (`SimulationOptions`: `params[]` (union theo `type`: `reduce_category {category_id, percent}`, `change_income {delta_amount}`, `add_recurring_expense {name, amount, category_id}`, `change_goal_deadline {goal_id, new_deadline}`), `baseline_months`, `include_irregular`), `result JSONB` (`SimulationResult` tại lúc lưu), timestamps (`created_at` đặt từ Python để thứ tự đúng); index `ix_scenarios_created_at`. Không có FK tới danh mục / mục tiêu (kịch bản là ảnh chụp, xoá danh mục / mục tiêu không làm hỏng bản lưu).
+- Simulator **không ghi** `transactions`, `budgets`, `goals`, `goal_contributions` (test kiểm tra số dòng không đổi).
