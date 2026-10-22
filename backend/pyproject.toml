@@ -25,6 +25,8 @@ dependencies = [
     # Phase 14: đọc sao kê CSV / XLSX.
     "pandas>=2.2",
     "openpyxl>=3.1",
+    # Phase 15: kiểu cột `vector` (pgvector) cho SQLAlchemy.
+    "pgvector>=0.3",
 ]
 
 [project.optional-dependencies]

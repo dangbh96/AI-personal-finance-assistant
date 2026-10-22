@@ -7,6 +7,7 @@ from app.models.budget_advice import BudgetAdvice
 from app.models.category import Category
 from app.models.chat import ChatMessage, ChatSession
 from app.models.classification import ClassificationFeedback, ClassificationPreference
+from app.models.embedding import TransactionEmbedding
 from app.models.goal import Goal, GoalContribution
 from app.models.import_batch import ImportBatch, ImportMappingProfile
 from app.models.receipt import Receipt
@@ -35,4 +36,5 @@ __all__ = [
     "Receipt",
     "RecurringTransaction",
     "Transaction",
+    "TransactionEmbedding",
 ]

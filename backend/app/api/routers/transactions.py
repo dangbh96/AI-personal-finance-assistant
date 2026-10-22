@@ -5,6 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query, Response, status
 
 from app.ai import nl_transaction_parser
+from app.api import embedding_hook
 from app.core.db import DbSession
 from app.models.enums import Direction, SpendingType, TransactionSource
 from app.schemas.ai import TransactionParseRequest, TransactionParseResponse
@@ -97,6 +98,7 @@ def create_transaction(db: DbSession, data: TransactionCreate):
     if learned is not None:
         result.learned_preference = PreferenceRead.model_validate(learned)
     result.pyf_proposal = goal_service.proposal_for_new_income(db, transaction, date.today())
+    embedding_hook.index_transactions(db, [transaction.id])
     return result
 
 
@@ -124,7 +126,11 @@ def get_transaction(db: DbSession, transaction_id: uuid.UUID):
 
 @router.patch("/{transaction_id}", response_model=TransactionRead, responses=ERRORS)
 def update_transaction(db: DbSession, transaction_id: uuid.UUID, data: TransactionUpdate):
-    return transaction_service.update_transaction(db, transaction_id, data)
+    result = TransactionRead.model_validate(
+        transaction_service.update_transaction(db, transaction_id, data)
+    )
+    embedding_hook.index_transactions(db, [transaction_id])
+    return result
 
 
 @router.delete(

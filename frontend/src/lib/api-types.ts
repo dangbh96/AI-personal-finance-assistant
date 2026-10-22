@@ -1372,6 +1372,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/search/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search Transactions
+         * @description Tìm giao dịch theo ý nghĩa (embedding + pgvector cosine) kết hợp từ khoá (ILIKE). Chỉ
+         *     đọc. Thiếu `OPENAI_API_KEY` / AI lỗi → 503 (không tìm được ngữ nghĩa).
+         */
+        get: operations["search_transactions_api_v1_search_transactions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/search/transactions/reindex": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reindex Transactions
+         * @description (Dev) Tạo / cập nhật embedding cho giao dịch thiếu hoặc đã cũ — như
+         *     `python -m app.scripts.backfill_embeddings` nhưng qua API, tối đa `limit` giao dịch.
+         */
+        post: operations["reindex_transactions_api_v1_search_transactions_reindex_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4960,6 +5002,37 @@ export interface components {
              */
             flagged_transaction_ids?: string[];
         };
+        /** ReindexRequest */
+        ReindexRequest: {
+            /**
+             * Transaction Ids
+             * @description Chỉ embed lại các giao dịch này; bỏ trống = mọi giao dịch thiếu / cũ
+             */
+            transaction_ids?: string[] | null;
+            /**
+             * Limit
+             * @default 500
+             */
+            limit?: number;
+        };
+        /** ReindexResult */
+        ReindexResult: {
+            /**
+             * Processed Count
+             * @description Số giao dịch vừa được (tạo lại) embedding
+             */
+            processed_count: number;
+            /**
+             * Unchanged Count
+             * @description Đã có embedding khớp nội dung, bỏ qua
+             */
+            unchanged_count: number;
+            /**
+             * Remaining Count
+             * @description Còn thiếu / cũ sau lần chạy này
+             */
+            remaining_count: number;
+        };
         /**
          * RepeatedCluster
          * @description Nhóm giao dịch chi lặp lại trong kỳ (cùng danh mục + buổi trong ngày / từ khoá).
@@ -5541,6 +5614,98 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /** TransactionSearchResponse */
+        TransactionSearchResponse: {
+            /** Query */
+            query: string;
+            /** From Date */
+            from_date: string | null;
+            /** To Date */
+            to_date: string | null;
+            /** Limit */
+            limit: number;
+            /** Result Count */
+            result_count: number;
+            /**
+             * Total Amount
+             * @description Tổng chi (expense) của các kết quả
+             */
+            total_amount: number;
+            /** Income Total */
+            income_total: number;
+            /** Expense Total */
+            expense_total: number;
+            /**
+             * Net
+             * @description income_total − expense_total
+             */
+            net: number;
+            /**
+             * Missing Embedding Count
+             * @description Giao dịch trong khoảng ngày chưa có embedding (chỉ tìm được theo từ khoá)
+             */
+            missing_embedding_count: number;
+            /** Results */
+            results: components["schemas"]["TransactionSearchResult"][];
+        };
+        /** TransactionSearchResult */
+        TransactionSearchResult: {
+            /**
+             * Transaction Id
+             * Format: uuid
+             */
+            transaction_id: string;
+            /**
+             * Occurred On
+             * Format: date
+             */
+            occurred_on: string;
+            /** Note */
+            note: string | null;
+            /** Amount */
+            amount: number;
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "income" | "expense";
+            /**
+             * Category Id
+             * Format: uuid
+             */
+            category_id: string;
+            /** Category Name */
+            category_name: string;
+            /** Category Icon */
+            category_icon: string | null;
+            /** Spending Type */
+            spending_type: ("essential" | "non_essential" | "irregular") | null;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "manual" | "nl" | "receipt" | "import" | "recurring";
+            /**
+             * Score
+             * @description 0.75 × độ tương đồng ngữ nghĩa + 0.25 × điểm từ khoá (0–1)
+             */
+            score: number;
+            /**
+             * Semantic Score
+             * @description 1 − cosine distance; null nếu giao dịch chưa có embedding
+             */
+            semantic_score: number | null;
+            /**
+             * Keyword Boost
+             * @description 1 = ghi chú chứa từ khoá, 0.5 = tên danh mục chứa…
+             */
+            keyword_boost: number;
+            /**
+             * Match Reason
+             * @enum {string}
+             */
+            match_reason: "semantic" | "keyword" | "hybrid";
         };
         /** TransactionSummary */
         TransactionSummary: {
@@ -9293,6 +9458,112 @@ export interface operations {
             };
             /** @description Unprocessable Content */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    search_transactions_api_v1_search_transactions_get: {
+        parameters: {
+            query: {
+                /** @description Nội dung cần tìm, vd 'ăn ngoài', 'đi lại', 'Highlands' */
+                q: string;
+                /** @description Từ ngày (bao gồm) */
+                from?: string | null;
+                /** @description Đến ngày (bao gồm) */
+                to?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransactionSearchResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Dịch vụ embedding trả kết quả không hợp lệ */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description AI chưa cấu hình / không khả dụng */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    reindex_transactions_api_v1_search_transactions_reindex_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ReindexRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReindexResult"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Dịch vụ embedding trả kết quả không hợp lệ */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description AI chưa cấu hình / không khả dụng */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

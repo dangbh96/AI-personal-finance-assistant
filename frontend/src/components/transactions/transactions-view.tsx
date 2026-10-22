@@ -46,21 +46,23 @@ export function TransactionsView() {
   // Tháng mặc định phụ thuộc thời điểm hiện tại → không đưa vào static shell (Cache Components).
   use(io());
   // `?month=YYYY-MM` (vd link từ hoá đơn vừa lưu) chọn tháng ban đầu; `?source=import&
-  // import_batch_id=…` (link sau khi import sao kê) lọc theo lô import, bỏ lọc tháng.
+  // import_batch_id=…` (link sau khi import sao kê) lọc theo lô import, bỏ lọc tháng; `?q=` (link
+  // từ trang tìm kiếm) điền sẵn ô tìm trong ghi chú.
   const params = useSearchParams();
   const monthParam = params.get("month");
   const batchParam = params.get("import_batch_id");
+  const qParam = (params.get("q") ?? "").trim().slice(0, 100);
   const [filters, setFilters] = useState<Filters>(() => ({
     month:
       monthParam && MONTH_PARAM.test(monthParam) ? monthParam : currentMonth(),
     categoryId: null,
     spendingType: null,
     direction: null,
-    q: "",
+    q: qParam,
     source: sourceParam(params.get("source")),
     importBatchId: batchParam && UUID_PARAM.test(batchParam) ? batchParam : null,
   }));
-  const [searchText, setSearchText] = useState("");
+  const [searchText, setSearchText] = useState(qParam);
   const [page, setPage] = useState(1);
   const [form, setForm] = useState<FormState>({ open: false, transaction: null });
   const [deleting, setDeleting] = useState<Transaction | null>(null);

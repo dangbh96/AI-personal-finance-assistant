@@ -6,6 +6,7 @@ from fastapi import APIRouter, File, Query, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.ai import receipt_vision
+from app.api import embedding_hook
 from app.core.db import DbSession
 from app.models.enums import ReceiptStatus
 from app.schemas.classification import PreferenceRead
@@ -113,12 +114,14 @@ def confirm_receipt(db: DbSession, receipt_id: uuid.UUID, data: ReceiptConfirm):
     """Tạo giao dịch (`source='receipt'`, `receipt_id`) từ draft user đã kiểm tra / sửa;
     receipt chuyển `confirmed`. Sửa danh mục so với đề xuất AI → học theo tên cửa hàng."""
     transaction, receipt, learned = receipt_service.confirm_receipt(db, receipt_id, data)
-    return ReceiptConfirmResult(
+    result = ReceiptConfirmResult(
         transaction=TransactionRead.model_validate(transaction),
         receipt=ReceiptRead.model_validate(receipt),
         learned_preference=PreferenceRead.model_validate(learned) if learned else None,
         pyf_proposal=goal_service.proposal_for_new_income(db, transaction, date.today()),
     )
+    embedding_hook.index_transactions(db, [transaction.id])
+    return result
 
 
 @router.get(

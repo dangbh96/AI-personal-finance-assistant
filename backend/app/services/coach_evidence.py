@@ -20,6 +20,7 @@ from app.schemas.coach import (
     EvidenceItem,
     GetGoalsOutput,
     RecentReviewsOutput,
+    SearchTransactionsOutput,
     SpendingSummaryOutput,
 )
 from app.services.insight_service import SPENDING_TYPE_LABELS
@@ -125,6 +126,19 @@ def evidence_rows(tool: str, output: BaseModel) -> list[EvidenceRow]:
                 "Tổng nên để dành / tháng",
                 output.total_suggested_monthly_saving,
             )
+    elif isinstance(output, SearchTransactionsOutput):
+        if output.from_date and output.to_date:
+            span = _range(output.from_date, output.to_date)
+        else:
+            span = "mọi thời gian"
+        for item in output.items:
+            label = item.note or item.category_name
+            metric = "Thu" if item.direction == "income" else f"Chi · {item.category_name}"
+            add(label, f"{item.occurred_on:%d/%m/%Y}", metric, item.amount)
+        if output.items:
+            add(f"Kết quả tìm “{output.query}”", span, "Tổng chi", output.expense_total)
+            if output.income_total:
+                add(f"Kết quả tìm “{output.query}”", span, "Tổng thu", output.income_total)
     return rows
 
 
@@ -190,4 +204,7 @@ def summarize_result(output: BaseModel) -> tuple[str, int]:
     if isinstance(output, GetGoalsOutput):
         n = len(output.active_goals)
         return (f"{n} mục tiêu đang thực hiện" if n else "Chưa có mục tiêu đang thực hiện"), n
+    if isinstance(output, SearchTransactionsOutput):
+        n = output.result_count
+        return (f"{n} giao dịch khớp “{output.query}”" if n else "Không tìm thấy giao dịch"), n
     return "Đã đọc dữ liệu", 0

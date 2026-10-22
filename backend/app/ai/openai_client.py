@@ -314,3 +314,73 @@ def chat_with_tools(
             "AI_INVALID_OUTPUT", "AI không trả lời được câu hỏi này.", status_code=502
         )
     return replace(result, latency_ms=latency_ms)
+
+
+# ---------- embeddings (semantic search Phase 15, RAG Phase 16) ----------
+
+EMBEDDING_TIMEOUT_SECONDS = 15.0
+MAX_EMBEDDING_BATCH = 100
+
+
+@dataclass(frozen=True)
+class EmbeddingResult:
+    vectors: list[list[float]]
+    model: str
+    prompt_tokens: int | None
+    latency_ms: int = 0
+
+
+def _embed_raw(*, model: str, inputs: list[str], timeout: float) -> EmbeddingResult:
+    """Một lời gọi Embeddings API (seam để test)."""
+    api_key = get_settings().openai_api_key or ""
+    response = _client(api_key.strip()).embeddings.create(
+        model=model, input=inputs, timeout=timeout
+    )
+    ordered = sorted(response.data, key=lambda d: d.index)
+    usage = getattr(response, "usage", None)
+    return EmbeddingResult(
+        vectors=[list(d.embedding) for d in ordered],
+        model=response.model or model,
+        prompt_tokens=usage.prompt_tokens if usage else None,
+    )
+
+
+def create_embeddings(
+    inputs: list[str], *, task: str, timeout: float = EMBEDDING_TIMEOUT_SECONDS
+) -> EmbeddingResult:
+    """Embed danh sách chuỗi (tự chia lô ≤ `MAX_EMBEDDING_BATCH`) bằng `OPENAI_EMBEDDING_MODEL`.
+
+    Raise `AIUnavailable` khi chưa cấu hình / lỗi mạng; không log nội dung chuỗi.
+    """
+    ensure_configured()
+    model = embedding_model()
+    if not inputs:
+        return EmbeddingResult(vectors=[], model=model, prompt_tokens=0)
+    vectors: list[list[float]] = []
+    tokens = 0
+    started = time.perf_counter()
+    for start in range(0, len(inputs), MAX_EMBEDDING_BATCH):
+        batch = inputs[start : start + MAX_EMBEDDING_BATCH]
+        try:
+            result = _embed_raw(model=model, inputs=batch, timeout=timeout)
+        except openai.OpenAIError as exc:
+            logger.warning("ai task=%s model=%s error=%s", task, model, type(exc).__name__)
+            raise _map_openai_error(exc) from exc
+        if len(result.vectors) != len(batch):
+            raise AIUnavailable(
+                "AI_INVALID_OUTPUT", "Dịch vụ embedding trả thiếu kết quả.", status_code=502
+            )
+        vectors.extend(result.vectors)
+        tokens += result.prompt_tokens or 0
+    latency_ms = int((time.perf_counter() - started) * 1000)
+    logger.info(
+        "ai task=%s model=%s inputs=%d prompt_tokens=%d latency_ms=%d",
+        task,
+        model,
+        len(inputs),
+        tokens,
+        latency_ms,
+    )
+    return EmbeddingResult(
+        vectors=vectors, model=model, prompt_tokens=tokens, latency_ms=latency_ms
+    )

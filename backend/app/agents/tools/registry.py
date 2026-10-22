@@ -16,6 +16,8 @@ from langchain_core.tools import BaseTool
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.services.embedding_service import Embedder
+
 logger = logging.getLogger(__name__)
 
 # Thứ tự = thứ tự khai báo cho model.
@@ -90,6 +92,8 @@ class CoachToolContext:
     db: Session
     today: date
     recorder: ToolRecorder = field(default_factory=ToolRecorder)
+    # Embed câu tìm kiếm cho `search_transactions` (Phase 15); `coach_graph` gắn `ai/embeddings`.
+    embedder: Embedder | None = None
 
 
 ToolFactory = Callable[[CoachToolContext], BaseTool]

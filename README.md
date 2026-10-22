@@ -57,6 +57,7 @@ uvicorn app.main:app --reload --port 8000
 - Test: `pytest` (cần DB đang chạy; không cần OpenAI key). Test gọi AI thật: `pytest -m ai`. Pytest tự `alembic upgrade head` trên DB `pfa_test` và rollback sau mỗi test.
 - Dữ liệu demo: `python -m app.scripts.seed_demo --months 3 [--reset] [--seed 42] [--end YYYY-MM-DD]` — `--reset` xoá **mọi** giao dịch trong kỳ sinh trước khi tạo lại.
 - Kịch bản Budget vs Actual cố định (tháng 10/2026, ngân sách active 5 danh mục + 59 giao dịch): `python -m app.scripts.seed_scenario [--reset]` — `--reset` xoá ngân sách và **mọi** giao dịch tháng 10/2026 trước khi tạo. Xem ở `/budget?month=2026-10` (thêm `&today=2026-10-15` để thử nhịp chi pro-rata).
+- Semantic search (Phase 15): giao dịch tạo qua API được embed ngay (best-effort); dữ liệu seed / cũ cần `python -m app.scripts.backfill_embeddings [--batch-size 100] [--limit N] [--force]` (cần `OPENAI_API_KEY`). Tìm ở `/search`.
 
 ### 3. Frontend (Next.js) — http://localhost:3000
 

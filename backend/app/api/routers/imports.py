@@ -5,6 +5,7 @@ from fastapi import APIRouter, File, Form, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.ai import classifier
+from app.api import embedding_hook
 from app.core.db import DbSession
 from app.schemas.common import ErrorResponse
 from app.schemas.imports import (
@@ -118,4 +119,6 @@ def update_mapping(db: DbSession, batch_id: uuid.UUID, data: ImportMappingUpdate
 def commit_import(db: DbSession, batch_id: uuid.UUID, data: ImportCommitRequest):
     """Tạo giao dịch `source='import'` cho các dòng hợp lệ đã chọn (danh mục / loại chi tiêu / ghi
     chú user đã sửa) trong **một** DB transaction; bỏ qua dòng trùng / lỗi; lưu mapping profile."""
-    return import_service.commit_import(db, batch_id, data)
+    result = import_service.commit_import(db, batch_id, data)
+    embedding_hook.index_import_batch(db, batch_id)
+    return result

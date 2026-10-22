@@ -22,6 +22,7 @@ TOOLS = {
     "get_budget_advice",
     "get_recent_reviews",
     "get_goals",
+    "search_transactions",
 }
 
 GOOD_ANSWER = (
@@ -173,7 +174,7 @@ def test_post_message_runs_tools_and_persists(client, seeded, fake_llm):
     assert all(e["amount"] in {4_200_000, 3_800_000, 1_800_000, 2_000_000} for e in evidence)
 
     meta = assistant["metadata"]
-    assert meta["model"] == FAKE_MODEL and meta["prompt_version"] == "coach_v2"
+    assert meta["model"] == FAKE_MODEL and meta["prompt_version"] == "coach_v3"
     assert (meta["input_tokens"], meta["output_tokens"], meta["total_tokens"]) == (
         2000,
         400,

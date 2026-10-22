@@ -8,7 +8,12 @@ from sqlalchemy import func, select
 
 from app.ai import classifier, openai_client
 from app.ai.openai_client import ChatResult
-from app.models import ClassificationFeedback, ClassificationPreference, Transaction
+from app.models import (
+    ClassificationFeedback,
+    ClassificationPreference,
+    Transaction,
+    TransactionEmbedding,
+)
 
 URL = "/api/v1/imports"
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "imports"
@@ -225,6 +230,9 @@ def test_commit_creates_transactions_then_reupload_409(client, ai, categories, d
     assert salary["raw_input"].startswith("Sao kê vcb_statement.csv · dòng 5: ")
     hashes = db.scalars(select(Transaction.dedup_hash).where(Transaction.source == "import")).all()
     assert len(set(hashes)) == 22
+    # Phase 15: giao dịch vừa import được embed ngay (best-effort) để tìm kiếm ngữ nghĩa.
+    embedded = db.scalar(select(func.count()).select_from(TransactionEmbedding))
+    assert embedded == 22
 
     again = _upload(client, "vcb_statement.csv")
     assert again.status_code == 409

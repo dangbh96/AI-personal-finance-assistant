@@ -4,6 +4,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query, Response, status
 
+from app.api import embedding_hook
 from app.core.db import DbSession
 from app.schemas.common import ErrorResponse
 from app.schemas.recurring import (
@@ -134,8 +135,10 @@ def create_transaction(
     transaction, recurring = recurring_service.create_transaction_from_recurring(
         db, recurring_id, data, day
     )
-    return RecurringTransactionResult(
+    result = RecurringTransactionResult(
         transaction=TransactionRead.model_validate(transaction),
         recurring=recurring,
         pyf_proposal=goal_service.proposal_for_new_income(db, transaction, day),
     )
+    embedding_hook.index_transactions(db, [transaction.id])
+    return result

@@ -11,6 +11,7 @@ type NavItem = { href: string; label: string; phase?: number; match?: string };
 const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Tổng quan" },
   { href: "/transactions", label: "Giao dịch" },
+  { href: "/search", label: "Tìm kiếm" },
   { href: "/import", label: "Nhập dữ liệu" },
   { href: "/budget", label: "Ngân sách" },
   { href: "/reviews/weekly", label: "Review", match: "/reviews" },

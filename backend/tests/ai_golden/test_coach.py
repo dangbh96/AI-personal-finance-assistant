@@ -16,6 +16,8 @@ Ngưỡng pass (phase-10 § 6, test case 7): mọi case pass —
    gọi model).
 5. (Phase 11) "Mục tiêu laptop … mỗi tháng cần để dành bao nhiêu?": gọi `get_goals`, trích
    4.400.000 (30.000.000 − 8.000.000 trong 5 tháng); qua guard; không tạo khoản góp.
+6. (Phase 15) "… đi ăn ngoài ở những đâu?": gọi `search_transactions` (embedding thật), nêu ≥ 2
+   trong 3 quán ăn tháng 10; qua guard.
 """
 
 import json
@@ -26,9 +28,17 @@ from decimal import Decimal
 import pytest
 
 from app.agents import coach_graph
-from app.ai import openai_client
+from app.ai import embeddings, openai_client
 from app.schemas.goal import GoalContributionCreate, GoalCreate
-from app.services import coach_guard, goal_service, review_narrative
+from app.schemas.transaction import TransactionCreate
+from app.services import (
+    category_service,
+    coach_guard,
+    embedding_service,
+    goal_service,
+    review_narrative,
+    transaction_service,
+)
 from app.services.review_narrative import extract_numbers
 from tests import coach_dataset
 from tests.coach_dataset import TODAY
@@ -141,3 +151,32 @@ def test_golden_goals(db):
     assert 4_400_000 in {e.amount for e in answer.evidence}
     # Chỉ đọc: không có khoản góp mới.
     assert goal_service.get_goal_read(db, laptop.id, TODAY).contribution_count == 1
+
+
+def test_golden_search_transactions(db):
+    """Phase 15: hỏi loại chi tiêu không trùng tên danh mục → gọi `search_transactions`."""
+    coach_dataset.seed_all(db)
+    food = category_service.get_category_by_slug(db, "food")
+    for note, amount, day in [
+        ("Nhà hàng hải sản Biển Đông", 850_000, 1),
+        ("Quán nướng Gò Vấp cùng team", 420_000, 2),
+        ("Bún chả Hàng Mành", 45_000, 3),
+    ]:
+        transaction_service.create_transaction(
+            db,
+            TransactionCreate(
+                direction="expense",
+                amount=amount,
+                occurred_on=date(2026, 10, day),
+                category_id=food.id,
+                note=note,
+            ),
+        )
+    embedding_service.backfill(db, embeddings.embed_documents)
+
+    answer = _ask(db, "Từ đầu tháng này tới giờ tao đi ăn ngoài ở những đâu?")
+    assert answer.metadata.guard_status in ("passed", "rewritten")
+    assert "search_transactions" in {t.name for t in answer.tool_trace}
+    lowered = answer.content.lower()
+    assert sum(k in lowered for k in ("biển đông", "gò vấp", "bún chả")) >= 2
+    _assert_clean(answer.content)

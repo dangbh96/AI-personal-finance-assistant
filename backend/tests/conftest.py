@@ -7,9 +7,19 @@ from fastapi.testclient import TestClient
 from sqlalchemy import Connection, Engine, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.ai import openai_client
 from app.core.config import BACKEND_DIR, get_settings
 from app.core.db import get_db
 from app.main import app
+from tests.fake_embeddings import fake_embed_raw
+
+
+@pytest.fixture(autouse=True)
+def _offline_embeddings(request, monkeypatch):
+    """Test thường không gọi OpenAI Embeddings (Phase 15): thay bằng vector giả deterministic.
+    Test `@pytest.mark.ai` dùng API thật."""
+    if request.node.get_closest_marker("ai") is None:
+        monkeypatch.setattr(openai_client, "_embed_raw", fake_embed_raw)
 
 
 @pytest.fixture(scope="session")

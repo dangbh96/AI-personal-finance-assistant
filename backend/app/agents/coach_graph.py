@@ -10,7 +10,7 @@
 
 - `agent` gọi OpenAI function calling qua `ai/openai_client.chat_with_tools` (model smart). Hết
   `MAX_TOOL_ROUNDS` vòng tool → gọi lần cuối với `tool_choice="none"` để buộc trả lời.
-- `tools` = `ToolNode` của 5 tool read-only (`agents/tools/finance_tools`) — chỉ gọi services.
+- `tools` = `ToolNode` của các tool read-only (`agents/tools/finance_tools`) — chỉ gọi services.
 - `response_guard` deterministic (`services/coach_guard`): số ⊆ output tool, giọng văn, cấu trúc.
 - AI lỗi (`AIUnavailable`) không được bắt ở đây: user message đã lưu, router trả 503.
 """
@@ -40,12 +40,13 @@ from sqlalchemy.orm import Session
 
 from app.agents.tools import finance_tools
 from app.agents.tools.registry import CoachToolContext, CoachToolRegistry
-from app.ai import coach_prompt, openai_client
+from app.ai import coach_prompt, embeddings, openai_client
 from app.ai.openai_client import ToolChatResult
 from app.core.ai_usage import UsageTotals, log_usage
 from app.core.errors import DomainError
 from app.schemas.coach import ChatMessageMetadata, ChatTurn, CoachAnswer, ToolTraceItem
 from app.services import coach_evidence, coach_guard
+from app.services.embedding_service import Embedder
 
 logger = logging.getLogger(__name__)
 
@@ -268,10 +269,11 @@ def run_coach(
     history: list[ChatTurn] | None = None,
     llm: LLM | None = None,
     registry: CoachToolRegistry | None = None,
+    embedder: Embedder | None = None,
 ) -> CoachAnswer:
     """Một lượt hỏi–đáp (không lưu DB). Raise `AIUnavailable` nếu model lỗi."""
     started = time.perf_counter()
-    ctx = CoachToolContext(db=db, today=today)
+    ctx = CoachToolContext(db=db, today=today, embedder=embedder or embeddings.embed_queries)
     usage = UsageTotals()
     graph = build_coach_graph(ctx, usage, llm=llm, registry=registry)
     messages: list[BaseMessage] = [

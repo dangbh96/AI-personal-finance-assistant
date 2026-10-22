@@ -212,10 +212,11 @@ erDiagram
         text status "previewed | committed | failed"
     }
     TRANSACTION_EMBEDDING {
-        uuid transaction_id PK
-        vector embedding "vector(1536)"
+        uuid transaction_id PK "FK CASCADE"
+        vector embedding "vector(1536), HNSW cosine"
         text content
         text model
+        timestamptz embedded_at
     }
     KNOWLEDGE_DOCUMENT {
         uuid id PK
@@ -271,7 +272,7 @@ Tên trong bảng dưới là **tên bảng thực tế** (số nhiều snake_ca
 | 12 | `recurring_transactions`, `transactions.recurring_id`, `app_settings.forecast.*`, `app_settings.recurring.*` |
 | 13 | `receipts` (+ `draft`, `model` so với plan), `transactions.receipt_id` |
 | 14 | `import_batches` (+ `source_rows`, `rows`, `file_info`… so với plan), `import_mapping_profiles` (+ `headers`), `transactions.import_batch_id`, `transactions.dedup_hash` (unique partial index) |
-| 15 | `CREATE EXTENSION vector`, `transaction_embeddings` |
+| 15 | `CREATE EXTENSION vector`, `transaction_embeddings` (+ `embedded_at`, HNSW cosine) |
 | 16 | `knowledge_documents`, `knowledge_chunks` |
 | 17 | `scenarios` (tuỳ chọn — chỉ khi cần lưu kịch bản) |
 
@@ -361,3 +362,10 @@ Tên trong bảng dưới là **tên bảng thực tế** (số nhiều snake_ca
 - `import_batches`: `user_id UUID NULL`, `filename TEXT NOT NULL` (đã bỏ thư mục, ≤ 255 ký tự), `file_hash TEXT NOT NULL` **UNIQUE** `uq_import_batches_file_hash` (sha256 nội dung file — upload lại file chưa commit dùng lại batch; đã commit → 409 `IMPORT_ALREADY_COMMITTED`), `file_type TEXT` (`csv | xlsx`), `file_size_bytes INT`, `bank_name TEXT NULL` (đã gọn khoảng trắng, ≤ 100), `column_mapping JSONB` (`{date, description, amount | debit / credit}` = **tên cột** trong file), `date_format` (`dd/mm/yyyy | mm/dd/yyyy | yyyy-mm-dd`), `decimal_style` (`dot_thousands | comma_thousands`), `mapping_source` (`guess | profile | user`), `file_info JSONB` (`file_type`, `size_bytes`, `encoding` `utf-8 | utf-8-sig | cp1258`, `separator`, `separator_label`, `sheet_name`, `header_row` (từ 1), `headers` (tên cột duy nhất), `warnings`, `headers_hash`, `profile_id`), **`source_rows JSONB`** (bảng thô mọi ô dạng chuỗi — đổi mapping không cần upload lại; không lưu file lên đĩa), **`rows JSONB`** (dòng preview `ImportPreviewRow` gồm chuẩn hoá + trạng thái + đề xuất phân loại), `row_count`, `valid_count`, `duplicate_count`, `bad_count`, `committed_count INT DEFAULT 0` CHECK `ck_import_batches_counts_non_negative`, `status TEXT DEFAULT 'previewed'` CHECK `ck_import_batches_status` (`previewed | committed | failed` — `failed` chưa có luồng nào đặt), `model`, `ai_error_code`, `committed_at TIMESTAMPTZ`, timestamps. Index `ix_import_batches_created_at`. Giới hạn ở service: ≤ 10MB, ≤ 5.000 dòng.
 - `import_mapping_profiles`: `bank_name TEXT NOT NULL DEFAULT ''` ('' = user không nhập ngân hàng), `headers_hash TEXT` (sha256 tên cột đã bỏ dấu / chữ thường), `headers JSONB` (thêm so với plan), `column_mapping JSONB NOT NULL`, `date_format`, `decimal_style`, `last_used_at`, timestamps; UNIQUE `uq_import_mapping_profiles_bank_name_headers_hash (bank_name, headers_hash)`. Tra cứu không phân biệt hoa thường theo `bank_name`; không nhập ngân hàng → profile dùng gần nhất của bộ cột. Ghi / cập nhật khi commit (`save_mapping_profile`, mặc định true) nếu mapping đủ.
 - `transactions.import_batch_id UUID NULL` FK → `import_batches` **`ON DELETE SET NULL`** + index `ix_transactions_import_batch_id`; `transactions.dedup_hash TEXT NULL` + **unique partial index** `ux_transactions_dedup_hash (dedup_hash) WHERE dedup_hash IS NOT NULL`. `dedup_hash = sha256("{ngày ISO}|{số tiền}|{direction}|{nội dung chữ thường, gọn khoảng trắng, NFC}")`; giao dịch không import có hash NULL. Chỉ đặt bởi `POST /imports/{id}/commit` (`source = 'import'`, `raw_input = "Sao kê {file} · dòng {n}: {nội dung}"`, `ai_suggestion` = đề xuất gốc khi đến từ sở thích / AI). API giao dịch không sửa được 2 cột này; sửa ngày / số tiền sau khi import không đổi hash (hash đại diện dòng sao kê gốc).
+
+**Phase 15** (migration `20261022_5e0b7c2d9a41_semantic_search`):
+- `CREATE EXTENSION IF NOT EXISTS vector` (pgvector 0.8 trong image `pgvector/pgvector:pg16`; downgrade không xoá extension vì Phase 16 dùng chung).
+- `transaction_embeddings`: `transaction_id UUID` **PK** + FK → `transactions` **`ON DELETE CASCADE`**, `embedding vector(1536) NOT NULL`, `content TEXT NOT NULL` (chuỗi đã embed — so với nội dung tính lại để biết embedding cũ), `model TEXT NOT NULL` (`OPENAI_EMBEDDING_MODEL` lúc embed), `embedded_at TIMESTAMPTZ` (`clock_timestamp()` mỗi lần upsert). Index **HNSW** `ix_transaction_embeddings_embedding_hnsw` (`vector_cosine_ops`, `m = 16`, `ef_construction = 64`).
+- `content = "{ghi chú đã làm sạch}. Danh mục: {tên}. Khoản {<100k | 100k-500k | 500k-2m | 2m-10m | >10m}. Loại: {thiết yếu | không thiết yếu | bất thường | thu nhập}."` — ghi chú bỏ token ≥ 5 chữ số (số tài khoản / mã giao dịch), sao kê VIẾT HOA → chữ thường, ≤ 300 ký tự; không có ghi chú → bỏ phần đầu. Không embed số tiền chính xác.
+- Ghi bởi: router `transactions` (POST / PATCH), `receipts/{id}/confirm`, `recurring-transactions/{id}/create-transaction`, `imports/{id}/commit` (sau commit, best-effort, ≤ 500 giao dịch / request), `POST /search/transactions/reindex` và `python -m app.scripts.backfill_embeddings`. Upsert chỉ khi `(content, model)` khác bản đã lưu.
+- Truy vấn: `SET LOCAL hnsw.ef_search = 100`, `hnsw.iterative_scan = relaxed_order` (lọc ngày sau HNSW vẫn đủ LIMIT); `ORDER BY embedding <=> :v` (cosine distance).

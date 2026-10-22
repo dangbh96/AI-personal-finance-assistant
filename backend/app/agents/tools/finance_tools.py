@@ -1,6 +1,7 @@
-"""Tool read-only của Financial Coach — chỉ gọi services (`insight_service`, `goal_service` đọc;
-không repository, không ghi DB). Output là JSON của schema trong `schemas/coach.py`; recorder giữ
-bản Pydantic để dựng evidence và tập số được phép cho `response_guard`.
+"""Tool read-only của Financial Coach — chỉ gọi services (`insight_service`, `goal_service`,
+`search_service` đọc; không repository, không ghi DB). Output là JSON của schema trong
+`schemas/coach.py`; recorder giữ bản Pydantic để dựng evidence và tập số được phép cho
+`response_guard`. `search_transactions` dùng `ctx.embedder` (do `coach_graph` gắn) để embed câu tìm.
 """
 
 from datetime import date
@@ -8,15 +9,17 @@ from datetime import date
 from langchain_core.tools import BaseTool, tool
 
 from app.agents.tools.registry import CoachToolContext, CoachToolRegistry
+from app.core.errors import DomainError
 from app.schemas.coach import (
     BudgetAdviceInput,
     BudgetStatusInput,
     CategoryTrendInput,
     GoalsInput,
     RecentReviewsInput,
+    SearchTransactionsInput,
     SpendingSummaryInput,
 )
-from app.services import goal_service, insight_service
+from app.services import goal_service, insight_service, search_service
 
 
 def spending_summary_tool(ctx: CoachToolContext) -> BaseTool:
@@ -111,6 +114,32 @@ def goals_tool(ctx: CoachToolContext) -> BaseTool:
     return get_goals
 
 
+def search_transactions_tool(ctx: CoachToolContext) -> BaseTool:
+    @tool(
+        "search_transactions",
+        args_schema=SearchTransactionsInput,
+        description="Tìm giao dịch theo ý nghĩa tiếng Việt (vd 'ăn ngoài' tìm được 'nhà hàng', "
+        "'bún chả'; 'đi lại' tìm được 'grab', 'xăng'), có thể lọc khoảng ngày. Trả danh sách "
+        "giao dịch (ngày, ghi chú, danh mục, số tiền) xếp theo độ liên quan + tổng thu / chi của "
+        "các dòng trả về. Dùng khi câu hỏi nhắc tới một loại chi tiêu cụ thể không trùng tên "
+        "danh mục, hoặc cần liệt kê giao dịch. Chỉ đọc.",
+    )
+    def search_transactions(
+        query: str,
+        from_date: date | None = None,
+        to_date: date | None = None,
+        limit: int = 10,
+    ) -> str:
+        if ctx.embedder is None:
+            raise DomainError("Tìm kiếm ngữ nghĩa chưa sẵn sàng", "search_unavailable")
+        data = SearchTransactionsInput(
+            query=query, from_date=from_date, to_date=to_date, limit=limit
+        )
+        return ctx.recorder.store(search_service.search_for_coach(ctx.db, data, ctx.embedder))
+
+    return search_transactions
+
+
 def default_registry() -> CoachToolRegistry:
     registry = CoachToolRegistry()
     registry.register("get_spending_summary", spending_summary_tool)
@@ -119,4 +148,5 @@ def default_registry() -> CoachToolRegistry:
     registry.register("get_budget_advice", budget_advice_tool)
     registry.register("get_recent_reviews", recent_reviews_tool)
     registry.register("get_goals", goals_tool)
+    registry.register("search_transactions", search_transactions_tool)
     return registry

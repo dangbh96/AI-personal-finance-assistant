@@ -220,11 +220,15 @@ sequenceDiagram
     participant E as ai/embeddings
     participant DB as Postgres + pgvector
 
-    U->>FE: "ăn ngoài tháng trước"
-    FE->>API: GET /search/transactions?q=...&from=&to=
-    API->>E: embed(q)
-    E-->>API: vector
-    API->>DB: ORDER BY embedding <=> :v, lọc ngày, LIMIT 20
+    U->>FE: "ăn ngoài" + khoảng ngày
+    FE->>API: GET /search/transactions?q=...&from=&to=&limit=
+    API->>E: embed("Chi tiêu " + q) (OPENAI_EMBEDDING_MODEL)
+    E-->>API: vector (lỗi / thiếu key → 503)
+    API->>DB: top limit×5 ORDER BY embedding <=> :v (HNSW, lọc ngày)
+    API->>DB: ∪ ghi chú / tên danh mục ILIKE từ khoá (lọc ngày)
     DB-->>API: giao dịch + distance
-    API-->>FE: kết quả (kèm tổng tiền)
+    API->>API: score = 0.75·(1−distance) + 0.25·keyword_boost,<br/>bỏ dòng chỉ khớp ngữ nghĩa < 0.3, tổng thu / chi bằng Python
+    API-->>FE: kết quả + tổng tiền + số giao dịch chưa embed
 ```
+
+Embed khi ghi giao dịch (best-effort): `POST/PATCH /transactions`, xác nhận hoá đơn, tạo từ khoản định kỳ, commit import → sau khi commit giao dịch, router gọi `embedding_service.embed_transactions_best_effort` (lỗi AI / chưa có key chỉ log, response vẫn 201/200). Bổ sung sau: `python -m app.scripts.backfill_embeddings` hoặc `POST /search/transactions/reindex`.

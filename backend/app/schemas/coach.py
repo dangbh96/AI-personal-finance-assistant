@@ -245,6 +245,43 @@ class GetGoalsOutput(BaseModel):
     note: str | None
 
 
+# ---------- tool: search_transactions (Phase 15) ----------
+
+
+class SearchTransactionsInput(BaseModel):
+    """Tìm giao dịch theo ý nghĩa (semantic + từ khoá)."""
+
+    query: str = Field(
+        min_length=1,
+        max_length=200,
+        description="Nội dung cần tìm bằng tiếng Việt, vd 'ăn ngoài', 'đi lại', 'Highlands' "
+        "(không cần ghi khoảng thời gian ở đây — dùng from_date / to_date)",
+    )
+    from_date: date | None = Field(default=None, description="Từ ngày (YYYY-MM-DD), bao gồm")
+    to_date: date | None = Field(default=None, description="Đến ngày (YYYY-MM-DD), bao gồm")
+    limit: int = Field(default=10, ge=1, le=20, description="Số kết quả tối đa")
+
+
+class SearchTransactionItem(BaseModel):
+    occurred_on: date
+    note: str | None
+    category_name: str
+    amount: int
+    direction: Literal["income", "expense"]
+    match_reason: Literal["semantic", "keyword", "hybrid"]
+
+
+class SearchTransactionsOutput(BaseModel):
+    query: str
+    from_date: date | None
+    to_date: date | None
+    result_count: int
+    expense_total: int = Field(description="Tổng chi của mọi dòng trả về")
+    income_total: int = Field(description="Tổng thu của mọi dòng trả về")
+    items: list[SearchTransactionItem] = Field(description="Xếp theo độ liên quan giảm dần")
+    note: str | None
+
+
 # ---------- tool trace / evidence ----------
 
 
