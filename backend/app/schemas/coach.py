@@ -52,6 +52,11 @@ class SpendingSummaryItem(BaseModel):
     total: int
     transaction_count: int
     share_pct: float | None = Field(description="total / expense_total × 100 (1 chữ số)")
+    income_share_pct: float | None = Field(
+        default=None,
+        description="total / income_total × 100 (1 chữ số; null nếu không có thu nhập) — dùng "
+        "khi so với quy tắc % thu nhập như 50/30/20",
+    )
 
 
 class SpendingSummaryOutput(BaseModel):
@@ -61,6 +66,11 @@ class SpendingSummaryOutput(BaseModel):
     income_total: int
     expense_total: int
     net: int = Field(description="income_total - expense_total")
+    net_income_pct: float | None = Field(
+        default=None,
+        description="net / income_total × 100 (1 chữ số) = tỉ lệ còn lại / để dành được; null "
+        "nếu không có thu nhập",
+    )
     items: list[SpendingSummaryItem] = Field(description="Chi nhiều nhất trước")
 
 
@@ -282,6 +292,52 @@ class SearchTransactionsOutput(BaseModel):
     note: str | None
 
 
+# ---------- tool: search_knowledge (Phase 16) ----------
+
+
+class SearchKnowledgeInput(BaseModel):
+    """Tra thư viện kiến thức tài chính cá nhân (tự soạn) bằng tìm kiếm ngữ nghĩa."""
+
+    query: str = Field(
+        min_length=1,
+        max_length=300,
+        description="Khái niệm / câu hỏi kiến thức, vd '50/30/20 là gì', 'quỹ khẩn cấp bao "
+        "nhiêu tháng', 'phương pháp hũ'",
+    )
+    limit: int = Field(default=4, ge=1, le=6, description="Số đoạn tối đa")
+
+
+class KnowledgeToolItem(BaseModel):
+    chunk_id: uuid.UUID
+    document_id: uuid.UUID
+    title: str
+    heading: str | None
+    source: str
+    citation: str = Field(description="Chép nguyên vào mục Nguồn")
+    content: str
+    score: float
+
+
+class SearchKnowledgeOutput(BaseModel):
+    query: str
+    results: list[KnowledgeToolItem] = Field(description="Liên quan nhất trước")
+    note: str | None
+
+
+class CitationItem(BaseModel):
+    """Nguồn kiến thức câu trả lời đã dùng (hiển thị khối "Nguồn" + drawer)."""
+
+    ref: str = Field(description="S1, S2…")
+    chunk_id: uuid.UUID
+    document_id: uuid.UUID
+    title: str
+    heading: str | None
+    source: str
+    citation: str
+    snippet: str = Field(description="Trích đoạn (≤ 600 ký tự)")
+    score: float
+
+
 # ---------- tool trace / evidence ----------
 
 
@@ -325,6 +381,7 @@ class CoachAnswer(BaseModel):
     tool_trace: list[ToolTraceItem]
     evidence: list[EvidenceItem]
     metadata: ChatMessageMetadata
+    citations: list[CitationItem] = Field(default_factory=list)
 
 
 class ChatTurn(BaseModel):
@@ -377,6 +434,7 @@ class ChatMessageRead(BaseModel):
     content: str
     tool_calls: list[ToolTraceItem] | None
     evidence: list[EvidenceItem] | None
+    citations: list[CitationItem] | None = None
     metadata: ChatMessageMetadata | None
     created_at: datetime
 
@@ -400,4 +458,5 @@ class CoachMessageResponse(BaseModel):
     assistant_message: ChatMessageRead
     tool_trace: list[ToolTraceItem]
     evidence: list[EvidenceItem]
+    citations: list[CitationItem] = Field(default_factory=list)
     guard_status: CoachGuardStatus

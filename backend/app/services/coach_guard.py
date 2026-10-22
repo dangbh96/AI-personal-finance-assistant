@@ -141,6 +141,7 @@ RECOMMEND_MARKERS: tuple[str, ...] = ("nên", "gợi ý", "khuyên", "hãy", "đ
 SECTION_OBSERVATION = "quan sát"
 SECTION_WHY = "vì sao"
 SMALL_NUMBERS = frozenset(Decimal(n) for n in range(13))
+TEXT_NUMBER_KEYS = frozenset({"content", "title", "heading", "citation"})
 _TECHNICAL_NAME_RE = re.compile(r"\b[a-z]+(?:_[a-z]+)+\b")
 # Link nội bộ (/budget/advice?month=2026-10-01) không phải số liệu.
 _LINK_RE = re.compile(r"(?<![\w/])(?:https?://\S+|/[a-z][\w/\-]*(?:\?[\w=&\-.%]*)?)")
@@ -207,11 +208,15 @@ def refusal_answer(kind: str, question: str) -> str:
 
 
 def _collect_keys(node: Any, out: set[Decimal]) -> None:
-    """Khoá dạng YYYY-MM (vd `totals_by_month`) cũng là số liệu ngày tháng."""
+    """Khoá dạng YYYY-MM (vd `totals_by_month`) cũng là số liệu ngày tháng; số trong văn bản kiến
+    thức (`content`, `title`, `heading`, `citation` — Phase 16, vd "50/30/20", "3–6 tháng") được
+    phép trích."""
     if isinstance(node, dict):
         for key, value in node.items():
             if isinstance(key, str) and (m := _MONTH_KEY_RE.match(key)):
                 out.update(Decimal(int(p)) for p in m.groups())
+            if key in TEXT_NUMBER_KEYS and isinstance(value, str):
+                out.update(abs(v) for _, v in extract_numbers(value))
             _collect_keys(value, out)
     elif isinstance(node, list):
         for value in node:
@@ -285,14 +290,143 @@ def check_answer(answer: str, allowed: set[Decimal]) -> list[str]:
     return problems
 
 
+# ---------- kiến thức & nguồn (Phase 16) ----------
+
+KNOWLEDGE_TOOL = "search_knowledge"
+# Tool đọc số liệu của chính người dùng.
+PERSONAL_DATA_TOOLS = frozenset(
+    {
+        "get_spending_summary",
+        "get_budget_status",
+        "get_category_trend",
+        "get_budget_advice",
+        "get_recent_reviews",
+        "get_goals",
+        "search_transactions",
+    }
+)
+_PRONOUNS = ("tao", "tôi", "mình", "em", "tớ")
+# Câu hỏi về mức độ phù hợp / áp dụng cho chính người hỏi → phải xem số liệu cá nhân.
+PERSONAL_FIT_PATTERNS: tuple[str, ...] = (
+    *(f"phù hợp với {p}" for p in _PRONOUNS),
+    *(f"hợp với {p}" for p in _PRONOUNS),
+    *(f"của {p}" for p in _PRONOUNS),
+    *(f"{p} nên" for p in _PRONOUNS),
+    *(f"{p} có nên" for p in _PRONOUNS),
+    *(f"{p} cần" for p in _PRONOUNS),
+    *(f"áp dụng cho {p}" for p in _PRONOUNS),
+    *(f"với {p}" for p in _PRONOUNS),
+)
+NOT_FOUND_MARKERS: tuple[str, ...] = (
+    "không tìm thấy nguồn",
+    "chưa tìm thấy nguồn",
+    "không có nguồn",
+    "chưa có nguồn",
+    "không tìm thấy thông tin",
+    "chưa có thông tin",
+    "thư viện kiến thức chưa có",
+)
+_SOURCE_HEADER_RE = re.compile(r"^[\s>*_#-]*nguồn[\s*_]*:?[\s*_]*(.*)$", re.IGNORECASE)
+_BULLET_RE = re.compile(r"^\s*(?:[-*•]|\d+[.)])\s+")
+
+
+def is_personal_question(question: str) -> bool:
+    text = _nfc(question)
+    return any(_has_term(text, p) for p in PERSONAL_FIT_PATTERNS)
+
+
+def check_tool_usage(question: str, tool_names: Iterable[str]) -> list[str]:
+    """Đã tra kiến thức cho câu hỏi "có phù hợp với tao không" → bắt buộc có tool số liệu."""
+    names = set(tool_names)
+    if (
+        KNOWLEDGE_TOOL in names
+        and is_personal_question(question)
+        and not names & PERSONAL_DATA_TOOLS
+    ):
+        return [
+            "câu hỏi hỏi mức độ phù hợp với chính người dùng nhưng chưa xem số liệu của họ — "
+            "hãy gọi thêm tool số liệu (vd chi tiêu theo loại Thiết yếu / Không thiết yếu "
+            "của tháng đã trọn gần nhất) rồi so sánh với kiến thức"
+        ]
+    return []
+
+
+def source_lines(answer: str) -> list[str] | None:
+    """Các dòng trong mục "Nguồn:" (None = không có mục này)."""
+    lines = answer.splitlines()
+    for i, line in enumerate(lines):
+        match = _SOURCE_HEADER_RE.match(line)
+        if not match:
+            continue
+        found = [match.group(1).strip(" *_")] if match.group(1).strip(" *_") else []
+        for rest in lines[i + 1 :]:
+            if not rest.strip():
+                if found:
+                    break
+                continue
+            if not _BULLET_RE.match(rest) and found:
+                break
+            found.append(_BULLET_RE.sub("", rest).strip(" *_"))
+        return [f for f in found if f]
+    return None
+
+
+def _key(text: str) -> str:
+    return " ".join(re.sub(r"[^\w/.-]+", " ", _nfc(text)).split())
+
+
+def cited_indexes(answer: str, titles: list[str], sources: list[str]) -> list[int]:
+    """Vị trí các đoạn kiến thức được nhắc trong mục Nguồn — khớp theo tiêu đề hoặc đường dẫn."""
+    lines = [_key(line) for line in source_lines(answer) or []]
+    out = []
+    for i, (title, source) in enumerate(zip(titles, sources, strict=True)):
+        keys = [k for k in (_key(title), _key(source)) if k]
+        if any(k in line for line in lines for k in keys):
+            out.append(i)
+    return out
+
+
+def check_citations(answer: str, titles: list[str], sources: list[str]) -> list[str]:
+    """Đã gọi `search_knowledge`: có kết quả → phải có mục Nguồn và mọi nguồn phải nằm trong kết
+    quả (không bịa nguồn); không có kết quả / không dùng được → nói rõ, không ghi nguồn."""
+    plain = _nfc(_plain(answer))
+    not_found = any(m in plain for m in NOT_FOUND_MARKERS)
+    lines = source_lines(answer)
+    known = [k for k in (*map(_key, titles), *map(_key, sources)) if k]
+    problems: list[str] = []
+    if lines is None or not lines:
+        if titles and not not_found:
+            problems.append(
+                "thiếu mục “Nguồn:” — liệt kê citation của các đoạn kiến thức đã dùng (hoặc nói rõ "
+                "không tìm thấy nguồn đủ tin cậy)"
+            )
+        return problems
+    for line in lines:
+        if not any(k in _key(line) for k in known):
+            problems.append(
+                f"nguồn “{line}” không có trong kết quả tra cứu — chỉ ghi citation được trả về"
+            )
+    return problems
+
+
 # ---------- fallback ----------
 
 MAX_FALLBACK_ROWS = 8
 
 
-def fallback_answer(evidence: list[EvidenceItem]) -> str:
-    """Câu trả lời không dùng AI, chỉ liệt kê số liệu đã đọc (luôn qua `check_answer`)."""
+def fallback_answer(evidence: list[EvidenceItem], citations: list[str] | None = None) -> str:
+    """Câu trả lời không dùng AI, chỉ liệt kê số liệu đã đọc (luôn qua `check_answer`); có tra
+    kiến thức → kèm mục Nguồn để người dùng tự đọc."""
+    sources = ["", "**Nguồn:**", *(f"- {c}" for c in dict.fromkeys(citations))] if citations else []
     if not evidence:
+        if citations:
+            return "\n".join(
+                [
+                    "Mình chưa tóm tắt được chắc chắn nội dung cho câu hỏi này. Bạn có thể đọc "
+                    "trực tiếp các đoạn kiến thức liên quan bên dưới.",
+                    *sources,
+                ]
+            )
         return (
             "Mình chưa diễn giải được câu hỏi này một cách chắc chắn từ dữ liệu hiện có.\n\n"
             "Bạn có thể hỏi cụ thể hơn, ví dụ “Tháng này khoản nào vượt budget?” hoặc xem trực "
@@ -314,6 +448,7 @@ def fallback_answer(evidence: list[EvidenceItem]) -> str:
             "**Bạn có thể cân nhắc**",
             "Nếu bạn muốn xem chi tiết, bạn có thể mở [Ngân sách](/budget) hoặc "
             "[Tư vấn ngân sách](/budget/advice).",
+            *sources,
         ]
     )
 

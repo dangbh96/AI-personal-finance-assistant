@@ -4,6 +4,7 @@
 - `select_evidence(calls, answer)`: giữ các dòng có số tiền được câu trả lời trích dẫn, đánh mã
   E1, E2… theo thứ tự tool được gọi; trả kèm mã evidence của từng lần gọi (cho tool trace).
 - `summarize_result(tool, output)`: mô tả ngắn + số dòng kết quả cho tool trace.
+- `select_citations(calls, answer)` (Phase 16): đoạn kiến thức được trích trong mục "Nguồn:".
 """
 
 from collections.abc import Sequence
@@ -17,12 +18,16 @@ from app.schemas.coach import (
     BudgetAdviceOutput,
     BudgetStatusOutput,
     CategoryTrendOutput,
+    CitationItem,
     EvidenceItem,
     GetGoalsOutput,
+    KnowledgeToolItem,
     RecentReviewsOutput,
+    SearchKnowledgeOutput,
     SearchTransactionsOutput,
     SpendingSummaryOutput,
 )
+from app.services import coach_guard
 from app.services.insight_service import SPENDING_TYPE_LABELS
 from app.services.review_narrative import extract_numbers
 
@@ -207,4 +212,50 @@ def summarize_result(output: BaseModel) -> tuple[str, int]:
     if isinstance(output, SearchTransactionsOutput):
         n = output.result_count
         return (f"{n} giao dịch khớp “{output.query}”" if n else "Không tìm thấy giao dịch"), n
+    if isinstance(output, SearchKnowledgeOutput):
+        n = len(output.results)
+        if not n:
+            return "Không tìm thấy nguồn kiến thức phù hợp", 0
+        titles = ", ".join(dict.fromkeys(r.title for r in output.results))
+        return f"Đã tra kiến thức: {titles} ({n} đoạn)", n
     return "Đã đọc dữ liệu", 0
+
+
+SNIPPET_CHARS = 600
+
+
+def knowledge_items(calls: Sequence[tuple[str, BaseModel | None]]) -> list[KnowledgeToolItem]:
+    """Các đoạn kiến thức (không trùng) trả về từ mọi lần gọi `search_knowledge`."""
+    seen: dict[object, KnowledgeToolItem] = {}
+    for _, output in calls:
+        if isinstance(output, SearchKnowledgeOutput):
+            for item in output.results:
+                seen.setdefault(item.chunk_id, item)
+    return list(seen.values())
+
+
+def select_citations(
+    calls: Sequence[tuple[str, BaseModel | None]], answer: str
+) -> list[CitationItem]:
+    """Nguồn hiển thị kèm câu trả lời: đoạn được nhắc trong mục "Nguồn:" (khớp tiêu đề / đường
+    dẫn); có mục Nguồn mà không khớp đoạn nào → không trả nguồn nào (không gắn nguồn sai)."""
+    items = knowledge_items(calls)
+    if not items or not coach_guard.source_lines(answer):
+        return []
+    indexes = coach_guard.cited_indexes(answer, [i.title for i in items], [i.source for i in items])
+    cited = [items[i] for i in indexes]
+    return [
+        CitationItem(
+            ref=f"S{n + 1}",
+            chunk_id=item.chunk_id,
+            document_id=item.document_id,
+            title=item.title,
+            heading=item.heading,
+            source=item.source,
+            citation=item.citation,
+            snippet=item.content[:SNIPPET_CHARS].rstrip()
+            + ("…" if len(item.content) > SNIPPET_CHARS else ""),
+            score=item.score,
+        )
+        for n, item in enumerate(cited)
+    ]

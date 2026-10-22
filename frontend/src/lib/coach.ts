@@ -5,6 +5,7 @@ export const SUGGESTED_QUESTIONS = [
   "Tháng này khoản nào vượt budget?",
   "Tao nên giảm khoản nào?",
   "Có khoản bất thường nào không?",
+  "50/30/20 là gì, có phù hợp với tao không?",
 ] as const;
 
 export const MAX_MESSAGE_LENGTH = 2000;
@@ -36,7 +37,27 @@ export const TOOL_LABELS: Record<string, string> = {
   get_budget_advice: "Tư vấn ngân sách đã có",
   get_recent_reviews: "Review gần đây",
   get_goals: "Mục tiêu tiết kiệm",
+  search_transactions: "Tìm giao dịch theo ý nghĩa",
+  search_knowledge: "Tra thư viện kiến thức",
 };
+
+const SOURCE_HEADER = /^[\s>*_#-]*nguồn[\s*_]*:?/i;
+
+/**
+ * Bỏ mục "Nguồn:" (và các dòng gạch đầu dòng ngay sau) khỏi câu trả lời khi đã hiển thị khối
+ * nguồn riêng — tránh lặp.
+ */
+export function stripSourceSection(content: string): string {
+  const lines = content.split("\n");
+  const start = lines.findIndex((line) => SOURCE_HEADER.test(line));
+  if (start < 0) return content;
+  let end = start + 1;
+  const isBullet = (line: string) => /^\s*([-*•]|\d+[.)])\s+/.test(line);
+  while (end < lines.length && (lines[end].trim() === "" || isBullet(lines[end]))) {
+    end += 1;
+  }
+  return [...lines.slice(0, start), ...lines.slice(end)].join("\n").trimEnd();
+}
 
 /** Thông báo theo mã lỗi AI của backend (`AI_*`). */
 export function coachErrorHint(code: string | null): string {

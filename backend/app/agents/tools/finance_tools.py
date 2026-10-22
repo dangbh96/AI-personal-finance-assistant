@@ -1,7 +1,8 @@
 """Tool read-only của Financial Coach — chỉ gọi services (`insight_service`, `goal_service`,
-`search_service` đọc; không repository, không ghi DB). Output là JSON của schema trong
-`schemas/coach.py`; recorder giữ bản Pydantic để dựng evidence và tập số được phép cho
-`response_guard`. `search_transactions` dùng `ctx.embedder` (do `coach_graph` gắn) để embed câu tìm.
+`search_service`, `knowledge_service` đọc; không repository, không ghi DB). Output là JSON của
+schema trong `schemas/coach.py`; recorder giữ bản Pydantic để dựng evidence / citations và tập số
+được phép cho `response_guard`. `search_transactions` / `search_knowledge` dùng `ctx.embedder` (do
+`coach_graph` gắn) để embed câu tìm.
 """
 
 from datetime import date
@@ -16,10 +17,11 @@ from app.schemas.coach import (
     CategoryTrendInput,
     GoalsInput,
     RecentReviewsInput,
+    SearchKnowledgeInput,
     SearchTransactionsInput,
     SpendingSummaryInput,
 )
-from app.services import goal_service, insight_service, search_service
+from app.services import goal_service, insight_service, knowledge_service, search_service
 
 
 def spending_summary_tool(ctx: CoachToolContext) -> BaseTool:
@@ -140,6 +142,24 @@ def search_transactions_tool(ctx: CoachToolContext) -> BaseTool:
     return search_transactions
 
 
+def search_knowledge_tool(ctx: CoachToolContext) -> BaseTool:
+    @tool(
+        "search_knowledge",
+        args_schema=SearchKnowledgeInput,
+        description="Tra thư viện kiến thức tài chính cá nhân của app (50/30/20, phương pháp hũ / "
+        "phong bì, Pay Yourself First, quỹ khẩn cấp, sinking fund, nợ cơ bản). Trả các đoạn "
+        "liên quan kèm `citation` để ghi mục Nguồn. Dùng cho câu hỏi khái niệm / phương pháp; "
+        "không chứa số liệu của người dùng. Chỉ đọc.",
+    )
+    def search_knowledge(query: str, limit: int = 4) -> str:
+        if ctx.embedder is None:
+            raise DomainError("Thư viện kiến thức chưa sẵn sàng", "knowledge_unavailable")
+        data = SearchKnowledgeInput(query=query, limit=limit)
+        return ctx.recorder.store(knowledge_service.search_for_coach(ctx.db, data, ctx.embedder))
+
+    return search_knowledge
+
+
 def default_registry() -> CoachToolRegistry:
     registry = CoachToolRegistry()
     registry.register("get_spending_summary", spending_summary_tool)
@@ -149,4 +169,5 @@ def default_registry() -> CoachToolRegistry:
     registry.register("get_recent_reviews", recent_reviews_tool)
     registry.register("get_goals", goals_tool)
     registry.register("search_transactions", search_transactions_tool)
+    registry.register("search_knowledge", search_knowledge_tool)
     return registry

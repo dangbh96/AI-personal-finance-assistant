@@ -1,10 +1,11 @@
 import { BotIcon } from "lucide-react";
 
+import { CitationList } from "@/components/coach/citation-list";
 import { CoachAnswerText } from "@/components/coach/coach-answer-text";
 import { EvidenceTable } from "@/components/coach/evidence-table";
 import { ToolTracePanel } from "@/components/coach/tool-trace-panel";
 import type { ChatMessage } from "@/lib/api";
-import { GUARD_LABELS, GUARD_TONES } from "@/lib/coach";
+import { GUARD_LABELS, GUARD_TONES, stripSourceSection } from "@/lib/coach";
 import { formatVND } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -43,13 +44,17 @@ export function CoachMessageBubble({ message }: { message: ChatMessage }) {
       </div>
     );
   }
+  const citations = message.citations ?? [];
   return (
     <div className="flex gap-3">
       <span className="mt-1 flex size-7 shrink-0 items-center justify-center rounded-full bg-muted">
         <BotIcon className="size-4" />
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-3 rounded-2xl rounded-tl-md border bg-card p-4">
-        <CoachAnswerText content={message.content} />
+        <CoachAnswerText
+          content={citations.length ? stripSourceSection(message.content) : message.content}
+        />
+        <CitationList items={citations} />
         {message.evidence && <EvidenceTable items={message.evidence} />}
         {message.tool_calls && <ToolTracePanel items={message.tool_calls} />}
         <MetaLine message={message} />

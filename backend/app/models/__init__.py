@@ -10,6 +10,7 @@ from app.models.classification import ClassificationFeedback, ClassificationPref
 from app.models.embedding import TransactionEmbedding
 from app.models.goal import Goal, GoalContribution
 from app.models.import_batch import ImportBatch, ImportMappingProfile
+from app.models.knowledge import KnowledgeChunk, KnowledgeDocument
 from app.models.receipt import Receipt
 from app.models.recurring import RecurringTransaction
 from app.models.review import MonthlyReview, ReflectionAnswer, WeeklyReview
@@ -33,6 +34,8 @@ __all__ = [
     "GoalContribution",
     "ImportBatch",
     "ImportMappingProfile",
+    "KnowledgeChunk",
+    "KnowledgeDocument",
     "Receipt",
     "RecurringTransaction",
     "Transaction",

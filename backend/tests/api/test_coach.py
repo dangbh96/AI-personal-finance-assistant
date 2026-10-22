@@ -23,6 +23,7 @@ TOOLS = {
     "get_recent_reviews",
     "get_goals",
     "search_transactions",
+    "search_knowledge",
 }
 
 GOOD_ANSWER = (
@@ -49,24 +50,6 @@ def result(content: str | None = None, calls: list[ToolCallData] | None = None) 
         completion_tokens=200,
         model=FAKE_MODEL,
     )
-
-
-@pytest.fixture
-def fake_llm(monkeypatch):
-    """Model giả: trả lần lượt `responses` (ToolChatResult hoặc exception), ghi lại kwargs."""
-    calls: list[dict] = []
-    responses: list = []
-
-    def _fake(**kwargs):
-        calls.append(kwargs)
-        item = responses.pop(0)
-        if isinstance(item, Exception):
-            raise item
-        return item
-
-    monkeypatch.setattr(openai_client, "is_configured", lambda settings=None: True)
-    monkeypatch.setattr(openai_client, "_chat_tools", _fake)
-    return calls, responses
 
 
 @pytest.fixture
@@ -174,7 +157,7 @@ def test_post_message_runs_tools_and_persists(client, seeded, fake_llm):
     assert all(e["amount"] in {4_200_000, 3_800_000, 1_800_000, 2_000_000} for e in evidence)
 
     meta = assistant["metadata"]
-    assert meta["model"] == FAKE_MODEL and meta["prompt_version"] == "coach_v3"
+    assert meta["model"] == FAKE_MODEL and meta["prompt_version"] == "coach_v4"
     assert (meta["input_tokens"], meta["output_tokens"], meta["total_tokens"]) == (
         2000,
         400,

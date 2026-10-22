@@ -232,3 +232,31 @@ sequenceDiagram
 ```
 
 Embed khi ghi giao dịch (best-effort): `POST/PATCH /transactions`, xác nhận hoá đơn, tạo từ khoản định kỳ, commit import → sau khi commit giao dịch, router gọi `embedding_service.embed_transactions_best_effort` (lỗi AI / chưa có key chỉ log, response vẫn 201/200). Bổ sung sau: `python -m app.scripts.backfill_embeddings` hoặc `POST /search/transactions/reindex`.
+
+## 8. Coach trả lời kiến thức có nguồn (Phase 16)
+
+```mermaid
+sequenceDiagram
+    actor U as User
+    participant FE as /coach
+    participant G as coach_graph
+    participant T as tools (read-only)
+    participant KB as knowledge_service + pgvector
+    participant GU as response_guard
+
+    U->>FE: "50/30/20 là gì, có phù hợp với tao không?"
+    FE->>G: POST /coach/sessions/{id}/messages
+    G->>T: search_knowledge("50/30/20")
+    T->>KB: embed câu hỏi → top-4 đoạn (cosine)
+    KB-->>T: đoạn + citation "Quy tắc 50/30/20 — … (knowledge/50-30-20.md)"
+    G->>T: get_spending_summary(tháng trước, spending_type)
+    T-->>G: income_share_pct Thiết yếu / Không thiết yếu, net_income_pct
+    G->>GU: câu trả lời (Quan sát → Vì sao → Gợi ý + **Nguồn:**)
+    alt thiếu Nguồn / nguồn không có trong kết quả / chưa xem số liệu cá nhân
+        GU-->>G: yêu cầu viết lại (tối đa 1 lần) → vẫn sai: fallback liệt kê nguồn thật
+    end
+    GU-->>FE: answer + citations (S1…) + tool trace "Đã tra kiến thức: …"
+    U->>FE: bấm nguồn → GET /knowledge/chunks/{id} (drawer)
+```
+
+Ingest: `python -m app.scripts.ingest_knowledge knowledge/` → đọc `.md` / `.pdf` → chia đoạn → embed → `knowledge_documents` / `knowledge_chunks` (bỏ qua file không đổi `content_hash`).

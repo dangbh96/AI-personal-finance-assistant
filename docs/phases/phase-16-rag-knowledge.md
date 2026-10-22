@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **ID** | `phase-16-rag-knowledge` |
-| **Trạng thái** | Not started |
+| **Trạng thái** | Done |
 | **Phụ thuộc** | Phase 10, 15 phải Done |
 | **Mở khoá** | Phase 18 |
 | **Milestone** | **M6 — Full AI curriculum** |
@@ -112,17 +112,17 @@ class CoachAnswerWithCitations(BaseModel):
 
 ## 5. Task breakdown
 
-- [ ] T1 Migration `knowledge_documents`, `knowledge_chunks` + HNSW index
-- [ ] T2 Thêm dependency `pypdf` và module loader markdown/pdf
-- [ ] T3 Implement chunker 500–800 tokens, overlap 100, giữ heading metadata
-- [ ] T4 Viết knowledge base tự soạn trong `backend/knowledge/`: `50-30-20.md`, `envelope-jars.md`, `pay-yourself-first.md`, `emergency-fund.md`, `sinking-funds.md`, `debt-basics.md`
-- [ ] T5 Implement ingest script idempotent theo `content_hash`
-- [ ] T6 Implement `knowledge_service.search` dùng pgvector cosine + metadata citation
-- [ ] T7 Add Coach tool `search_knowledge` và update Coach prompt/guard
-- [ ] T8 Golden tests: citations, personal-data tool required khi hỏi "có phù hợp với tao không"
-- [ ] T9 Retrieval eval hit@3 với 12 queries
-- [ ] T10 UI citations trong `/coach`
-- [ ] T11 Cập nhật docs/PROGRESS/handoff + commit `phase-16: rag knowledge`
+- [x] T1 Migration `knowledge_documents`, `knowledge_chunks` + HNSW index
+- [x] T2 Thêm dependency `pypdf` và module loader markdown/pdf
+- [x] T3 Implement chunker 500–800 tokens, overlap 100, giữ heading metadata
+- [x] T4 Viết knowledge base tự soạn trong `backend/knowledge/`: `50-30-20.md`, `envelope-jars.md`, `pay-yourself-first.md`, `emergency-fund.md`, `sinking-funds.md`, `debt-basics.md`
+- [x] T5 Implement ingest script idempotent theo `content_hash`
+- [x] T6 Implement `knowledge_service.search` dùng pgvector cosine + metadata citation
+- [x] T7 Add Coach tool `search_knowledge` và update Coach prompt/guard
+- [x] T8 Golden tests: citations, personal-data tool required khi hỏi "có phù hợp với tao không"
+- [x] T9 Retrieval eval hit@3 với 12 queries
+- [x] T10 UI citations trong `/coach`
+- [x] T11 Cập nhật docs/PROGRESS/handoff + commit `phase-16: rag knowledge`
 
 ## 6. Verify / Acceptance criteria
 
@@ -153,13 +153,13 @@ class CoachAnswerWithCitations(BaseModel):
 
 ## 7. Definition of Done
 
-- [ ] Tất cả task mục 5 xong, verify mục 6 pass
-- [ ] Knowledge base là nội dung tự viết, không sao chép tài liệu có bản quyền
-- [ ] Coach bắt buộc gọi personal-data tool khi user hỏi mức độ phù hợp cá nhân
-- [ ] Câu trả lời kiến thức có `Nguồn:` và citation thật
-- [ ] Retrieval eval hit@3 đạt ngưỡng
-- [ ] [PROGRESS.md](../PROGRESS.md) cập nhật, Handoff notes điền, đánh dấu M6
-- [ ] Commit `phase-16: rag knowledge`
+- [x] Tất cả task mục 5 xong, verify mục 6 pass
+- [x] Knowledge base là nội dung tự viết, không sao chép tài liệu có bản quyền
+- [x] Coach bắt buộc gọi personal-data tool khi user hỏi mức độ phù hợp cá nhân
+- [x] Câu trả lời kiến thức có `Nguồn:` và citation thật
+- [x] Retrieval eval hit@3 đạt ngưỡng
+- [x] [PROGRESS.md](../PROGRESS.md) cập nhật, Handoff notes điền, đánh dấu M6
+- [x] Commit `phase-16: rag knowledge`
 
 ## 8. Rủi ro / câu hỏi mở
 
@@ -171,9 +171,33 @@ class CoachAnswerWithCitations(BaseModel):
 
 > Điền khi kết thúc phase.
 
-- **Ngày hoàn thành:**
+- **Ngày hoàn thành:** 2026-10-22
 - **Đã làm:**
+  - **Migration** `20261022_e86dd65f1762_rag_knowledge`: `knowledge_documents` (`source` unique, `source_type` CHECK, `content_hash` UNIQUE, `metadata`), `knowledge_chunks` (FK CASCADE, UNIQUE `(document_id, chunk_index)`, `vector(1536)` + HNSW cosine, `metadata` heading_path / headings / tags / pages), `chat_messages.citations JSONB`. ORM `models/knowledge.py`. Dependency mới `pypdf>=5` (venv 6.21.2). `alembic check` sạch, downgrade / upgrade chạy được.
+  - **Knowledge base tự viết** `backend/knowledge/`: `50-30-20.md`, `envelope-jars.md`, `pay-yourself-first.md`, `emergency-fund.md`, `sinking-funds.md`, `debt-basics.md` (front matter title / tags / language; nội dung viết lại bằng lời của dự án, có liên hệ khái niệm trong app như loại chi tiêu, mục tiêu, PYF).
+  - **Deterministic:** `services/knowledge_chunking` (đọc markdown + front matter, PDF qua `pypdf` theo trang; chia đoạn ≤ 800 token ước lượng, cắt ở ranh giới mục khi ≥ 500, overlap ~100 token khi cắt giữa mục, gộp đoạn cuối quá ngắn; `embedding_text`, `citation`), `services/knowledge_service` (ingest idempotent theo `content_hash` + đổi tên + bỏ trùng + `prune`; `search` cosine + ngưỡng 0.3; `search_for_coach`; `get_chunk`; `list_documents`; `resolve_ingest_path` chống path traversal), `repositories/knowledge_repository`.
+  - **API** `GET /knowledge/search?q=&limit=`, `GET /knowledge/documents`, `GET /knowledge/chunks/{id}`, `POST /knowledge/reindex {path?, prune}`; script `python -m app.scripts.ingest_knowledge [path] [--prune]`. `ai/embeddings.embed_knowledge`.
+  - **Coach:** tool thứ 8 `search_knowledge` (read-only), prompt `coach_v4.md` (kiến thức chỉ từ thư viện, mục **Nguồn:**, bắt buộc tool số liệu khi hỏi mức độ phù hợp, không tìm thấy → nói rõ), `get_spending_summary` thêm `income_share_pct` / `net_income_pct` (service tính) để so với 50/30/20 mà không tự tính. Guard: số trong văn bản kiến thức được phép; `check_citations` (thiếu mục Nguồn / nguồn không có trong kết quả → viết lại); `check_tool_usage` (câu hỏi "phù hợp với tao / của tao / tao nên…" đã tra kiến thức mà chưa có tool số liệu → viết lại); fallback liệt kê nguồn thật. `coach_evidence.select_citations` → `CoachAnswer.citations` → lưu `chat_messages.citations`, trả trong `ChatMessageRead` / `CoachMessageResponse`. Tool trace "Đã tra kiến thức: … (n đoạn)".
+  - **Frontend** `/coach`: `CitationList` (khối "Nguồn (n)" thu gọn được, S1…, tiêu đề — mục + đường dẫn; ẩn mục Nguồn trùng trong văn bản) + drawer (Dialog) toàn văn đoạn từ `GET /knowledge/chunks/{id}`; câu gợi ý "50/30/20 là gì, có phù hợp với tao không?"; nhãn tool mới. `gen:api` chạy lại.
+  - **Test:** **1130 pass** (+35, không cần key): `tests/unit/test_knowledge_chunking.py` (front matter / heading, 6 tài liệu ≥ 12 đoạn ≤ 800 token, overlap, cắt ở ranh giới mục, gom mục nhỏ, gộp đuôi ngắn, PDF 3 trang + lỗi PDF, guard nguồn / dữ liệu cá nhân / số kiến thức / fallback), `tests/api/test_knowledge_search.py` (test case 1, 2, 3 (embedding giả), 5–7 với model giả, ingest idempotent không gọi AI lần 2, đổi tên / prune / trùng nội dung, PDF + file lỗi, API search / chunk / documents / reindex + chặn `../`, 503 thiếu key, tool output). `tests/pdf_helper.py` sinh PDF có lớp chữ không cần thư viện. Fixture `fake_llm` chuyển sang `tests/api/conftest.py` (dùng chung).
+  - **Golden (`pytest -m ai`, text-embedding-3-small + gpt-4o, 2026-10-22):** `tests/ai_golden/test_rag_coach.py` — retrieval 12 câu hỏi đời thường **hit@3 = 12/12 (1,00)** (ngưỡng 0,80); Coach: "50/30/20 là gì?" có nguồn 50/30/20 (passed); "… có phù hợp với tao không" gọi `search_knowledge` + `get_spending_summary` (passed); "Pay yourself first khác gì 50/30/20?" có nguồn cả hai (rewritten — lần đầu dùng cụm cấm "bắt buộc phải"); "quỹ khẩn cấp của tao nên bao nhiêu" (rewritten — guard bắt số tự nhân 12.600.000 / 25.200.000); "FIRE 4%" → "chưa tìm thấy nguồn", không citation. Toàn bộ `pytest -m ai`: **32/32**.
 - **Lệch so với plan (và lý do):**
+  - Token **ước lượng** = số ký tự / 3 (chưa thêm `tiktoken` — cần tải bảng mã lúc chạy, không hợp CI offline); rủi ro mục 8 cho phép.
+  - Overlap ~100 token chỉ áp dụng khi cắt **giữa một mục**; cắt ở ranh giới mục không overlap (heading đã đủ ngữ cảnh) — tránh lặp nội dung giữa các mục ngắn.
+  - Thêm `chat_messages.citations`, `KnowledgeChunkRead`, `GET /knowledge/documents`, `GET /knowledge/chunks/{id}` (drawer cần toàn văn), `KnowledgeReindexResult` chi tiết (`created/updated/unchanged/skipped/removed/errors`) thay vì `{documents, chunks}`; reindex nhận `prune`.
+  - `knowledge_documents.source` unique + đổi tên giữ embedding; file trùng nội dung bỏ qua (do `content_hash` UNIQUE).
+  - Không dùng schema `CoachAnswerWithCitations` (observation / explanation / action / citations) — Coach vẫn trả văn bản tự do có cấu trúc (như Phase 10) + `citations` có cấu trúc do backend dựng từ mục Nguồn (guard kiểm tra), giữ nguyên luồng function calling.
+  - Ngưỡng `MIN_KNOWLEDGE_SCORE = 0.3` không đủ để lọc câu hỏi ngoài thư viện (FIRE vẫn ~0,5) → "không tìm thấy" do prompt + guard chống bịa nguồn đảm bảo.
+  - `get_spending_summary` thêm 2 trường % theo thu nhập (cần cho câu hỏi 50/30/20 cá nhân).
 - **Nợ kỹ thuật / TODO để lại:**
+  - Chưa có tokenizer thật; chưa hybrid từ khoá cho kiến thức; chưa re-rank.
+  - Câu hỏi "quỹ khẩn cấp của tao" model hay tự nhân số tháng × chi thiết yếu → guard chặn, viết lại tốn thêm 1 lượt; có thể thêm trường deterministic (vd mức quỹ 3 / 6 tháng) vào tool sau này.
+  - Thư viện kiến thức chỉ 6 bài / 12 đoạn; thêm bài cần chạy lại ingest (UI chưa upload — ngoài scope).
 - **Lệnh hữu ích:**
-- **Gợi ý cho phase tiếp theo:**
+  ```bash
+  (cd backend && python -m app.scripts.ingest_knowledge knowledge/)
+  (cd backend && pytest tests/unit/test_knowledge_chunking.py tests/api/test_knowledge_search.py)
+  (cd backend && pytest -m ai -s tests/ai_golden/test_rag_coach.py)
+  curl "http://localhost:8000/api/v1/knowledge/search?q=quỹ%20khẩn%20cấp&limit=3"
+  ```
+- **Gợi ý cho phase tiếp theo:** Phase 17 đăng ký tool `simulate` vào `finance_tools.default_registry()` (cập nhật `TOOLS` ở `tests/api/test_coach.py` + danh sách ở `test_coach_tools.py`); nếu narrative simulator dùng `structured_completion`, tái dùng `review_narrative.extract_numbers` / `contains_phrase` / `has_conditional` để validate số và giọng văn như advice Phase 8.

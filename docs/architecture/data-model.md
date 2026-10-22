@@ -152,6 +152,7 @@ erDiagram
         text content
         jsonb tool_calls
         jsonb evidence
+        jsonb citations "P16: nguồn kiến thức"
         jsonb metadata
     }
     GOAL {
@@ -221,8 +222,10 @@ erDiagram
     KNOWLEDGE_DOCUMENT {
         uuid id PK
         text title
-        text source "đường dẫn file gốc"
-        text content_hash "để re-ingest idempotent"
+        text source "UK, đường dẫn file gốc"
+        text source_type "markdown | pdf"
+        text content_hash UK "để re-ingest idempotent"
+        jsonb metadata "tags, language"
     }
     KNOWLEDGE_CHUNK {
         uuid id PK
@@ -273,7 +276,7 @@ Tên trong bảng dưới là **tên bảng thực tế** (số nhiều snake_ca
 | 13 | `receipts` (+ `draft`, `model` so với plan), `transactions.receipt_id` |
 | 14 | `import_batches` (+ `source_rows`, `rows`, `file_info`… so với plan), `import_mapping_profiles` (+ `headers`), `transactions.import_batch_id`, `transactions.dedup_hash` (unique partial index) |
 | 15 | `CREATE EXTENSION vector`, `transaction_embeddings` (+ `embedded_at`, HNSW cosine) |
-| 16 | `knowledge_documents`, `knowledge_chunks` |
+| 16 | `knowledge_documents` (+ `source_type`, unique `source`), `knowledge_chunks` (HNSW cosine), `chat_messages.citations` |
 | 17 | `scenarios` (tuỳ chọn — chỉ khi cần lưu kịch bản) |
 
 ## Ràng buộc quan trọng
@@ -369,3 +372,8 @@ Tên trong bảng dưới là **tên bảng thực tế** (số nhiều snake_ca
 - `content = "{ghi chú đã làm sạch}. Danh mục: {tên}. Khoản {<100k | 100k-500k | 500k-2m | 2m-10m | >10m}. Loại: {thiết yếu | không thiết yếu | bất thường | thu nhập}."` — ghi chú bỏ token ≥ 5 chữ số (số tài khoản / mã giao dịch), sao kê VIẾT HOA → chữ thường, ≤ 300 ký tự; không có ghi chú → bỏ phần đầu. Không embed số tiền chính xác.
 - Ghi bởi: router `transactions` (POST / PATCH), `receipts/{id}/confirm`, `recurring-transactions/{id}/create-transaction`, `imports/{id}/commit` (sau commit, best-effort, ≤ 500 giao dịch / request), `POST /search/transactions/reindex` và `python -m app.scripts.backfill_embeddings`. Upsert chỉ khi `(content, model)` khác bản đã lưu.
 - Truy vấn: `SET LOCAL hnsw.ef_search = 100`, `hnsw.iterative_scan = relaxed_order` (lọc ngày sau HNSW vẫn đủ LIMIT); `ORDER BY embedding <=> :v` (cosine distance).
+**Phase 16** (migration `20261022_e86dd65f1762_rag_knowledge`):
+- `knowledge_documents`: `title`, `source TEXT` (đường dẫn posix tương đối `backend/` — vd `knowledge/50-30-20.md`; file ngoài `backend/` tương đối thư mục cha của thư mục ingest; **unique index** `ix_knowledge_documents_source`), `source_type` CHECK (`markdown | pdf`), `content_hash TEXT` **UNIQUE** (sha256 byte file — ingest lại idempotent), `metadata JSONB` (`tags`, `language`, `source_path`, PDF thêm `page_count`), timestamps.
+- `knowledge_chunks`: `document_id` FK → `knowledge_documents` **`ON DELETE CASCADE`**, `chunk_index` (CHECK ≥ 0, UNIQUE `(document_id, chunk_index)` — đồng thời là index tra theo tài liệu), `heading TEXT NULL` (mục đầu tiên của đoạn), `content TEXT`, `embedding vector(1536)` + **HNSW** `ix_knowledge_chunks_embedding_hnsw` (`vector_cosine_ops`, `m = 16`, `ef_construction = 64`), `model`, `metadata JSONB` (`source_path`, `heading_path`, `headings` (mọi mục trong đoạn), `tags`, `language`, `token_estimate`, PDF thêm `pages`), timestamps.
+- Ingest (`knowledge_service.ingest_path`): file không đổi hash → bỏ qua (không gọi AI); nội dung đổi → xoá tài liệu cũ (cascade) + tạo lại; cùng nội dung ở file khác mà file cũ không còn → **đổi tên** (giữ đoạn + embedding); cùng nội dung ở 2 file đang tồn tại → bỏ qua file sau; `--prune` xoá tài liệu của thư mục mà file không còn. Embed chuỗi `"{tiêu đề} › {heading_path}\n\n{nội dung}"`.
+- `chat_messages.citations JSONB NULL` (thêm so với plan): danh sách `CitationItem` (`ref` S1…, `chunk_id`, `document_id`, `title`, `heading`, `source`, `citation`, `snippet` ≤ 600 ký tự, `score`) của câu trả lời Coach.

@@ -64,6 +64,8 @@ class ChatMessage(UUIDPrimaryKeyMixin, _ChatTimestamps, Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     tool_calls: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
     evidence: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
+    # Phase 16: nguồn kiến thức (chunk RAG) câu trả lời đã trích.
+    citations: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
     # `metadata` là tên dành riêng của SQLAlchemy declarative → thuộc tính Python là `meta`.
     meta: Mapped[dict[str, Any] | None] = mapped_column("metadata", JSONB)
 

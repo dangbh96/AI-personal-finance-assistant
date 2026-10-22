@@ -30,6 +30,7 @@ function pendingMessage(content: string, sessionId: string | null): ChatMessage 
     content,
     tool_calls: null,
     evidence: null,
+    citations: null,
     metadata: null,
     created_at: new Date().toISOString(),
   };

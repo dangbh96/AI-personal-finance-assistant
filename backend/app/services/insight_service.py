@@ -117,6 +117,7 @@ def get_spending_summary(db: Session, data: SpendingSummaryInput) -> SpendingSum
                 total=total,
                 transaction_count=count,
                 share_pct=share_pct(total, expense),
+                income_share_pct=share_pct(total, income),
             )
         )
     items.sort(key=lambda i: (-i.total, i.category_name or i.spending_type or ""))
@@ -127,6 +128,7 @@ def get_spending_summary(db: Session, data: SpendingSummaryInput) -> SpendingSum
         income_total=income,
         expense_total=expense,
         net=income - expense,
+        net_income_pct=share_pct(income - expense, income),
         items=items,
     )
 

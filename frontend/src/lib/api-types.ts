@@ -1414,6 +1414,87 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/knowledge/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search Knowledge
+         * @description (Dev / debug) Tìm đoạn kiến thức liên quan nhất (pgvector cosine). Chỉ đọc.
+         */
+        get: operations["search_knowledge_api_v1_knowledge_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/knowledge/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Documents
+         * @description Tài liệu đã ingest + số đoạn.
+         */
+        get: operations["list_documents_api_v1_knowledge_documents_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/knowledge/chunks/{chunk_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Chunk
+         * @description Toàn văn một đoạn — để mở trích dẫn của Coach.
+         */
+        get: operations["get_chunk_api_v1_knowledge_chunks__chunk_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/knowledge/reindex": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reindex
+         * @description (Dev) Ingest lại thư mục kiến thức (mặc định `backend/knowledge`) — như
+         *     `python -m app.scripts.ingest_knowledge knowledge/`. Chỉ nhận đường dẫn trong `backend/`.
+         */
+        post: operations["reindex_api_v1_knowledge_reindex_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2754,6 +2835,8 @@ export interface components {
             tool_calls: components["schemas"]["ToolTraceItem"][] | null;
             /** Evidence */
             evidence: components["schemas"]["EvidenceItem"][] | null;
+            /** Citations */
+            citations?: components["schemas"]["CitationItem"][] | null;
             metadata: components["schemas"]["ChatMessageMetadata"] | null;
             /**
              * Created At
@@ -2851,6 +2934,42 @@ export interface components {
             /** Title */
             title: string;
         };
+        /**
+         * CitationItem
+         * @description Nguồn kiến thức câu trả lời đã dùng (hiển thị khối "Nguồn" + drawer).
+         */
+        CitationItem: {
+            /**
+             * Ref
+             * @description S1, S2…
+             */
+            ref: string;
+            /**
+             * Chunk Id
+             * Format: uuid
+             */
+            chunk_id: string;
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /** Title */
+            title: string;
+            /** Heading */
+            heading: string | null;
+            /** Source */
+            source: string;
+            /** Citation */
+            citation: string;
+            /**
+             * Snippet
+             * @description Trích đoạn (≤ 600 ký tự)
+             */
+            snippet: string;
+            /** Score */
+            score: number;
+        };
         /** CoachMessageCreate */
         CoachMessageCreate: {
             /** Content */
@@ -2870,6 +2989,8 @@ export interface components {
             tool_trace: components["schemas"]["ToolTraceItem"][];
             /** Evidence */
             evidence: components["schemas"]["EvidenceItem"][];
+            /** Citations */
+            citations?: components["schemas"]["CitationItem"][];
             /**
              * Guard Status
              * @enum {string}
@@ -3731,6 +3852,152 @@ export interface components {
             note: string | null;
             /** Category Name */
             category_name: string;
+        };
+        /** KnowledgeChunkRead */
+        KnowledgeChunkRead: {
+            /**
+             * Chunk Id
+             * Format: uuid
+             */
+            chunk_id: string;
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /** Title */
+            title: string;
+            /** Heading */
+            heading: string | null;
+            /** Source */
+            source: string;
+            /** Content */
+            content: string;
+            /**
+             * Score
+             * @description 1 − cosine distance
+             */
+            score: number;
+            /**
+             * Citation
+             * @description “Tiêu đề — mục (đường dẫn)”
+             */
+            citation: string;
+            /** Chunk Index */
+            chunk_index: number;
+            /**
+             * Headings
+             * @description Mọi heading mục nằm trong đoạn
+             */
+            headings: string[];
+            /** Source Type */
+            source_type: string;
+        };
+        /** KnowledgeDocumentList */
+        KnowledgeDocumentList: {
+            /** Items */
+            items: components["schemas"]["KnowledgeDocumentRead"][];
+        };
+        /** KnowledgeDocumentRead */
+        KnowledgeDocumentRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Source */
+            source: string;
+            /** Source Type */
+            source_type: string;
+            /** Chunk Count */
+            chunk_count: number;
+            /** Tags */
+            tags: string[];
+        };
+        /** KnowledgeReindexRequest */
+        KnowledgeReindexRequest: {
+            /**
+             * Path
+             * @description Thư mục / file trong `backend/` (mặc định `knowledge`)
+             */
+            path?: string | null;
+            /**
+             * Prune
+             * @description Xoá tài liệu đã ingest từ thư mục này mà file không còn
+             * @default false
+             */
+            prune?: boolean;
+        };
+        /** KnowledgeReindexResult */
+        KnowledgeReindexResult: {
+            /**
+             * Documents
+             * @description Số tài liệu trong thư mục đã xử lý
+             */
+            documents: number;
+            /**
+             * Chunks
+             * @description Tổng số đoạn của các tài liệu đó
+             */
+            chunks: number;
+            /** Created */
+            created: number;
+            /** Updated */
+            updated: number;
+            /** Unchanged */
+            unchanged: number;
+            /**
+             * Skipped
+             * @description Trùng nội dung với tài liệu khác / file lỗi
+             */
+            skipped: number;
+            /** Removed */
+            removed: number;
+            /** Errors */
+            errors: string[];
+        };
+        /** KnowledgeSearchResponse */
+        KnowledgeSearchResponse: {
+            /** Query */
+            query: string;
+            /**
+             * Results
+             * @description Liên quan nhất trước
+             */
+            results: components["schemas"]["KnowledgeSearchResult"][];
+        };
+        /** KnowledgeSearchResult */
+        KnowledgeSearchResult: {
+            /**
+             * Chunk Id
+             * Format: uuid
+             */
+            chunk_id: string;
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /** Title */
+            title: string;
+            /** Heading */
+            heading: string | null;
+            /** Source */
+            source: string;
+            /** Content */
+            content: string;
+            /**
+             * Score
+             * @description 1 − cosine distance
+             */
+            score: number;
+            /**
+             * Citation
+             * @description “Tiêu đề — mục (đường dẫn)”
+             */
+            citation: string;
         };
         /** MonthProgressRead */
         MonthProgressRead: {
@@ -9542,6 +9809,167 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReindexResult"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Dịch vụ embedding trả kết quả không hợp lệ */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description AI chưa cấu hình / không khả dụng */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    search_knowledge_api_v1_knowledge_search_get: {
+        parameters: {
+            query: {
+                q: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeSearchResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Dịch vụ embedding trả kết quả không hợp lệ */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description AI chưa cấu hình / không khả dụng */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_documents_api_v1_knowledge_documents_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeDocumentList"];
+                };
+            };
+        };
+    };
+    get_chunk_api_v1_knowledge_chunks__chunk_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                chunk_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeChunkRead"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reindex_api_v1_knowledge_reindex_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["KnowledgeReindexRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeReindexResult"];
                 };
             };
             /** @description Unprocessable Content */

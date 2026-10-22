@@ -207,6 +207,15 @@ def build_coach_graph(
         payloads = [r.output.model_dump(mode="json") for r in records if r.output is not None]
         allowed = coach_guard.allowed_numbers(payloads, state["question"], ctx.today)
         problems = coach_guard.check_answer(answer, allowed)
+        calls = [(r.name, r.output) for r in records]
+        problems += coach_guard.check_tool_usage(
+            state["question"], (r.name for r in records if r.output is not None)
+        )
+        if any(r.name == coach_guard.KNOWLEDGE_TOOL for r in records):
+            knowledge = coach_evidence.knowledge_items(calls)
+            problems += coach_guard.check_citations(
+                answer, [k.title for k in knowledge], [k.source for k in knowledge]
+            )
         attempts = state.get("guard_attempts", 0)
         if not problems:
             return {
@@ -224,7 +233,10 @@ def build_coach_graph(
             }
         calls = [(r.name, r.output) for r in records]
         return {
-            "answer": coach_guard.fallback_answer(coach_evidence.all_evidence(calls)),
+            "answer": coach_guard.fallback_answer(
+                coach_evidence.all_evidence(calls),
+                [k.citation for k in coach_evidence.knowledge_items(calls)],
+            ),
             "guard_status": "fallback",
             "first_problems": first,
             "problems": problems,
@@ -290,6 +302,7 @@ def run_coach(
     calls = [(r.name, r.output) for r in records]
     answer = state["answer"]
     evidence, refs = coach_evidence.select_evidence(calls, answer)
+    citations = coach_evidence.select_citations(calls, answer)
     trace = []
     for record, call_refs in zip(records, refs, strict=True):
         summary, count = (
@@ -331,4 +344,10 @@ def run_coach(
         tools=",".join(r.name for r in records) or "-",
         guard=metadata.guard_status,
     )
-    return CoachAnswer(content=answer, tool_trace=trace, evidence=evidence, metadata=metadata)
+    return CoachAnswer(
+        content=answer,
+        tool_trace=trace,
+        evidence=evidence,
+        metadata=metadata,
+        citations=citations,
+    )

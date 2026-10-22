@@ -31,3 +31,22 @@ def fake_ai(monkeypatch):
     monkeypatch.setattr(openai_client, "is_configured", lambda settings=None: True)
     monkeypatch.setattr(openai_client, "_chat_json", _fake)
     return calls, responses
+
+
+@pytest.fixture
+def fake_llm(monkeypatch):
+    """Model Coach giả (function calling): trả lần lượt `responses` (ToolChatResult hoặc
+    exception), ghi lại kwargs."""
+    calls: list[dict] = []
+    responses: list = []
+
+    def _fake(**kwargs):
+        calls.append(kwargs)
+        item = responses.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+    monkeypatch.setattr(openai_client, "is_configured", lambda settings=None: True)
+    monkeypatch.setattr(openai_client, "_chat_tools", _fake)
+    return calls, responses

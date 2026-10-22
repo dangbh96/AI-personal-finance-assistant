@@ -25,6 +25,7 @@ from app.schemas.coach import (
     ChatSessionSummary,
     ChatSessionUpdate,
     ChatTurn,
+    CitationItem,
     CoachAnswer,
     CoachMessageCreate,
     CoachMessageResponse,
@@ -72,6 +73,9 @@ def message_read(message: ChatMessage) -> ChatMessageRead:
         else None,
         evidence=[EvidenceItem.model_validate(e) for e in message.evidence]
         if message.evidence is not None
+        else None,
+        citations=[CitationItem.model_validate(c) for c in message.citations]
+        if message.citations is not None
         else None,
         metadata=ChatMessageMetadata.model_validate(message.meta) if message.meta else None,
         created_at=message.created_at,
@@ -154,6 +158,7 @@ def add_assistant_message(db: Session, session: ChatSession, answer: CoachAnswer
         content=answer.content,
         tool_calls=[t.model_dump(mode="json") for t in answer.tool_trace],
         evidence=[e.model_dump(mode="json") for e in answer.evidence],
+        citations=[c.model_dump(mode="json") for c in answer.citations],
         meta=answer.metadata.model_dump(mode="json"),
         created_at=_now(),
     )
@@ -189,5 +194,6 @@ def send_message(
         assistant_message=message_read(assistant_message),
         tool_trace=answer.tool_trace,
         evidence=answer.evidence,
+        citations=answer.citations,
         guard_status=answer.metadata.guard_status,
     )
