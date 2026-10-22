@@ -174,6 +174,8 @@ sequenceDiagram
 
 ## 6. Import sao kê CSV (Phase 14)
 
+> Preview / đổi mapping chỉ lưu bản xem trước trong `import_batches` (bảng thô + dòng preview), **không** tạo giao dịch. Giao dịch chỉ được tạo ở commit, trong 1 DB transaction.
+
 ```mermaid
 sequenceDiagram
     actor U as User
@@ -181,22 +183,31 @@ sequenceDiagram
     participant API as FastAPI
     participant IS as import_service
     participant CLS as ai/classifier
+    participant OAI as OpenAI
 
-    U->>FE: upload file .csv / .xlsx
-    FE->>API: POST /imports/preview
-    API->>IS: đọc file (pandas), đoán column mapping, tính file_hash
+    U->>FE: upload file .csv / .xlsx (+ tên ngân hàng)
+    FE->>API: POST /imports/preview (multipart)
+    API->>IS: file_hash
     alt file_hash đã commit trước đó
-        API-->>FE: 409 đã import
+        API-->>FE: 409 IMPORT_ALREADY_COMMITTED (+ import_batch_id)
     end
-    IS->>IS: chuẩn hoá dòng, tính dedup_hash, đánh dấu dòng trùng
-    IS->>CLS: classify_batch(20 dòng / lần)
-    CLS-->>IS: suggestions
-    IS-->>API: ImportBatch(previewed) + rows
-    API-->>FE: bảng preview
-    U->>FE: sửa mapping / category hàng loạt, bỏ chọn dòng
+    IS->>IS: đọc file (pandas: bảng mã, dấu phân cách / sheet), dòng tiêu đề,<br/>mapping theo profile đã lưu hoặc tự đoán
+    IS->>IS: chuẩn hoá ngày / số tiền / chiều, dedup_hash,<br/>trùng trong file / đã import, cảnh báo chuyển khoản nội bộ
+    IS->>CLS: classifier(dòng hợp lệ, nội dung đã che số dài)
+    CLS->>CLS: exact-match sở thích đã học → không gửi model
+    CLS->>OAI: 20 dòng / request (OPENAI_MODEL_FAST)
+    OAI-->>CLS: category_slug + spending_type theo row_index
+    CLS-->>IS: suggestions (AI lỗi → để "Khác", confidence 0)
+    IS-->>API: ImportBatch(previewed) + rows (commit)
+    API-->>FE: 201 preview
+    opt user đổi mapping
+        FE->>API: PATCH /imports/{id}/mapping
+        API-->>FE: preview mới (giữ đề xuất cũ theo nội dung)
+    end
+    U->>FE: sửa danh mục từng dòng / hàng loạt, bỏ chọn dòng
     FE->>API: POST /imports/{id}/commit {rows}
-    API->>IS: bulk insert (transaction, bỏ qua dedup_hash trùng)
-    API-->>FE: số dòng đã tạo / bỏ qua
+    API->>IS: kiểm tra mọi dòng → tạo giao dịch source=import (bỏ dòng trùng / lỗi),<br/>batch committed, lưu mapping profile — 1 commit
+    API-->>FE: 201 {created_count, skipped_duplicate_count, bad_count, not_selected_count}
 ```
 
 ## 7. Tìm kiếm ngữ nghĩa (Phase 15)

@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Query, Response, status
 
 from app.ai import nl_transaction_parser
 from app.core.db import DbSession
-from app.models.enums import Direction, SpendingType
+from app.models.enums import Direction, SpendingType, TransactionSource
 from app.schemas.ai import TransactionParseRequest, TransactionParseResponse
 from app.schemas.classification import PreferenceRead
 from app.schemas.common import ErrorResponse
@@ -33,6 +33,10 @@ def transaction_filters(
     spending_type: SpendingType | None = None,
     direction: Direction | None = None,
     q: Annotated[str | None, Query(max_length=100, description="Tìm trong ghi chú")] = None,
+    source: TransactionSource | None = None,
+    import_batch_id: Annotated[
+        uuid.UUID | None, Query(description="Giao dịch tạo từ lô import sao kê này (Phase 14)")
+    ] = None,
 ) -> TransactionFilters:
     return TransactionFilters(
         date_from=date_from,
@@ -41,6 +45,8 @@ def transaction_filters(
         spending_type=spending_type,
         direction=direction,
         q=q.strip() if q else None,
+        source=source,
+        import_batch_id=import_batch_id,
     )
 
 

@@ -88,6 +88,9 @@ class TransactionRead(BaseModel):
     receipt_id: uuid.UUID | None = Field(
         default=None, description="Ảnh hoá đơn đã tạo giao dịch này (Phase 13)"
     )
+    import_batch_id: uuid.UUID | None = Field(
+        default=None, description="Lô import sao kê đã tạo giao dịch này (Phase 14)"
+    )
     created_at: datetime
     updated_at: datetime
 

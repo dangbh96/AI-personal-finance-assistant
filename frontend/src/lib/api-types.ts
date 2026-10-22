@@ -1267,6 +1267,111 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/imports/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Import
+         * @description Đọc sao kê, đoán mapping cột (hoặc dùng mapping đã lưu cho ngân hàng / bộ cột này), chuẩn
+         *     hoá + đánh dấu dòng trùng / lỗi, gợi ý danh mục (sở thích đã học → AI 20 dòng / request).
+         *     **Không tạo giao dịch** — user kiểm tra rồi gọi `POST /imports/{id}/commit`. Nội dung giao dịch
+         *     (đã che số tài khoản / mã dài) được gửi tới OpenAI để phân loại.
+         */
+        post: operations["preview_import_api_v1_imports_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/mapping-profiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Mapping Profiles
+         * @description Mapping cột đã lưu (theo ngân hàng + bộ tiêu đề cột), dùng gần nhất trước.
+         */
+        get: operations["list_mapping_profiles_api_v1_imports_mapping_profiles_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/{batch_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Import
+         * @description Lô import + các dòng preview đã lưu tạm (kể cả sau khi commit).
+         */
+        get: operations["get_import_api_v1_imports__batch_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/{batch_id}/mapping": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Mapping
+         * @description Đổi mapping cột / định dạng ngày / kiểu số tiền → chuẩn hoá lại preview (giữ đề xuất phân
+         *     loại cũ cho nội dung đã phân loại). Không tạo giao dịch.
+         */
+        patch: operations["update_mapping_api_v1_imports__batch_id__mapping_patch"];
+        trace?: never;
+    };
+    "/api/v1/imports/{batch_id}/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Commit Import
+         * @description Tạo giao dịch `source='import'` cho các dòng hợp lệ đã chọn (danh mục / loại chi tiêu / ghi
+         *     chú user đã sửa) trong **một** DB transaction; bỏ qua dòng trùng / lỗi; lưu mapping profile.
+         */
+        post: operations["commit_import_api_v1_imports__batch_id__commit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1569,6 +1674,19 @@ export interface components {
              * @description Ngưỡng đã lưu khác ngưỡng tính từ dữ liệu hiện tại
              */
             stale: boolean;
+        };
+        /** Body_preview_import_api_v1_imports_preview_post */
+        Body_preview_import_api_v1_imports_preview_post: {
+            /**
+             * File
+             * @description Sao kê .csv hoặc .xlsx (≤ 10MB)
+             */
+            file: string;
+            /**
+             * Bank Name
+             * @description Tên ngân hàng (tuỳ chọn)
+             */
+            bank_name?: string | null;
         };
         /** Body_upload_receipt_api_v1_receipts_post */
         Body_upload_receipt_api_v1_receipts_post: {
@@ -2716,6 +2834,32 @@ export interface components {
              */
             guard_status: "passed" | "rewritten" | "fallback" | "refused_out_of_scope" | "refused_write_request";
         };
+        /**
+         * ColumnMapping
+         * @description Cột trong file (theo tên tiêu đề) → trường chuẩn. Cần `date`, `description` và `amount`
+         *     **hoặc** `debit` / `credit`.
+         */
+        ColumnMapping: {
+            /** Date */
+            date?: string | null;
+            /** Description */
+            description?: string | null;
+            /**
+             * Amount
+             * @description Một cột số tiền có dấu: âm = chi, dương = thu
+             */
+            amount?: string | null;
+            /**
+             * Debit
+             * @description Cột ghi nợ / tiền ra (chi)
+             */
+            debit?: string | null;
+            /**
+             * Credit
+             * @description Cột ghi có / tiền vào (thu)
+             */
+            credit?: string | null;
+        };
         /** ErrorResponse */
         ErrorResponse: {
             /** Detail */
@@ -3194,6 +3338,338 @@ export interface components {
             ai_configured: boolean;
             /** Version */
             version: string;
+        };
+        /** ImportBatchRead */
+        ImportBatchRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Filename */
+            filename: string;
+            /** Bank Name */
+            bank_name: string | null;
+            /** File Hash */
+            file_hash: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "previewed" | "committed" | "failed";
+            /** Row Count */
+            row_count: number;
+            /** Valid Count */
+            valid_count: number;
+            /** Duplicate Count */
+            duplicate_count: number;
+            /** Bad Count */
+            bad_count: number;
+            /** Committed Count */
+            committed_count: number;
+            /** Model */
+            model: string | null;
+            /** Ai Error Code */
+            ai_error_code: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Committed At */
+            committed_at: string | null;
+        };
+        /** ImportCommitRequest */
+        ImportCommitRequest: {
+            /** Rows */
+            rows: components["schemas"]["ImportCommitRow"][];
+            /**
+             * Save Mapping Profile
+             * @description Lưu mapping cột cho ngân hàng / bộ tiêu đề cột này
+             * @default true
+             */
+            save_mapping_profile?: boolean;
+        };
+        /** ImportCommitResult */
+        ImportCommitResult: {
+            /** Created Count */
+            created_count: number;
+            /**
+             * Skipped Duplicate Count
+             * @description Dòng trùng (trong file / đã import trước đó) — không tạo giao dịch
+             */
+            skipped_duplicate_count: number;
+            /**
+             * Bad Count
+             * @description Dòng lỗi của file — không tạo giao dịch
+             */
+            bad_count: number;
+            /**
+             * Not Selected Count
+             * @description Dòng hợp lệ user bỏ chọn
+             */
+            not_selected_count: number;
+            batch: components["schemas"]["ImportBatchRead"];
+        };
+        /** ImportCommitRow */
+        ImportCommitRow: {
+            /** Row Index */
+            row_index: number;
+            /**
+             * Category Id
+             * Format: uuid
+             */
+            category_id: string;
+            /**
+             * Spending Type
+             * @description Chỉ cho khoản chi; bỏ trống = loại mặc định của danh mục
+             */
+            spending_type?: ("essential" | "non_essential" | "irregular") | null;
+            /**
+             * Selected
+             * @default true
+             */
+            selected?: boolean;
+            /**
+             * Note
+             * @description Bỏ trống = giữ nội dung sao kê
+             */
+            note?: string | null;
+        };
+        /**
+         * ImportConflictResponse
+         * @description 409: `IMPORT_ALREADY_COMMITTED` kèm id lô đã import (để mở danh sách giao dịch).
+         */
+        ImportConflictResponse: {
+            /** Detail */
+            detail: string;
+            /** Code */
+            code: string;
+            /** Import Batch Id */
+            import_batch_id?: string | null;
+        };
+        /** ImportFileInfo */
+        ImportFileInfo: {
+            /**
+             * File Type
+             * @enum {string}
+             */
+            file_type: "csv" | "xlsx";
+            /** Size Bytes */
+            size_bytes: number;
+            /**
+             * Encoding
+             * @description Bảng mã CSV đoán được (utf-8, utf-8-sig, cp1258)
+             */
+            encoding: string | null;
+            /**
+             * Separator
+             * @description Dấu phân cách CSV đoán được: `,` `;` hoặc tab
+             */
+            separator: string | null;
+            /** Separator Label */
+            separator_label: string | null;
+            /**
+             * Sheet Name
+             * @description Sheet đã đọc (XLSX)
+             */
+            sheet_name: string | null;
+            /**
+             * Header Row
+             * @description Số thứ tự dòng tiêu đề cột trong file (từ 1)
+             */
+            header_row: number;
+            /** Headers */
+            headers: string[];
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings?: string[];
+        };
+        /** ImportMappingInfo */
+        ImportMappingInfo: {
+            column_mapping: components["schemas"]["ColumnMapping"];
+            /**
+             * Date Format
+             * @enum {string}
+             */
+            date_format: "dd/mm/yyyy" | "mm/dd/yyyy" | "yyyy-mm-dd";
+            /**
+             * Decimal Style
+             * @enum {string}
+             */
+            decimal_style: "dot_thousands" | "comma_thousands";
+            /**
+             * Source
+             * @description `guess` = tự đoán, `profile` = mapping đã lưu cho ngân hàng / bộ cột này, `user` = user vừa chỉnh
+             * @enum {string}
+             */
+            source: "guess" | "profile" | "user";
+            /** Profile Id */
+            profile_id?: string | null;
+            /**
+             * Problems
+             * @description Thiếu cột bắt buộc… (rỗng = mapping dùng được)
+             */
+            problems: string[];
+        };
+        /** ImportMappingProfileList */
+        ImportMappingProfileList: {
+            /** Items */
+            items: components["schemas"]["ImportMappingProfileRead"][];
+        };
+        /** ImportMappingProfileRead */
+        ImportMappingProfileRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Bank Name */
+            bank_name: string;
+            /** Headers Hash */
+            headers_hash: string;
+            /** Headers */
+            headers: string[] | null;
+            column_mapping: components["schemas"]["ColumnMapping"];
+            /** Date Format */
+            date_format: ("dd/mm/yyyy" | "mm/dd/yyyy" | "yyyy-mm-dd") | null;
+            /** Decimal Style */
+            decimal_style: ("dot_thousands" | "comma_thousands") | null;
+            /** Last Used At */
+            last_used_at: string | null;
+        };
+        /** ImportMappingUpdate */
+        ImportMappingUpdate: {
+            column_mapping: components["schemas"]["ColumnMapping"];
+            /** Date Format */
+            date_format?: ("dd/mm/yyyy" | "mm/dd/yyyy" | "yyyy-mm-dd") | null;
+            /** Decimal Style */
+            decimal_style?: ("dot_thousands" | "comma_thousands") | null;
+        };
+        /** ImportPreviewResponse */
+        ImportPreviewResponse: {
+            batch: components["schemas"]["ImportBatchRead"];
+            file_info: components["schemas"]["ImportFileInfo"];
+            mapping: components["schemas"]["ImportMappingInfo"];
+            /** Rows */
+            rows: components["schemas"]["ImportPreviewRow"][];
+            summary: components["schemas"]["ImportSummary"];
+            /** Warnings */
+            warnings: string[];
+        };
+        /** ImportPreviewRow */
+        ImportPreviewRow: {
+            /**
+             * Row Index
+             * @description Số thứ tự dòng trong file / sheet (từ 1)
+             */
+            row_index: number;
+            /** Occurred On */
+            occurred_on: string | null;
+            /**
+             * Amount
+             * @description Số nguyên đồng, luôn dương
+             */
+            amount: number | null;
+            /** Direction */
+            direction: ("income" | "expense") | null;
+            /**
+             * Note
+             * @description Nội dung giao dịch (đã gọn khoảng trắng)
+             */
+            note: string;
+            /**
+             * Raw
+             * @description Giá trị thô của các cột đã map
+             */
+            raw: {
+                [key: string]: string;
+            };
+            /** Dedup Hash */
+            dedup_hash: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "valid" | "duplicate" | "bad";
+            /** Error */
+            error?: string | null;
+            /**
+             * Duplicate Of Row
+             * @description Dòng trước đó trong cùng file có cùng dedup_hash
+             */
+            duplicate_of_row?: number | null;
+            /**
+             * Duplicate Existing
+             * @description Đã có giao dịch import trước đó với cùng dedup_hash
+             * @default false
+             */
+            duplicate_existing?: boolean;
+            /**
+             * Transfer Hint
+             * @description Có vẻ là chuyển khoản nội bộ / trả nợ thẻ / gửi tiết kiệm (không phải thu chi thật) — UI mặc định bỏ chọn
+             * @default false
+             */
+            transfer_hint?: boolean;
+            /**
+             * Possible Duplicate Transaction Id
+             * @description Giao dịch nhập tay / từ nguồn khác cùng ngày, số tiền, chiều — có thể trùng
+             */
+            possible_duplicate_transaction_id?: string | null;
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings?: string[];
+            /** Suggested Category Id */
+            suggested_category_id?: string | null;
+            /** Suggested Spending Type */
+            suggested_spending_type?: ("essential" | "non_essential" | "irregular") | null;
+            /** Confidence */
+            confidence?: number | null;
+            /** Reason */
+            reason?: string | null;
+            /** Matched Preference Id */
+            matched_preference_id?: string | null;
+            /** Suggestion Source */
+            suggestion_source?: ("preference" | "ai" | "fallback") | null;
+        };
+        /** ImportSummary */
+        ImportSummary: {
+            /** Row Count */
+            row_count: number;
+            /** Valid Count */
+            valid_count: number;
+            /** Duplicate Count */
+            duplicate_count: number;
+            /** Bad Count */
+            bad_count: number;
+            /** Transfer Hint Count */
+            transfer_hint_count: number;
+            /** Possible Duplicate Count */
+            possible_duplicate_count: number;
+            /**
+             * Preference Count
+             * @description Dòng phân loại theo sở thích đã học (không gọi AI)
+             */
+            preference_count: number;
+            /**
+             * Ai Count
+             * @description Dòng phân loại bởi AI
+             */
+            ai_count: number;
+            /**
+             * Fallback Count
+             * @description Dòng chưa phân loại được (tạm Khác, confidence 0)
+             */
+            fallback_count: number;
         };
         /** IncomeBrief */
         IncomeBrief: {
@@ -4889,6 +5365,11 @@ export interface components {
              */
             receipt_id?: string | null;
             /**
+             * Import Batch Id
+             * @description Lô import sao kê đã tạo giao dịch này (Phase 14)
+             */
+            import_batch_id?: string | null;
+            /**
              * Created At
              * Format: date-time
              */
@@ -5045,6 +5526,11 @@ export interface components {
              * @description Ảnh hoá đơn đã tạo giao dịch này (Phase 13)
              */
             receipt_id?: string | null;
+            /**
+             * Import Batch Id
+             * @description Lô import sao kê đã tạo giao dịch này (Phase 14)
+             */
+            import_batch_id?: string | null;
             /**
              * Created At
              * Format: date-time
@@ -5483,6 +5969,9 @@ export interface operations {
                 direction?: ("income" | "expense") | null;
                 /** @description Tìm trong ghi chú */
                 q?: string | null;
+                source?: ("manual" | "nl" | "receipt" | "import" | "recurring") | null;
+                /** @description Giao dịch tạo từ lô import sao kê này (Phase 14) */
+                import_batch_id?: string | null;
             };
             header?: never;
             path?: never;
@@ -5555,6 +6044,9 @@ export interface operations {
                 direction?: ("income" | "expense") | null;
                 /** @description Tìm trong ghi chú */
                 q?: string | null;
+                source?: ("manual" | "nl" | "receipt" | "import" | "recurring") | null;
+                /** @description Giao dịch tạo từ lô import sao kê này (Phase 14) */
+                import_batch_id?: string | null;
             };
             header?: never;
             path?: never;
@@ -8569,6 +9061,243 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_import_api_v1_imports_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_preview_import_api_v1_imports_preview_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportPreviewResponse"];
+                };
+            };
+            /** @description File đã được import (commit) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportConflictResponse"];
+                };
+            };
+            /** @description File lớn hơn 10MB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Không phải .csv / .xlsx */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_mapping_profiles_api_v1_imports_mapping_profiles_get: {
+        parameters: {
+            query?: {
+                bank_name?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportMappingProfileList"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_import_api_v1_imports__batch_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportPreviewResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_mapping_api_v1_imports__batch_id__mapping_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportMappingUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportPreviewResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportConflictResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    commit_import_api_v1_imports__batch_id__commit_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportCommitRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportCommitResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportConflictResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };

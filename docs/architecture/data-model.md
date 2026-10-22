@@ -203,8 +203,12 @@ erDiagram
         uuid id PK
         text filename
         text file_hash UK
+        text bank_name "nullable"
         jsonb column_mapping
+        jsonb source_rows "P14: bảng thô"
+        jsonb rows "P14: dòng preview"
         int row_count
+        int committed_count
         text status "previewed | committed | failed"
     }
     TRANSACTION_EMBEDDING {
@@ -231,8 +235,9 @@ erDiagram
     }
     IMPORT_MAPPING_PROFILE {
         uuid id PK
-        text bank_name
+        text bank_name "UK (bank_name, headers_hash)"
         text headers_hash
+        jsonb headers
         jsonb column_mapping
         text date_format
         text decimal_style
@@ -265,7 +270,7 @@ Tên trong bảng dưới là **tên bảng thực tế** (số nhiều snake_ca
 | 11 | `goals`, `goal_contributions` |
 | 12 | `recurring_transactions`, `transactions.recurring_id`, `app_settings.forecast.*`, `app_settings.recurring.*` |
 | 13 | `receipts` (+ `draft`, `model` so với plan), `transactions.receipt_id` |
-| 14 | `import_batches`, `import_mapping_profiles`, `transactions.import_batch_id`, `transactions.dedup_hash` |
+| 14 | `import_batches` (+ `source_rows`, `rows`, `file_info`… so với plan), `import_mapping_profiles` (+ `headers`), `transactions.import_batch_id`, `transactions.dedup_hash` (unique partial index) |
 | 15 | `CREATE EXTENSION vector`, `transaction_embeddings` |
 | 16 | `knowledge_documents`, `knowledge_chunks` |
 | 17 | `scenarios` (tuỳ chọn — chỉ khi cần lưu kịch bản) |
@@ -351,3 +356,8 @@ Tên trong bảng dưới là **tên bảng thực tế** (số nhiều snake_ca
 - `receipts`: `user_id UUID NULL`, `file_path TEXT NOT NULL` (**tương đối, posix** trong `UPLOAD_DIR`: `receipts/YYYY/MM/{id}.{jpg|png|webp|heic|heif}` — tên file = id receipt; `UPLOAD_DIR` tương đối tính từ thư mục `backend/`), `mime_type` (theo **magic bytes**, không theo content type khai báo), `original_filename` (đã bỏ thư mục, ≤ 255 ký tự), `file_size_bytes INT` CHECK `ck_receipts_file_size_positive` (`> 0`; API giới hạn 10MB = 10.485.760 byte), `sha256 TEXT NOT NULL`, `extracted JSONB` (`ReceiptVisionOutput` = `merchant`, `date`, `total`, `currency`, `items[{name, qty, amount}]`, `confidence`, `unreadable_reason`, `category_slug`, `spending_type`, `classification_reason` + khoá `suggestion` = `ClassificationSuggestion` sau khi áp sở thích phân loại; giữ cả khi `failed` vì chưa đủ tin cậy, NULL khi AI lỗi), **`draft JSONB`** (thêm so với plan — `TransactionDraft` dựng lúc trích xuất, chỉ khi `extracted`; thành `ai_suggestion` khi xác nhận), **`model TEXT`** (thêm so với plan), `status TEXT DEFAULT 'uploaded'` CHECK `ck_receipts_status` (`uploaded | extracted | confirmed | failed`), `error_code`, `error_message`, `transaction_id` FK → `transactions` **`ON DELETE SET NULL`** (xoá giao dịch → receipt vẫn `confirmed`, bỏ liên kết), timestamps (`created_at` đặt từ Python để thứ tự lịch sử đúng). Index `ix_receipts_status_created_at (status, created_at)`, `ix_receipts_sha256` (**không unique** — upload trùng chỉ cảnh báo `duplicate_of`).
 - `transactions.receipt_id UUID NULL` FK → `receipts` **`ON DELETE SET NULL`** + index `ix_transactions_receipt_id`; chỉ đặt bởi `POST /receipts/{id}/confirm` (`source = 'receipt'`, `raw_input = "Hoá đơn {merchant} ({tên file})"`, `ai_suggestion = draft gốc + model + receipt_extraction`). API giao dịch không sửa được cột này. Hai FK vòng (`receipts.transaction_id` ↔ `transactions.receipt_id`): ORM đặt `use_alter` cho `receipts.transaction_id`, migration tạo bảng sau `transactions` nên tạo FK trực tiếp.
 - Trạng thái: upload → `uploaded` (commit, file đã lưu) → trích xuất → `extracted` (có `total` > 0, VND, `confidence` ≥ 0.6, có danh mục chi) hoặc `failed` (`error_code`: mã AI `AI_*`, `unreadable`, `total_missing`, `invalid_total`, `unsupported_currency`, `low_confidence`, `image_unreadable`, `file_missing`, `category_missing`) → `confirmed` khi user xác nhận (kể cả từ `failed` qua form nhập tay). `retry` chỉ cho `uploaded` / `failed`, giữ id + file.
+
+**Phase 14** (migration `20261022_3c9e5d1a7b20_csv_import`):
+- `import_batches`: `user_id UUID NULL`, `filename TEXT NOT NULL` (đã bỏ thư mục, ≤ 255 ký tự), `file_hash TEXT NOT NULL` **UNIQUE** `uq_import_batches_file_hash` (sha256 nội dung file — upload lại file chưa commit dùng lại batch; đã commit → 409 `IMPORT_ALREADY_COMMITTED`), `file_type TEXT` (`csv | xlsx`), `file_size_bytes INT`, `bank_name TEXT NULL` (đã gọn khoảng trắng, ≤ 100), `column_mapping JSONB` (`{date, description, amount | debit / credit}` = **tên cột** trong file), `date_format` (`dd/mm/yyyy | mm/dd/yyyy | yyyy-mm-dd`), `decimal_style` (`dot_thousands | comma_thousands`), `mapping_source` (`guess | profile | user`), `file_info JSONB` (`file_type`, `size_bytes`, `encoding` `utf-8 | utf-8-sig | cp1258`, `separator`, `separator_label`, `sheet_name`, `header_row` (từ 1), `headers` (tên cột duy nhất), `warnings`, `headers_hash`, `profile_id`), **`source_rows JSONB`** (bảng thô mọi ô dạng chuỗi — đổi mapping không cần upload lại; không lưu file lên đĩa), **`rows JSONB`** (dòng preview `ImportPreviewRow` gồm chuẩn hoá + trạng thái + đề xuất phân loại), `row_count`, `valid_count`, `duplicate_count`, `bad_count`, `committed_count INT DEFAULT 0` CHECK `ck_import_batches_counts_non_negative`, `status TEXT DEFAULT 'previewed'` CHECK `ck_import_batches_status` (`previewed | committed | failed` — `failed` chưa có luồng nào đặt), `model`, `ai_error_code`, `committed_at TIMESTAMPTZ`, timestamps. Index `ix_import_batches_created_at`. Giới hạn ở service: ≤ 10MB, ≤ 5.000 dòng.
+- `import_mapping_profiles`: `bank_name TEXT NOT NULL DEFAULT ''` ('' = user không nhập ngân hàng), `headers_hash TEXT` (sha256 tên cột đã bỏ dấu / chữ thường), `headers JSONB` (thêm so với plan), `column_mapping JSONB NOT NULL`, `date_format`, `decimal_style`, `last_used_at`, timestamps; UNIQUE `uq_import_mapping_profiles_bank_name_headers_hash (bank_name, headers_hash)`. Tra cứu không phân biệt hoa thường theo `bank_name`; không nhập ngân hàng → profile dùng gần nhất của bộ cột. Ghi / cập nhật khi commit (`save_mapping_profile`, mặc định true) nếu mapping đủ.
+- `transactions.import_batch_id UUID NULL` FK → `import_batches` **`ON DELETE SET NULL`** + index `ix_transactions_import_batch_id`; `transactions.dedup_hash TEXT NULL` + **unique partial index** `ux_transactions_dedup_hash (dedup_hash) WHERE dedup_hash IS NOT NULL`. `dedup_hash = sha256("{ngày ISO}|{số tiền}|{direction}|{nội dung chữ thường, gọn khoảng trắng, NFC}")`; giao dịch không import có hash NULL. Chỉ đặt bởi `POST /imports/{id}/commit` (`source = 'import'`, `raw_input = "Sao kê {file} · dòng {n}: {nội dung}"`, `ai_suggestion` = đề xuất gốc khi đến từ sở thích / AI). API giao dịch không sửa được 2 cột này; sửa ngày / số tiền sau khi import không đổi hash (hash đại diện dòng sao kê gốc).

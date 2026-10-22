@@ -11,7 +11,7 @@
 | Giải thích Budget advice | 8 | Structured Outputs, input là `evidence` deterministic; validate + template dự phòng | `gpt-4o-mini` (`OPENAI_MODEL_FAST`) | `BudgetAdviceExplanation` (3 tầng) |
 | Financial Coach | 10, 16 | LangGraph ReAct agent + function calling (LangChain tools) | `gpt-4o` | Chat message + tool calls |
 | Đọc hoá đơn | 13 | Vision input + Structured Outputs (kèm đề xuất danh mục trong cùng lời gọi) | `gpt-4o` (`OPENAI_MODEL_SMART`) | `ReceiptVisionOutput` (= `ReceiptExtraction` + phân loại) |
-| Phân loại hàng loạt khi import | 14 | Batch classify (gom 20 dòng / request) | `gpt-4o-mini` | `list[ClassificationSuggestion]` |
+| Phân loại hàng loạt khi import | 14 | Batch classify (gom 20 dòng / request; sở thích exact-match bỏ qua LLM; cùng nội dung gửi 1 lần) | `gpt-4o-mini` (`OPENAI_MODEL_FAST`) | `ImportClassificationOutput` (`items[{row_index, category_slug, spending_type, confidence, reason}]`) |
 | Embedding giao dịch | 15 | `text-embedding-3-small` (1536 dim) | — | vector |
 | RAG kiến thức tài chính | 16 | Chunk + embed + pgvector similarity + trích nguồn | `gpt-4o` | Câu trả lời có citation |
 | Diễn giải What-if | 17 | Structured Outputs trên kết quả mô phỏng | `gpt-4o-mini` | Narrative |
@@ -26,7 +26,7 @@ Tên model đọc từ env (`OPENAI_MODEL_FAST`, `OPENAI_MODEL_SMART`) — khôn
 4. **AI không quyết định thay user:** luôn trả draft/gợi ý, user xác nhận.
 5. Ngôn ngữ: tiếng Việt, xưng "bạn".
 
-Prompt lưu ở `backend/app/ai/prompts/*.md` (có version trong tên hoặc header), không inline dài trong code. Phase 3: `nl_transaction_parse.v3.md` (placeholder `{{today}}`, `{{calendar}}`, `{{categories}}`, `{{preferences}}`, `{{amount_hints}}`… do `nl_transaction_parser.build_messages` điền; v3 = v2 + mục "Sở thích phân loại của người dùng") và `classification_preference_parse.v1.md`. Phase 6: `review_narrative.v1.md` (`{{period_word}}`, `{{period_label}}`, `{{metrics_json}}`, `{{allowed_numbers}}`). Phase 7: `review_narrative_month.v1.md` (cùng placeholder). Phase 8: `budget_advice_explanation.v1.md` (xem § 4b). Phase 10: `coach_v1.md` (system prompt Financial Coach, xem § 5). Phase 11: `coach_v2.md` = v1 + gợi ý gọi `get_goals`, ý nghĩa `months_remaining` / `suggested_monthly_saving` / `overdue`, link [Mục tiêu](/goals) trong giới hạn chỉ đọc (Phase 11 không có prompt / lời gọi AI mới nào khác). Phase 13: `receipt_vision_v1.md` (`{{today}}`, `{{categories}}`; xem § 4c).
+Prompt lưu ở `backend/app/ai/prompts/*.md` (có version trong tên hoặc header), không inline dài trong code. Phase 3: `nl_transaction_parse.v3.md` (placeholder `{{today}}`, `{{calendar}}`, `{{categories}}`, `{{preferences}}`, `{{amount_hints}}`… do `nl_transaction_parser.build_messages` điền; v3 = v2 + mục "Sở thích phân loại của người dùng") và `classification_preference_parse.v1.md`. Phase 6: `review_narrative.v1.md` (`{{period_word}}`, `{{period_label}}`, `{{metrics_json}}`, `{{allowed_numbers}}`). Phase 7: `review_narrative_month.v1.md` (cùng placeholder). Phase 8: `budget_advice_explanation.v1.md` (xem § 4b). Phase 10: `coach_v1.md` (system prompt Financial Coach, xem § 5). Phase 11: `coach_v2.md` = v1 + gợi ý gọi `get_goals`, ý nghĩa `months_remaining` / `suggested_monthly_saving` / `overdue`, link [Mục tiêu](/goals) trong giới hạn chỉ đọc (Phase 11 không có prompt / lời gọi AI mới nào khác). Phase 13: `receipt_vision_v1.md` (`{{today}}`, `{{categories}}`; xem § 4c). Phase 14: `import_classification.v1.md` (`{{categories}}` cả thu / chi, `{{preferences}}`; xem § 4d).
 
 ## 3. Structured output chính (phác thảo)
 
@@ -113,6 +113,16 @@ Một lời gọi Vision + Structured Outputs cho mỗi ảnh (`app/ai/receipt_v
 - Deterministic sau model (`services/receipt_mapping`): draft hoàn chỉnh chỉ khi `total` > 0, tiền VND (chấp nhận "VNĐ", "đ", "₫"), `confidence ≥ 0.6`; draft `direction = expense`, `amount = total`, `occurred_on = ngày hoá đơn hoặc hôm nay`, `note = "{merchant} - hoá đơn"`. Không đủ → `failed` + form nhập tay điền sẵn phần đoán được. Cảnh báo: không đọc được tên / ngày, ngày tương lai / > 1 năm, tổng dòng hàng ≠ tổng thanh toán (VAT, phí, giảm giá), ảnh đã upload trước đó.
 - AI lỗi (`AIUnavailable` — chưa cấu hình, timeout, output sai…) → receipt `failed` với `error_code` = mã AI, upload vẫn 201 (không 503) để user nhập tay / đọc lại.
 - Golden: `tests/ai_golden/test_receipt_vision_golden.py` + 5 ảnh **tổng hợp** trong `tests/ai_golden/receipts/` (siêu thị có giảm giá + tiền thối, nhà hàng có phí phục vụ + VAT, quán cà phê, ảnh nhoè, hoá đơn viết tay; sinh bằng `generate_receipts.py`, expected `*.yaml`). Ngưỡng: tổng đúng ≥ 4/5, tên cửa hàng khớp (bỏ dấu, chứa nhau) ≥ 3/5, ảnh không đọc được không có `total` và phải `failed`.
+
+## 4d. Phân loại hàng loạt khi import sao kê (Phase 14)
+
+`ai/classifier.classify_batch_import(db, items)` — chỉ trả đề xuất, không ghi DB, không raise lỗi AI:
+
+1. Dòng có nội dung exact-match sở thích đã học (Phase 3, `match_preference(note, direction=…)`) → theo sở thích (`confidence 0.95`, `matched_preference_id`), **không** gửi model.
+2. Dòng còn lại gộp theo (nội dung chữ thường, chiều) → mỗi nội dung gửi 1 lần; chia nhóm **20 dòng / request**, `OPENAI_MODEL_FAST`, timeout 45s, song song ≤ 4; tối đa 300 nội dung / lần import (phần dư → `AI_ROW_LIMIT`).
+3. Prompt `import_classification.v1.md`: bảng danh mục **cả thu và chi** (slug / tên / loại / spending_type mặc định), top-5 sở thích liên quan làm few-shot, gợi ý ngữ cảnh sao kê Việt Nam (Grab / Be → đi lại, siêu thị → ăn uống thiết yếu, quán cà phê → không thiết yếu, EVN / Viettel → hoá đơn, lương → `salary`, hoàn tiền → `other_income`, sửa xe → `transport` irregular…), không chắc → `other` / `other_income` với `confidence` ≤ 0.4. User message = JSON `[{row_index, note, amount, direction, occurred_on}]` — `note` đã che token ≥ 5 chữ số (số tài khoản, mã giao dịch, số dư) bằng `#`, ≤ 160 ký tự; không gửi cột số dư / tên file.
+4. Validate (`structured_completion(validate=…)` → sai thì model sửa 1 lần): đủ và đúng tập `row_index`, không lặp; slug tồn tại và cùng loại với `direction`; income ⇒ `spending_type = null`, expense ⇒ bắt buộc. Vẫn sai / AI lỗi / chưa cấu hình → dòng không có đề xuất; `import_service` gán `other` / `other_income` (+ `default_spending_type`), `confidence = 0`, `ai_error_code` của batch + cảnh báo trong preview.
+- Golden: `tests/ai_golden/test_import_classification.py` (fixture giả `vcb_statement.csv`: 22 dòng hợp lệ, 21 nội dung → 2 request; ngưỡng danh mục ≥ 85%, loại chi tiêu ≥ 75%, lương → `salary`; sở thích "grab" → 3 dòng Grab không gửi model, đúng 1 request 18 dòng).
 
 ## 5. LangGraph — Financial Coach graph (Phase 10, 16)
 

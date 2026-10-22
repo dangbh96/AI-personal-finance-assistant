@@ -8,6 +8,7 @@ from app.models.category import Category
 from app.models.chat import ChatMessage, ChatSession
 from app.models.classification import ClassificationFeedback, ClassificationPreference
 from app.models.goal import Goal, GoalContribution
+from app.models.import_batch import ImportBatch, ImportMappingProfile
 from app.models.receipt import Receipt
 from app.models.recurring import RecurringTransaction
 from app.models.review import MonthlyReview, ReflectionAnswer, WeeklyReview
@@ -29,6 +30,8 @@ __all__ = [
     "ClassificationPreference",
     "Goal",
     "GoalContribution",
+    "ImportBatch",
+    "ImportMappingProfile",
     "Receipt",
     "RecurringTransaction",
     "Transaction",

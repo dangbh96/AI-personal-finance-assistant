@@ -2,7 +2,7 @@ import uuid
 from datetime import date
 from typing import Any
 
-from sqlalchemy import BigInteger, CheckConstraint, Date, ForeignKey, Index, Text, Uuid
+from sqlalchemy import BigInteger, CheckConstraint, Date, ForeignKey, Index, Text, Uuid, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -31,6 +31,14 @@ class Transaction(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Index("ix_transactions_category_id_occurred_on", "category_id", "occurred_on"),
         Index("ix_transactions_recurring_id", "recurring_id"),
         Index("ix_transactions_receipt_id", "receipt_id"),
+        Index("ix_transactions_import_batch_id", "import_batch_id"),
+        # Phase 14: một dòng sao kê chỉ được import 1 lần (giao dịch không import có hash NULL).
+        Index(
+            "ux_transactions_dedup_hash",
+            "dedup_hash",
+            unique=True,
+            postgresql_where=text("dedup_hash IS NOT NULL"),
+        ),
     )
 
     user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
@@ -56,5 +64,11 @@ class Transaction(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     receipt_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("receipts.id", ondelete="SET NULL")
     )
+    # Phase 14: giao dịch tạo khi user commit một lô import sao kê (`source = 'import'`).
+    import_batch_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("import_batches.id", ondelete="SET NULL")
+    )
+    # sha256(ngày|số tiền|chiều|nội dung đã chuẩn hoá) của dòng sao kê — chống import trùng.
+    dedup_hash: Mapped[str | None] = mapped_column(Text)
 
     category: Mapped[Category] = relationship(lazy="joined", innerjoin=True)

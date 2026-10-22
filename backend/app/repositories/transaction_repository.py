@@ -18,6 +18,8 @@ class TransactionFilters:
     spending_type: str | None = None
     direction: str | None = None
     q: str | None = None
+    source: str | None = None
+    import_batch_id: uuid.UUID | None = None
 
 
 def _escape_like(value: str) -> str:
@@ -38,6 +40,10 @@ def _conditions(filters: TransactionFilters) -> list[ColumnElement[bool]]:
         conds.append(Transaction.direction == filters.direction)
     if filters.q:
         conds.append(Transaction.note.ilike(f"%{_escape_like(filters.q)}%", escape="\\"))
+    if filters.source is not None:
+        conds.append(Transaction.source == filters.source)
+    if filters.import_batch_id is not None:
+        conds.append(Transaction.import_batch_id == filters.import_batch_id)
     return conds
 
 
@@ -228,6 +234,34 @@ def get_many(db: Session, ids: Collection[uuid.UUID]) -> list[Transaction]:
     if not ids:
         return []
     return list(db.scalars(select(Transaction).where(Transaction.id.in_(ids))))
+
+
+def existing_dedup_hashes(db: Session, hashes: Collection[str]) -> set[str]:
+    """dedup_hash đã có trong DB (dòng sao kê đã import, Phase 14)."""
+    if not hashes:
+        return set()
+    stmt = select(Transaction.dedup_hash).where(Transaction.dedup_hash.in_(list(hashes)))
+    return {h for h in db.scalars(stmt) if h}
+
+
+def non_import_keys_between(
+    db: Session, date_from: date, date_to: date
+) -> dict[tuple[date, int, str], uuid.UUID]:
+    """`{(ngày, số tiền, chiều): id}` của giao dịch không đến từ import (dedup_hash NULL) trong
+    kỳ — để cảnh báo dòng sao kê có thể trùng giao dịch đã nhập tay."""
+    stmt = (
+        select(Transaction.id, Transaction.occurred_on, Transaction.amount, Transaction.direction)
+        .where(
+            Transaction.dedup_hash.is_(None),
+            Transaction.occurred_on >= date_from,
+            Transaction.occurred_on <= date_to,
+        )
+        .order_by(Transaction.created_at)
+    )
+    result: dict[tuple[date, int, str], uuid.UUID] = {}
+    for tx_id, occurred_on, amount, direction in db.execute(stmt):
+        result.setdefault((occurred_on, int(amount), direction), tx_id)
+    return result
 
 
 def add(db: Session, transaction: Transaction) -> Transaction:

@@ -1,5 +1,7 @@
 """Lỗi nghiệp vụ và handler trả về dạng `{"detail": ..., "code": ...}`."""
 
+from typing import Any
+
 from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
@@ -8,6 +10,8 @@ from fastapi.responses import JSONResponse
 
 class DomainError(Exception):
     status_code = 422
+    # Trường bổ sung trong body lỗi (vd `import_batch_id` của lô đã import — Phase 14).
+    extra: dict[str, Any] | None = None
 
     def __init__(self, detail: str, code: str = "invalid") -> None:
         super().__init__(detail)
@@ -33,7 +37,8 @@ def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(DomainError)
     async def _domain_error(_: Request, exc: DomainError) -> JSONResponse:
         return JSONResponse(
-            status_code=exc.status_code, content={"detail": exc.detail, "code": exc.code}
+            status_code=exc.status_code,
+            content={**jsonable_encoder(exc.extra or {}), "detail": exc.detail, "code": exc.code},
         )
 
     @app.exception_handler(RequestValidationError)

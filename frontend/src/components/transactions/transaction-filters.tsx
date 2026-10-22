@@ -12,10 +12,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Category, Direction, SpendingType } from "@/lib/api";
+import type {
+  Category,
+  Direction,
+  SpendingType,
+  TransactionSource,
+} from "@/lib/api";
 import { shiftMonth } from "@/lib/dates";
 import { formatMonthLabel } from "@/lib/format";
-import { DIRECTION_LABELS, SPENDING_TYPE_LABELS } from "@/lib/labels";
+import {
+  DIRECTION_LABELS,
+  SOURCE_LABELS,
+  SPENDING_TYPE_LABELS,
+} from "@/lib/labels";
 
 export type Filters = {
   month: string;
@@ -23,6 +32,9 @@ export type Filters = {
   spendingType: SpendingType | null;
   direction: Direction | null;
   q: string;
+  source: TransactionSource | null;
+  /** Lọc theo lô import sao kê (Phase 14) — khi có thì bỏ lọc theo tháng. */
+  importBatchId: string | null;
 };
 
 const ALL = "__all__";
@@ -43,7 +55,9 @@ function FilterSelect({
     <Select
       items={withAll}
       value={value ?? ALL}
-      onValueChange={(v) => onChange(v === ALL || v === null ? null : String(v))}
+      onValueChange={(v) =>
+        onChange(v === ALL || v === null ? null : String(v))
+      }
     >
       <SelectTrigger aria-label={label} className="min-w-40">
         <SelectValue />
@@ -82,32 +96,47 @@ export function TransactionFilters({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="flex items-center gap-1">
-        <Button
-          variant="outline"
-          size="icon"
-          aria-label="Tháng trước"
-          onClick={() => onChange({ month: shiftMonth(filters.month, -1) })}
-        >
-          <ChevronLeftIcon />
-        </Button>
-        <Input
-          type="month"
-          aria-label="Chọn tháng"
-          title={formatMonthLabel(filters.month)}
-          className="w-40"
-          value={filters.month}
-          onChange={(e) => e.target.value && onChange({ month: e.target.value })}
-        />
-        <Button
-          variant="outline"
-          size="icon"
-          aria-label="Tháng sau"
-          onClick={() => onChange({ month: shiftMonth(filters.month, 1) })}
-        >
-          <ChevronRightIcon />
-        </Button>
-      </div>
+      {filters.importBatchId ? (
+        <div className="flex h-8 items-center gap-2 rounded-lg border px-2.5 text-sm">
+          <span>Lô import sao kê (mọi tháng)</span>
+          <Button
+            variant="ghost"
+            size="xs"
+            onClick={() => onChange({ importBatchId: null })}
+          >
+            Bỏ lọc
+          </Button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-1">
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label="Tháng trước"
+            onClick={() => onChange({ month: shiftMonth(filters.month, -1) })}
+          >
+            <ChevronLeftIcon />
+          </Button>
+          <Input
+            type="month"
+            aria-label="Chọn tháng"
+            title={formatMonthLabel(filters.month)}
+            className="w-40"
+            value={filters.month}
+            onChange={(e) =>
+              e.target.value && onChange({ month: e.target.value })
+            }
+          />
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label="Tháng sau"
+            onClick={() => onChange({ month: shiftMonth(filters.month, 1) })}
+          >
+            <ChevronRightIcon />
+          </Button>
+        </div>
+      )}
 
       <FilterSelect
         label="Thu/Chi"
@@ -135,6 +164,12 @@ export function TransactionFilters({
           onChange={(v) => onChange({ spendingType: v as SpendingType | null })}
         />
       )}
+      <FilterSelect
+        label="Nguồn"
+        value={filters.source}
+        items={SOURCE_LABELS}
+        onChange={(v) => onChange({ source: v as TransactionSource | null })}
+      />
 
       <div className="relative min-w-48 flex-1">
         <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />

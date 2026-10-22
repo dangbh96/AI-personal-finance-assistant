@@ -1,6 +1,6 @@
 "use client";
 
-import { PlusIcon, ReceiptTextIcon } from "lucide-react";
+import { FileSpreadsheetIcon, PlusIcon, ReceiptTextIcon } from "lucide-react";
 import { io } from "next/cache";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -25,21 +25,31 @@ import {
   type PyfProposal,
   type Transaction,
   type TransactionList,
+  type TransactionSource,
   type TransactionSummary,
 } from "@/lib/api";
 import { currentMonth, monthToRange } from "@/lib/dates";
 import { formatMonthLabel } from "@/lib/format";
+import { SOURCE_LABELS } from "@/lib/labels";
 
 const PAGE_SIZE = 20;
 const MONTH_PARAM = /^\d{4}-(0[1-9]|1[0-2])$/;
+const UUID_PARAM = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type FormState = { open: boolean; transaction: Transaction | null };
+
+function sourceParam(value: string | null): TransactionSource | null {
+  return value && value in SOURCE_LABELS ? (value as TransactionSource) : null;
+}
 
 export function TransactionsView() {
   // Tháng mặc định phụ thuộc thời điểm hiện tại → không đưa vào static shell (Cache Components).
   use(io());
-  // `?month=YYYY-MM` (vd link từ hoá đơn vừa lưu) chọn tháng ban đầu.
-  const monthParam = useSearchParams().get("month");
+  // `?month=YYYY-MM` (vd link từ hoá đơn vừa lưu) chọn tháng ban đầu; `?source=import&
+  // import_batch_id=…` (link sau khi import sao kê) lọc theo lô import, bỏ lọc tháng.
+  const params = useSearchParams();
+  const monthParam = params.get("month");
+  const batchParam = params.get("import_batch_id");
   const [filters, setFilters] = useState<Filters>(() => ({
     month:
       monthParam && MONTH_PARAM.test(monthParam) ? monthParam : currentMonth(),
@@ -47,6 +57,8 @@ export function TransactionsView() {
     spendingType: null,
     direction: null,
     q: "",
+    source: sourceParam(params.get("source")),
+    importBatchId: batchParam && UUID_PARAM.test(batchParam) ? batchParam : null,
   }));
   const [searchText, setSearchText] = useState("");
   const [page, setPage] = useState(1);
@@ -64,11 +76,13 @@ export function TransactionsView() {
   }, [searchText]);
 
   const query = {
-    ...monthToRange(filters.month),
+    ...(filters.importBatchId ? {} : monthToRange(filters.month)),
     category_id: filters.categoryId,
     spending_type: filters.spendingType,
     direction: filters.direction,
     q: filters.q,
+    source: filters.source,
+    import_batch_id: filters.importBatchId,
   };
   const categories = useApiData<Category[]>(
     withQuery("/categories", { include_archived: true }),
@@ -102,14 +116,26 @@ export function TransactionsView() {
         <div>
           <h1 className="font-heading text-2xl font-semibold">Giao dịch</h1>
           <p className="text-sm text-muted-foreground">
-            {formatMonthLabel(filters.month)}
+            {filters.importBatchId
+              ? "Giao dịch từ một lô import sao kê"
+              : formatMonthLabel(filters.month)}
             {list.data ? ` · ${list.data.total} giao dịch` : ""}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link href="/import" className={buttonVariants({ variant: "outline" })}>
+          <Link
+            href="/import?tab=receipt"
+            className={buttonVariants({ variant: "outline" })}
+          >
             <ReceiptTextIcon data-icon="inline-start" />
             Nhập từ hoá đơn
+          </Link>
+          <Link
+            href="/import?tab=csv"
+            className={buttonVariants({ variant: "outline" })}
+          >
+            <FileSpreadsheetIcon data-icon="inline-start" />
+            Nhập sao kê
           </Link>
           <Button
             onClick={() => setForm({ open: true, transaction: null })}

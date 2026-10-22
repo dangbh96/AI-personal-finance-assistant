@@ -11,6 +11,7 @@ from app.api.routers import (
     forecast,
     goals,
     health,
+    imports,
     monthly_reviews,
     receipts,
     recurring_transactions,
@@ -34,3 +35,4 @@ api_router.include_router(goals.router)
 api_router.include_router(recurring_transactions.router)
 api_router.include_router(forecast.router)
 api_router.include_router(receipts.router)
+api_router.include_router(imports.router)

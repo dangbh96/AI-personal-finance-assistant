@@ -2,13 +2,14 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
+import { CsvImportPanel } from "@/components/imports/csv-import-panel";
 import { ReceiptImportPanel } from "@/components/receipts/receipt-import-panel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-const TABS = ["receipt"] as const;
+const TABS = ["receipt", "csv"] as const;
 type Tab = (typeof TABS)[number];
 
-/** `/import`: tab "Hoá đơn" (Phase 13); tab sao kê CSV / Excel có từ Phase 14. Tab lưu ở `?tab=`. */
+/** `/import`: tab "Hoá đơn" (Phase 13) và "Sao kê CSV / Excel" (Phase 14). Tab lưu ở `?tab=`. */
 export function ImportPage() {
   const router = useRouter();
   const pathname = usePathname();
@@ -20,7 +21,8 @@ export function ImportPage() {
       <div>
         <h1 className="font-heading text-2xl font-semibold">Nhập dữ liệu</h1>
         <p className="text-sm text-muted-foreground">
-          Tạo giao dịch từ ảnh hoá đơn — AI đọc giúp, bạn kiểm tra rồi mới lưu.
+          Tạo giao dịch từ ảnh hoá đơn hoặc file sao kê ngân hàng — bạn kiểm tra
+          bản xem trước rồi mới lưu.
         </p>
       </div>
       <Tabs
@@ -32,12 +34,13 @@ export function ImportPage() {
       >
         <TabsList>
           <TabsTrigger value="receipt">Hoá đơn</TabsTrigger>
-          <TabsTrigger value="csv" disabled title="Có từ Phase 14">
-            Sao kê CSV / Excel
-          </TabsTrigger>
+          <TabsTrigger value="csv">Sao kê CSV / Excel</TabsTrigger>
         </TabsList>
         <TabsContent value="receipt">
           <ReceiptImportPanel />
+        </TabsContent>
+        <TabsContent value="csv">
+          <CsvImportPanel />
         </TabsContent>
       </Tabs>
     </div>

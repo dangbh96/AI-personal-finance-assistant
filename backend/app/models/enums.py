@@ -25,6 +25,8 @@ CoachGuardStatus = Literal[
 GoalStatus = Literal["active", "achieved", "paused"]
 RecurringFrequency = Literal["weekly", "monthly", "yearly"]
 ReceiptStatus = Literal["uploaded", "extracted", "confirmed", "failed"]
+ImportBatchStatus = Literal["previewed", "committed", "failed"]
+ImportRowStatus = Literal["valid", "duplicate", "bad"]
 
 DIRECTIONS: tuple[str, ...] = get_args(Direction)
 SPENDING_TYPES: tuple[str, ...] = get_args(SpendingType)
@@ -41,6 +43,7 @@ CHAT_ROLES: tuple[str, ...] = get_args(ChatRole)
 GOAL_STATUSES: tuple[str, ...] = get_args(GoalStatus)
 RECURRING_FREQUENCIES: tuple[str, ...] = get_args(RecurringFrequency)
 RECEIPT_STATUSES: tuple[str, ...] = get_args(ReceiptStatus)
+IMPORT_BATCH_STATUSES: tuple[str, ...] = get_args(ImportBatchStatus)
 
 
 def sql_in(values: tuple[str, ...]) -> str:
