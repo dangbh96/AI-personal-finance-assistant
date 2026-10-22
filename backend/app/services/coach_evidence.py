@@ -48,6 +48,16 @@ def _month(d: date) -> str:
     return f"{d:%m/%Y}"
 
 
+MAX_NOTE_LABEL = 60
+
+
+def _quote_note(note: str) -> str:
+    text = " ".join(note.split())
+    if len(text) > MAX_NOTE_LABEL:
+        text = text[: MAX_NOTE_LABEL - 1].rstrip() + "…"
+    return f"“{text}”"
+
+
 def _range(a: date, b: date) -> str:
     if a.year == b.year:
         return f"{a:%d/%m}–{b:%d/%m/%Y}"
@@ -138,7 +148,8 @@ def evidence_rows(tool: str, output: BaseModel) -> list[EvidenceRow]:
         else:
             span = "mọi thời gian"
         for item in output.items:
-            label = item.note or item.category_name
+            # Ghi chú là dữ liệu người dùng nhập: cắt ngắn, đặt trong ngoặc kép khi hiển thị.
+            label = _quote_note(item.note) if item.note else item.category_name
             metric = "Thu" if item.direction == "income" else f"Chi · {item.category_name}"
             add(label, f"{item.occurred_on:%d/%m/%Y}", metric, item.amount)
         if output.items:

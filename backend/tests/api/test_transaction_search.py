@@ -328,7 +328,7 @@ def test_coach_tool_search_transactions(db, dataset):
     assert '"expense_total"' in raw
 
     rows = coach_evidence.evidence_rows("search_transactions", output)
-    assert any(r.amount == 650_000 and r.label == "Nhà hàng Hải Sản Biển Đông" for r in rows)
+    assert any(r.amount == 650_000 and r.label == "“Nhà hàng Hải Sản Biển Đông”" for r in rows)
     assert rows[-1].metric == "Tổng chi" and rows[-1].amount == output.expense_total
     summary, count = coach_evidence.summarize_result(output)
     assert count == len(output.items) and "ăn ngoài" in summary

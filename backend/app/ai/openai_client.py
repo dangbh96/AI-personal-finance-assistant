@@ -19,6 +19,7 @@ from openai import OpenAI
 from openai.lib._pydantic import to_strict_json_schema
 from pydantic import BaseModel, ValidationError
 
+from app.core import ai_usage
 from app.core.config import Settings, get_settings
 from app.core.errors import DomainError
 
@@ -148,6 +149,34 @@ def _strict_schema(schema: type[BaseModel]) -> dict[str, Any]:
     return clean(to_strict_json_schema(schema))
 
 
+def _record(
+    task: str,
+    model: str,
+    kind: str,
+    started: float,
+    input_tokens: int | None = 0,
+    output_tokens: int | None = 0,
+    *,
+    status: str = "ok",
+    error_code: str | None = None,
+    **metadata: Any,
+) -> None:
+    """Ghi 1 dòng `ai_call_logs` (best-effort; không có prompt / nội dung)."""
+    ai_usage.record_call(
+        ai_usage.AICall(
+            task=task,
+            model=model,
+            kind=kind,
+            input_tokens=input_tokens or 0,
+            output_tokens=output_tokens or 0,
+            latency_ms=int((time.perf_counter() - started) * 1000),
+            status=status,
+            error_code=error_code,
+            metadata=metadata,
+        )
+    )
+
+
 def structured_completion[T: BaseModel](
     schema: type[T],
     messages: list[Message],
@@ -178,7 +207,10 @@ def structured_completion[T: BaseModel](
             )
         except openai.OpenAIError as exc:
             logger.warning("ai task=%s model=%s error=%s", task, model, type(exc).__name__)
-            raise _map_openai_error(exc) from exc
+            mapped = _map_openai_error(exc)
+            _record(task, model, "chat", started, status="error", error_code=mapped.code)
+            raise mapped from exc
+        latency_ms = int((time.perf_counter() - started) * 1000)
         logger.info(
             "ai task=%s model=%s attempt=%d prompt_tokens=%s completion_tokens=%s latency_ms=%d",
             task,
@@ -186,10 +218,20 @@ def structured_completion[T: BaseModel](
             attempt + 1,
             result.prompt_tokens,
             result.completion_tokens,
-            (time.perf_counter() - started) * 1000,
+            latency_ms,
         )
 
         if result.refusal or not result.content:
+            _record(
+                task,
+                model,
+                "chat",
+                started,
+                result.prompt_tokens,
+                result.completion_tokens,
+                status="error",
+                error_code="AI_INVALID_OUTPUT",
+            )
             raise AIUnavailable(
                 "AI_INVALID_OUTPUT", "AI không xử lý được yêu cầu này.", status_code=502
             )
@@ -197,8 +239,28 @@ def structured_completion[T: BaseModel](
             output = schema.model_validate_json(result.content)
             if validate:
                 validate(output)
+            _record(
+                task,
+                model,
+                "chat",
+                started,
+                result.prompt_tokens,
+                result.completion_tokens,
+                attempt=attempt + 1,
+            )
             return output, model
         except (ValidationError, OutputValidationError) as exc:
+            _record(
+                task,
+                model,
+                "chat",
+                started,
+                result.prompt_tokens,
+                result.completion_tokens,
+                status="error",
+                error_code="AI_INVALID_OUTPUT",
+                attempt=attempt + 1,
+            )
             logger.warning(
                 "ai task=%s model=%s attempt=%d invalid_output=%s",
                 task,
@@ -298,7 +360,9 @@ def chat_with_tools(
         )
     except openai.OpenAIError as exc:
         logger.warning("ai task=%s model=%s error=%s", task, model, type(exc).__name__)
-        raise _map_openai_error(exc) from exc
+        mapped = _map_openai_error(exc)
+        _record(task, model, "tools", started, status="error", error_code=mapped.code)
+        raise mapped from exc
     latency_ms = int((time.perf_counter() - started) * 1000)
     logger.info(
         "ai task=%s model=%s tool_calls=%d prompt_tokens=%s completion_tokens=%s latency_ms=%d",
@@ -309,7 +373,19 @@ def chat_with_tools(
         result.completion_tokens,
         latency_ms,
     )
-    if not result.tool_calls and not (result.content and result.content.strip()):
+    empty = not result.tool_calls and not (result.content and result.content.strip())
+    _record(
+        task,
+        model,
+        "tools",
+        started,
+        result.prompt_tokens,
+        result.completion_tokens,
+        status="error" if empty else "ok",
+        error_code="AI_INVALID_OUTPUT" if empty else None,
+        tool_calls=len(result.tool_calls),
+    )
+    if empty:
         raise AIUnavailable(
             "AI_INVALID_OUTPUT", "AI không trả lời được câu hỏi này.", status_code=502
         )
@@ -361,15 +437,28 @@ def create_embeddings(
     started = time.perf_counter()
     for start in range(0, len(inputs), MAX_EMBEDDING_BATCH):
         batch = inputs[start : start + MAX_EMBEDDING_BATCH]
+        batch_started = time.perf_counter()
         try:
             result = _embed_raw(model=model, inputs=batch, timeout=timeout)
         except openai.OpenAIError as exc:
             logger.warning("ai task=%s model=%s error=%s", task, model, type(exc).__name__)
-            raise _map_openai_error(exc) from exc
+            mapped = _map_openai_error(exc)
+            _record(task, model, "embedding", batch_started, status="error", error_code=mapped.code)
+            raise mapped from exc
         if len(result.vectors) != len(batch):
+            _record(
+                task,
+                model,
+                "embedding",
+                batch_started,
+                result.prompt_tokens,
+                status="error",
+                error_code="AI_INVALID_OUTPUT",
+            )
             raise AIUnavailable(
                 "AI_INVALID_OUTPUT", "Dịch vụ embedding trả thiếu kết quả.", status_code=502
             )
+        _record(task, model, "embedding", batch_started, result.prompt_tokens, inputs=len(batch))
         vectors.extend(result.vectors)
         tokens += result.prompt_tokens or 0
     latency_ms = int((time.perf_counter() - started) * 1000)

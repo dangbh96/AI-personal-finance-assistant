@@ -6,6 +6,8 @@ Tài liệu là **nguồn sự thật** của dự án. Code phải khớp tài 
 
 | Bạn muốn… | Đọc |
 |---|---|
+| Hiểu toàn bộ dự án từ con số 0 (bảo vệ dự án) | [PROJECT-GUIDE.md](./PROJECT-GUIDE.md) |
+| Chạy demo / smoke test | [demo-script.md](./demo-script.md) |
 | Biết dự án đang ở đâu | [PROGRESS.md](./PROGRESS.md) |
 | Hiểu sản phẩm làm gì | [product/vision.md](./product/vision.md) |
 | Biết tên gọi chuẩn trong code | [product/glossary.md](./product/glossary.md) |
@@ -33,6 +35,8 @@ Nếu một session kết thúc giữa chừng: ghi trạng thái dở dang vào
 docs/
 ├── README.md                     ← bạn đang ở đây
 ├── PROGRESS.md                   ← trạng thái + change log
+├── PROJECT-GUIDE.md              ← giải thích toàn bộ dự án cho người mới (Phase 18)
+├── demo-script.md                ← kịch bản demo + smoke checklist (Phase 18)
 ├── product/
 │   ├── vision.md                 ← tầm nhìn, nguyên tắc, phạm vi
 │   ├── glossary.md               ← thuật ngữ VN ↔ EN ↔ code

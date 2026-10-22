@@ -1,6 +1,6 @@
 # Data Model (ERD)
 
-Đây là mô hình dữ liệu **đích** tới Phase 17. Mỗi phase chỉ tạo bảng/cột của mình qua Alembic migration — không tạo trước.
+Đây là mô hình dữ liệu **đích** tới Phase 18. Mỗi phase chỉ tạo bảng/cột của mình qua Alembic migration — không tạo trước.
 Nếu thiết kế thực tế thay đổi khi triển khai, **cập nhật file này** trong cùng commit.
 
 Quy ước chung:
@@ -254,6 +254,18 @@ erDiagram
         jsonb params "SimulationOptions"
         jsonb result "SimulationResult lúc lưu"
     }
+    AI_CALL_LOG {
+        uuid id PK
+        text task
+        text kind "chat | tools | embedding"
+        text model
+        int input_tokens
+        int output_tokens
+        bigint cost_estimate_vnd "nullable, ước tính"
+        int latency_ms
+        text status "ok | error"
+        jsonb metadata "không chứa nội dung"
+    }
 ```
 
 ## Bảng theo phase
@@ -279,6 +291,7 @@ Tên trong bảng dưới là **tên bảng thực tế** (số nhiều snake_ca
 | 15 | `CREATE EXTENSION vector`, `transaction_embeddings` (+ `embedded_at`, HNSW cosine) |
 | 16 | `knowledge_documents` (+ `source_type`, unique `source`), `knowledge_chunks` (HNSW cosine), `chat_messages.citations` |
 | 17 | `scenarios` (đã làm — lưu tên + tham số + kết quả mô phỏng) |
+| 18 | `ai_call_logs` (nhật ký token / chi phí ước tính / latency của lời gọi OpenAI — không lưu nội dung) |
 
 ## Ràng buộc quan trọng
 
@@ -381,3 +394,7 @@ Tên trong bảng dưới là **tên bảng thực tế** (số nhiều snake_ca
 **Phase 17** (migration `20261022_36ad973fa6c3_whatif_simulator`):
 - `scenarios` (tuỳ chọn trong plan — **có làm** để lưu kịch bản): `user_id UUID NULL`, `name TEXT` (≤ 100 ký tự ở API), `params JSONB` (`SimulationOptions`: `params[]` (union theo `type`: `reduce_category {category_id, percent}`, `change_income {delta_amount}`, `add_recurring_expense {name, amount, category_id}`, `change_goal_deadline {goal_id, new_deadline}`), `baseline_months`, `include_irregular`), `result JSONB` (`SimulationResult` tại lúc lưu), timestamps (`created_at` đặt từ Python để thứ tự đúng); index `ix_scenarios_created_at`. Không có FK tới danh mục / mục tiêu (kịch bản là ảnh chụp, xoá danh mục / mục tiêu không làm hỏng bản lưu).
 - Simulator **không ghi** `transactions`, `budgets`, `goals`, `goal_contributions` (test kiểm tra số dòng không đổi).
+
+**Phase 18** (migration `20261022_8477f3443c12_hardening_ai_call_logs`):
+- `ai_call_logs` (bảng vận hành, không phải nghiệp vụ): `user_id UUID NULL`, `task TEXT` (vd. `coach`, `embed_query`, `receipt_vision`), `kind TEXT` (`chat` | `tools` | `embedding`), `model TEXT`, `input_tokens INT`, `output_tokens INT`, `cost_estimate_vnd BIGINT NULL` (ước tính theo bảng giá niêm yết × 26.000 đ/USD; model không có giá → NULL, báo cáo tính 0), `latency_ms INT`, `status TEXT` (CHECK `ok | error`), `error_code TEXT NULL`, `metadata JSONB` (vd. `tool_calls`, `inputs`), `created_at`; index `ix_ai_call_logs_created_at`, `ix_ai_call_logs_task_created_at`. **Không** lưu prompt / nội dung / API key. Ghi best-effort qua session riêng (lỗi ghi log không làm hỏng lời gọi AI).
+- Plan gợi ý `cost_estimate Decimal` → thực tế lưu **số nguyên đồng** theo ADR-007.

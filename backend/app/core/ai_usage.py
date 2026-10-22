@@ -1,12 +1,18 @@
-"""Token / chi phí / latency của các lời gọi AI (Phase 10).
+"""Token / chi phí / latency của các lời gọi AI (Phase 10) + nhật ký từng lời gọi (Phase 18).
 
 Chi phí chỉ là **ước tính** để theo dõi (giá niêm yết USD / 1 triệu token × tỉ giá cố định), không
-phải số liệu tài chính của user. Model không có trong bảng giá → `None`.
+phải số liệu tài chính của user. Model không có trong bảng giá → `None`. `record_call` ghi mỗi lời
+gọi vào `ai_call_logs` (dashboard `/admin/ai-usage`) — không lưu prompt / nội dung / API key.
 """
 
 import logging
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from decimal import ROUND_HALF_UP, Decimal
+from typing import Any
+
+from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
@@ -78,3 +84,98 @@ def log_usage(task: str, usage: UsageTotals, latency_ms: int, **extra: object) -
         latency_ms,
         details,
     )
+
+
+# ---------- nhật ký từng lời gọi (Phase 18) ----------
+
+
+@dataclass(frozen=True)
+class AICall:
+    """Một lời gọi OpenAI — không có prompt / nội dung / API key."""
+
+    task: str
+    model: str
+    kind: str = "chat"  # chat | tools | embedding
+    input_tokens: int = 0
+    output_tokens: int = 0
+    latency_ms: int = 0
+    status: str = "ok"  # ok | error
+    error_code: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def cost_estimate_vnd(self) -> int | None:
+        if self.kind == "embedding":
+            return estimate_embedding_cost_vnd(self.model, self.input_tokens)
+        return estimate_cost_vnd(self.model, self.input_tokens, self.output_tokens)
+
+
+Sink = Callable[[AICall], None]
+
+# USD / 1 triệu token đầu vào của model embedding.
+EMBEDDING_PRICES_USD_PER_1M: dict[str, Decimal] = {
+    "text-embedding-3-small": Decimal("0.02"),
+    "text-embedding-3-large": Decimal("0.13"),
+}
+
+
+def estimate_embedding_cost_vnd(model: str, input_tokens: int) -> int | None:
+    price = EMBEDDING_PRICES_USD_PER_1M.get(model)
+    if price is None:
+        return None
+    usd = input_tokens * price / Decimal(1_000_000)
+    return int((usd * USD_TO_VND).quantize(Decimal(1), rounding=ROUND_HALF_UP))
+
+
+def db_sink(session_factory: Callable[[], Session]) -> Sink:
+    """Ghi vào bảng `ai_call_logs` bằng session riêng (không dính transaction của request, nên vẫn
+    ghi khi request lỗi / rollback). Lỗi ghi chỉ log, không làm hỏng lời gọi AI."""
+
+    def write(call: AICall) -> None:
+        from app.models import AICallLog
+
+        try:
+            with session_factory() as session:
+                session.add(
+                    AICallLog(
+                        task=call.task,
+                        kind=call.kind,
+                        model=call.model,
+                        input_tokens=call.input_tokens,
+                        output_tokens=call.output_tokens,
+                        cost_estimate_vnd=call.cost_estimate_vnd,
+                        latency_ms=call.latency_ms,
+                        status=call.status,
+                        error_code=call.error_code,
+                        meta=call.metadata,
+                        created_at=datetime.now(UTC),
+                    )
+                )
+                session.commit()
+        except Exception as exc:  # noqa: BLE001 — nhật ký best-effort
+            logger.warning("ai_call_log write failed: %s", type(exc).__name__)
+
+    return write
+
+
+def _default_sink(call: AICall) -> None:
+    from app.core.db import SessionLocal
+
+    db_sink(SessionLocal)(call)
+
+
+_sink: Sink = _default_sink
+
+
+def set_sink(sink: Sink) -> Sink:
+    """Đổi nơi ghi (test dùng list trong bộ nhớ); trả sink cũ."""
+    global _sink
+    previous, _sink = _sink, sink
+    return previous
+
+
+def record_call(call: AICall) -> None:
+    try:
+        _sink(call)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("ai_call_log sink failed: %s", type(exc).__name__)

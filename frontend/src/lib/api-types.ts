@@ -11,7 +11,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Health */
+        /**
+         * Health
+         * @description Backend sống + DB kết nối được + pgvector đã bật + đã cấu hình OpenAI (không gọi AI).
+         */
         get: operations["health_api_v1_health_get"];
         put?: never;
         post?: never;
@@ -1555,10 +1558,115 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/ai-usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ai Usage
+         * @description Token / chi phí ước tính / latency / lỗi của các lời gọi OpenAI (mặc định 30 ngày gần
+         *     nhất), nhóm theo model / tác vụ / loại lời gọi. App local một người dùng (ADR-004) nên không
+         *     có xác thực.
+         */
+        get: operations["ai_usage_api_v1_admin_ai_usage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/smoke-data": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Smoke Data
+         * @description (Dev) Dữ liệu đã đủ để chạy demo end-to-end chưa — danh mục, giao dịch, ngân sách, mục
+         *     tiêu, khoản định kỳ, embedding, kiến thức, khoá AI.
+         */
+        get: operations["smoke_data_api_v1_admin_smoke_data_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AIUsageReport */
+        AIUsageReport: {
+            /**
+             * From Date
+             * Format: date
+             */
+            from_date: string;
+            /**
+             * To Date
+             * Format: date
+             */
+            to_date: string;
+            /**
+             * Group By
+             * @enum {string}
+             */
+            group_by: "model" | "task" | "kind";
+            totals: components["schemas"]["AIUsageTotals"];
+            /**
+             * Rows
+             * @description Chi phí cao nhất trước
+             */
+            rows: components["schemas"]["AIUsageRow"][];
+            /** Note */
+            note: string;
+        };
+        /** AIUsageRow */
+        AIUsageRow: {
+            /**
+             * Key
+             * @description Giá trị nhóm (tên model / tác vụ / loại lời gọi)
+             */
+            key: string;
+            /** Calls */
+            calls: number;
+            /** Input Tokens */
+            input_tokens: number;
+            /** Output Tokens */
+            output_tokens: number;
+            /**
+             * Cost Estimate Vnd
+             * @description Chi phí ước tính (đồng) — model không có giá = 0
+             */
+            cost_estimate_vnd: number;
+            /** Latency Ms Avg */
+            latency_ms_avg: number;
+            /** Error Count */
+            error_count: number;
+        };
+        /** AIUsageTotals */
+        AIUsageTotals: {
+            /** Calls */
+            calls: number;
+            /** Input Tokens */
+            input_tokens: number;
+            /** Output Tokens */
+            output_tokens: number;
+            /** Cost Estimate Vnd */
+            cost_estimate_vnd: number;
+            /** Error Count */
+            error_count: number;
+        };
         /** AddRecurringExpenseParam */
         AddRecurringExpenseParam: {
             /**
@@ -3717,6 +3825,13 @@ export interface components {
              * @enum {string}
              */
             db: "ok" | "error";
+            /**
+             * Vector
+             * @description Extension pgvector đã bật (Phase 15–16 cần)
+             * @default error
+             * @enum {string}
+             */
+            vector?: "ok" | "missing" | "error";
             /** Ai Configured */
             ai_configured: boolean;
             /** Version */
@@ -5942,6 +6057,35 @@ export interface components {
             narrative_source?: ("ai" | "template") | null;
             /** Narrative Model */
             narrative_model?: string | null;
+        };
+        /** SmokeCheckResult */
+        SmokeCheckResult: {
+            /** Ok */
+            ok: boolean;
+            /** Area */
+            area: string;
+            /** Message */
+            message: string;
+            /**
+             * Required
+             * @description false = khuyến nghị (demo vẫn chạy được)
+             */
+            required: boolean;
+        };
+        /** SmokeReport */
+        SmokeReport: {
+            /**
+             * Ok
+             * @description Mọi kiểm tra bắt buộc đều đạt
+             */
+            ok: boolean;
+            /**
+             * Missing
+             * @description Khu vực chưa đạt
+             */
+            missing: string[];
+            /** Checks */
+            checks: components["schemas"]["SmokeCheckResult"][];
         };
         /** SpendingTypeAmounts */
         SpendingTypeAmounts: {
@@ -10550,6 +10694,73 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ai_usage_api_v1_admin_ai_usage_get: {
+        parameters: {
+            query?: {
+                from?: string | null;
+                to?: string | null;
+                group_by?: "model" | "task" | "kind";
+                /** @description Hôm nay (mặc định của server) — demo / test */
+                today?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIUsageReport"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    smoke_data_api_v1_admin_smoke_data_get: {
+        parameters: {
+            query?: {
+                /** @description Hôm nay (mặc định của server) — demo / test */
+                today?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SmokeReport"];
                 };
             };
             /** @description Validation Error */

@@ -12,15 +12,16 @@ def create_app() -> FastAPI:
     setup_logging(settings.log_level)
 
     app = FastAPI(title="AI Personal Finance Assistant", version=APP_VERSION)
+    # Thứ tự: handler / middleware bắt lỗi 500 đăng ký trước → nằm trong CORS (header CORS vẫn có).
+    register_error_handlers(app)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_credentials=True,
-        allow_methods=["*"],
+        allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["*"],
     )
     app.include_router(api_router)
-    register_error_handlers(app)
     return app
 
 

@@ -21,13 +21,27 @@ router = APIRouter(tags=["health"])
     responses={503: {"model": HealthResponse, "description": "Database không kết nối được"}},
 )
 def health(db: DbSession) -> HealthResponse | JSONResponse:
+    """Backend sống + DB kết nối được + pgvector đã bật + đã cấu hình OpenAI (không gọi AI)."""
     ai_configured = openai_client.is_configured()
     try:
         db.execute(text("SELECT 1"))
+        has_vector = db.scalar(
+            text("SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector')")
+        )
     except SQLAlchemyError as exc:
         logger.warning("Health check: database unavailable (%s)", exc.__class__.__name__)
         body = HealthResponse(
-            status="degraded", db="error", ai_configured=ai_configured, version=APP_VERSION
+            status="degraded",
+            db="error",
+            vector="error",
+            ai_configured=ai_configured,
+            version=APP_VERSION,
         )
         return JSONResponse(status_code=503, content=body.model_dump())
-    return HealthResponse(status="ok", db="ok", ai_configured=ai_configured, version=APP_VERSION)
+    return HealthResponse(
+        status="ok",
+        db="ok",
+        vector="ok" if has_vector else "missing",
+        ai_configured=ai_configured,
+        version=APP_VERSION,
+    )

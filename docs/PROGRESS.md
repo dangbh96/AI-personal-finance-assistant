@@ -5,7 +5,9 @@
 
 ## Phase hiện tại
 
-**Tiếp theo: [Phase 18 — Hardening & wrap-up](./phases/phase-18-hardening.md)** · **M6 (Full AI curriculum) đã đạt** sau Phase 16 · M5 (AI Agent) sau Phase 10 · M4 (MVP) sau Phase 7
+**Tất cả phase đã xong — M7 (Hoàn thiện) đã đạt** sau Phase 18 · M6 (Full AI curriculum) sau Phase 16 · M5 (AI Agent) sau Phase 10 · M4 (MVP) sau Phase 7. Người mới đọc [PROJECT-GUIDE.md](./PROJECT-GUIDE.md) trước; demo theo [demo-script.md](./demo-script.md).
+
+Handoff Phase 18: xem [phase-18-hardening.md § 9](./phases/phase-18-hardening.md#9-handoff-notes). Coverage `app.services` 95,4 % (`pytest-cov`, gate 85 %). Lỗi `{"detail","code"}` cả 404/405/500 (middleware 500 nằm trong CORS). Bảng `ai_call_logs` + `core/ai_usage` (ghi mọi lời gọi OpenAI, không nội dung) → `GET /admin/ai-usage`, tab "Chi phí AI" ở `/settings`; `GET /admin/smoke-data`; health thêm `vector`. Ghi chú người dùng trong evidence Coach được trích dẫn “…” ≤ 60 ký tự. `app/error.tsx`. Dockerfile backend / frontend + compose đủ 3 service (port đổi qua `BACKEND_PORT` / `FRONTEND_PORT`); CI `.github/workflows/ci.yml`. ADR-004: giữ single-user local. Postgres vẫn ở **port 5433**.
 
 Handoff Phase 17: xem [phase-17-whatif-simulator.md § 9](./phases/phase-17-whatif-simulator.md#9-handoff-notes). Bảng `scenarios` (tên + `params` + `result` JSONB). `services/simulator_service` (mức nền chỉ đọc: TB N tháng trọn gần nhất, bỏ `irregular` mặc định; hàm thuần `apply_params`, `compute_goal_completion` (30 ngày / tháng, làm tròn lên), `goal_impacts` theo priority, `compute_budget_variance`), `services/simulator_narrative` + `ai/simulator_writer` (`OPENAI_MODEL_FAST`, lỗi → bản mẫu). API `POST /simulator/run`, `GET/POST /simulator/scenarios`, `DELETE /simulator/scenarios/{id}`; tool Coach `simulate`, prompt `coach_v5.md`. UI `/simulator`. Phase 18: các lời gọi AI đều log `ai task=… model=… tokens` (gom vào `ai_call_logs`), guard từ khoá cấm dùng chung `coach_guard.BANNED_PHRASES`. Postgres vẫn ở **port 5433**.
 
@@ -32,7 +34,7 @@ Handoff Phase 17: xem [phase-17-whatif-simulator.md § 9](./phases/phase-17-what
 | 15 | [Semantic search](./phases/phase-15-semantic-search.md) | Done | 2026-10-22 | 2026-10-22 | | 1095 test; golden search precision@10 0,90 / 1,00, coach 8/8, `pytest -m ai` 26/26; query "Chi tiêu {q}" |
 | 16 | [RAG knowledge base](./phases/phase-16-rag-knowledge.md) | Done | 2026-10-22 | 2026-10-22 | M6 ✅ | 1130 test; retrieval hit@3 12/12, golden RAG coach 5/5, `pytest -m ai` 32/32; KB 6 bài / 12 đoạn |
 | 17 | [What-if simulator](./phases/phase-17-whatif-simulator.md) | Done | 2026-10-22 | 2026-10-22 | | 1166 test; số chính xác +300.000 / 150 → 141 ngày; golden narrative + coach 3/3, `pytest -m ai` 35/35 |
-| 18 | [Hardening & wrap-up](./phases/phase-18-hardening.md) | Not started | | | M7 | |
+| 18 | [Hardening & wrap-up](./phases/phase-18-hardening.md) | Done | 2026-10-22 | 2026-10-22 | M7 ✅ | 1190 test, coverage services 95,4 %; `pytest -m ai` 36/36 (+ golden prompt injection); Docker full stack healthy; CI workflow |
 
 ## Milestones
 
@@ -107,6 +109,7 @@ Handoff Phase 17: xem [phase-17-whatif-simulator.md § 9](./phases/phase-17-what
 | 2026-10-22 | 16 | Token ước lượng = ký tự / 3 (chưa `tiktoken`); overlap chỉ khi cắt giữa mục; `knowledge_documents.source` unique + ingest nhận đổi tên / prune; thêm `chat_messages.citations`, `GET /knowledge/documents`, `GET /knowledge/chunks/{id}`, reindex trả số liệu chi tiết | CI offline; tránh lặp nội dung giữa mục ngắn; ingest lại an toàn; UI cần lưu nguồn + mở toàn văn đoạn |
 | 2026-10-22 | 16 | Coach giữ câu trả lời văn bản (không dùng schema `CoachAnswerWithCitations`); citations do backend dựng từ mục **Nguồn:** và guard kiểm tra (nguồn phải thuộc kết quả tra cứu; câu hỏi "phù hợp với tao" phải có tool số liệu); `get_spending_summary` thêm `income_share_pct` / `net_income_pct`; prompt `coach_v4` | Giữ luồng function calling Phase 10; chống bịa nguồn deterministic; model không phải tự tính % thu nhập (guard cấm số tự tính) |
 | 2026-10-22 | 17 | Mức nền = TB N tháng trọn gần nhất (mặc định 3), mặc định bỏ khoản `irregular`; nhiều mục tiêu → tiết kiệm dồn theo priority; đổi hạn mục tiêu chỉ đổi "cần / tháng" + "kịp hạn"; response thêm `applied[]`, `category_changes`, `warnings`, thu / chi trước – sau; schema `SimulationCategoryChange`; bảng `scenarios` (tuỳ chọn) có làm; tool Coach `simulate` nhận slug + 3 loại thay đổi; prompt `coach_v5` | Plan chưa định nghĩa baseline / nhiều mục tiêu; khoản một lần làm sai mức tiết kiệm hằng tháng; UI cần giải thích đóng góp từng thay đổi; trùng tên schema review; model không biết UUID |
+| 2026-10-22 | 18 | File giả mạo → 415 `unsupported_file_type` (không phải 400 `INVALID_FILE_TYPE`); `AIUsageRow` theo `key` + `group_by` (thêm `kind`), chi phí số nguyên đồng; smoke-data có `checks[]` + `required`; không có global toast (lỗi tại chỗ + error boundary); không bật auth (ADR-004 follow-up); compose cho đổi port | Giữ mã lỗi đã dùng từ Phase 13–14; ADR-007; báo cáo linh hoạt hơn; auth nửa vời rủi ro hơn; chạy song song dev server |
 
 ## Câu hỏi mở xuyên suốt
 

@@ -1,6 +1,7 @@
 from app.core.db import Base
 
 # Import mọi module ORM ở đây để Alembic autogenerate thấy metadata.
+from app.models.ai_call_log import AICallLog
 from app.models.app_setting import AppSetting
 from app.models.budget import Budget, BudgetAllocation
 from app.models.budget_advice import BudgetAdvice
@@ -21,6 +22,7 @@ __all__ = [
     "MonthlyReview",
     "ReflectionAnswer",
     "WeeklyReview",
+    "AICallLog",
     "AppSetting",
     "Base",
     "Budget",

@@ -8,6 +8,7 @@ from sqlalchemy import Connection, Engine, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.ai import openai_client
+from app.core import ai_usage
 from app.core.config import BACKEND_DIR, get_settings
 from app.core.db import get_db
 from app.main import app
@@ -20,6 +21,15 @@ def _offline_embeddings(request, monkeypatch):
     Test `@pytest.mark.ai` dùng API thật."""
     if request.node.get_closest_marker("ai") is None:
         monkeypatch.setattr(openai_client, "_embed_raw", fake_embed_raw)
+
+
+@pytest.fixture(autouse=True)
+def ai_calls():
+    """Nhật ký lời gọi AI (Phase 18) ghi vào list trong bộ nhớ thay vì DB dev."""
+    calls: list[ai_usage.AICall] = []
+    previous = ai_usage.set_sink(calls.append)
+    yield calls
+    ai_usage.set_sink(previous)
 
 
 @pytest.fixture(scope="session")

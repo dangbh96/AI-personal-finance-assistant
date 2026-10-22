@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.routers import (
+    admin,
     budget_advice,
     budget_allocations,
     budgets,
@@ -42,3 +43,4 @@ api_router.include_router(imports.router)
 api_router.include_router(search.router)
 api_router.include_router(knowledge.router)
 api_router.include_router(simulator.router)
+api_router.include_router(admin.router)

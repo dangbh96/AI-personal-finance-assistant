@@ -49,4 +49,16 @@ flowchart LR
 ## Chế độ chạy local
 
 - **Dev (khuyến nghị):** `docker compose up -d db` + chạy `uvicorn` và `npm run dev` trực tiếp trên máy để hot-reload.
-- **Full compose (tuỳ chọn, Phase 18):** cả 3 container trong `docker compose up`.
+- **Full compose (Phase 18):** `docker compose up -d --build` chạy cả 3 container:
+
+| Service | Image / build | Port host | Ghi chú |
+|---|---|---|---|
+| `db` (`pfa-db`) | `pgvector/pgvector:pg16` | `5433` | volume `pfa_db_data`; script `docker/db/init` tạo `pfa_test` lần đầu |
+| `backend` (`pfa-backend`) | `backend/Dockerfile` (python:3.13-slim, user không phải root) | `${BACKEND_PORT:-8000}` | lúc khởi động chạy `alembic upgrade head` rồi `uvicorn`; `DATABASE_URL` trỏ `db:5432`; đọc thêm `backend/.env` nếu có (không bắt buộc); volume `pfa_uploads` → `/app/uploads`; healthcheck `GET /api/v1/health` |
+| `frontend` (`pfa-frontend`) | `frontend/Dockerfile` (node:22-alpine, multi-stage, `next start`) | `${FRONTEND_PORT:-3000}` | build arg `NEXT_PUBLIC_API_BASE_URL=http://localhost:${BACKEND_PORT}/api/v1` (trình duyệt gọi thẳng backend nên **không** dùng tên service nội bộ); chờ backend healthy |
+
+> Đổi port khi máy đã chạy dev server: `BACKEND_PORT=8001 FRONTEND_PORT=3001 docker compose up -d --build` (CORS backend tự theo `FRONTEND_PORT`). Khi xong: `docker compose rm -sf backend frontend` (giữ `db`).
+
+## CI (Phase 18)
+
+`.github/workflows/ci.yml`: job **backend** (service `pgvector/pgvector:pg16`, tạo `pfa_test`, `ruff check` + `ruff format --check`, `pytest --cov=app.services --cov-fail-under=85` — không cần `OPENAI_API_KEY`, test `ai` bị loại mặc định) và job **frontend** (`npm ci`, `lint`, `typecheck`, `build`).

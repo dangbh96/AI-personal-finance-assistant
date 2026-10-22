@@ -19,7 +19,7 @@ flowchart LR
     imp["/import<br/>CSV / Excel / hoá đơn"]
     search["/search"]
     sim["/simulator"]
-    settings["/settings<br/>categories, preference"]
+    settings["/settings<br/>categories, preference, AI usage"]
 
     home --> tx
     home --> budget
@@ -41,7 +41,7 @@ flowchart LR
 |---|---|---|
 | `/` | 0 → mở rộng dần | Health status (P0), Quick add NL (P2: `QuickAddBox` → `TransactionDraftReview`; P3: badge "Theo sở thích đã học", thông báo "Đã học cách phân loại này"), P5: `HomeDashboard` = `QuickAddBox` + `HomeMonthSummary` (tải lại sau khi lưu giao dịch): `MonthSummaryCards` thu/chi/thu − chi tháng hiện tại (+ so với ngân sách) và `TopOverCard` (dòng vượt nhiều nhất + giao dịch gây vượt) từ `GET /dashboard/month-summary`; tháng chưa có budget → `BudgetEmptyState` (CTA tạo / copy tháng trước), budget nháp → nhắc kích hoạt. P6: `PendingWeeklyReviewBanner` trên cùng — chỉ Thứ Hai, gọi `GET /reviews/weekly/pending`, link tới review tuần trước (không tự tạo review); `?today=YYYY-MM-DD` để thử. P11: thu nhập lưu từ quick add có `pyf_proposal` → `PyfAllocationDialog` (nhiều thu nhập → lần lượt) |
 | `/transactions` | 1, 11, 13, 14 | `TransactionTable`, `TransactionForm`, filter tháng/category/type (P14: + nguồn, lô import). P11: tạo thu nhập có `pyf_proposal` → mở `PyfAllocationDialog` |
-| `/settings` | 1, 3 | Tab "Danh mục" (`CategoryManager`) và "Sở thích phân loại" (`PreferenceManager`: dạy AI bằng câu → draft → xác nhận, bảng preference đã học + xoá); tab lưu ở `?tab=categories\|preferences` |
+| `/settings` | 1, 3, 18 | Tab "Danh mục" (`CategoryManager`), "Sở thích phân loại" (`PreferenceManager`: dạy AI bằng câu → draft → xác nhận, bảng preference đã học + xoá) và (P18) "Chi phí AI" (`AIUsagePanel`: tổng lời gọi / token / chi phí ước tính / lỗi + bảng theo model / tác vụ / loại lời gọi từ `GET /admin/ai-usage`); tab lưu ở `?tab=categories\|preferences\|ai-usage` |
 | `/budget/new` | 4 | `BudgetWizard` (`?month=YYYY-MM`): tháng + thu nhập + chọn strategy (PYF: savings trước) hoặc "Copy tháng trước" → `AllocationPreviewTable` sửa từng dòng (tổng/cảnh báo/so sánh 50/30/20 do `POST /budgets/preview` tính, hook `useBudgetPreview`) → "Lưu nháp" / "Lưu & kích hoạt" |
 | `/budget` | 4, 5, 9 | Chọn tháng (`?month=`); tháng chưa có budget → `BudgetEmptyState` (CTA tạo / copy tháng trước). Có budget → tabs (`?tab=track\|plan`, mặc định `plan` nếu nháp): **Theo dõi** (P5: `BudgetTracking` = `MonthSummaryCards` + `MonthProgressCard` + `BudgetVsActualTable` — planned/actual/còn lại-vượt/% đã dùng + vạch % tháng/nhịp/top contributor, badge `on_track` xanh · `ahead_of_pace` vàng · `over_budget` đỏ · `not_tracked` xám (savings); bấm dòng → `AllocationDrillDown` giao dịch của dòng; `?today=YYYY-MM-DD` đổi ngày tính pro-rata) và **Kế hoạch** (P4: `BudgetEditor` sửa planned, kích hoạt/đóng/xoá nháp). P9: tab Theo dõi tải thêm `GET /budgets/{id}/zones` → cột **Vùng** = `ZoneTooltip` (`ZoneBadge` 🟢 "Trong vùng thoải mái" · 🟡 "Đã vượt vùng thoải mái" · 🔴 "Vượt ngưỡng cảnh báo" · xám "Chưa tính vùng"; tooltip: chế độ Auto/Thủ công, ngưỡng, cách tính auto — số tháng/trung bình/độ lệch hoặc % dự phòng, ngưỡng cũ, mức pro-rata tới hôm nay) + nút `ZoneSettingsDialog` (Auto / Thủ công; thủ công nhập 3 ngưỡng, kiểm `thấp ≤ cao ≤ cảnh báo` trên client rồi `PATCH /budget-allocations/{id}/zone`; ngân sách đã đóng → khoá); `EarlyWarningLine` dưới tên dòng ("Đã dùng 80% ngân sách khi mới qua 48,4% tháng", từ backend); dòng auto chưa tính / ngưỡng cũ → khung nhắc + nút "Tính vùng tự động" (`POST /budgets/{id}/zones/recalculate`). Frontend không tự tính ngưỡng / zone |
 | `/reviews/weekly` | 6 | `WeeklyReviewIndex`: lối tắt tuần trước / tuần này + danh sách review đã tạo (trạng thái, "Bản tự động"); link sang review tháng |
@@ -67,3 +67,5 @@ flowchart LR
 - `src/components/transactions/transaction-fields.tsx`: `TransactionFields` + `validateTransactionValues` — bộ ô nhập giao dịch dùng chung cho dialog tạo/sửa (P1) và card draft AI (P2); truyền `className` để đổi layout (vd. lưới 2 cột).
 - UI tiếng Việt; tên biến/component tiếng Anh theo [glossary](../product/glossary.md).
 - Mọi kết quả AI hiển thị dưới dạng **draft có thể sửa** + nút xác nhận.
+- Lỗi (Phase 18): lỗi API hiển thị tại chỗ bằng `describeError(err)` (đọc `{"detail","code"}` của backend, gồm `internal_error` 500); lỗi render bất ngờ được `src/app/error.tsx` (error boundary toàn cục, nút "Thử lại") bắt để không trắng trang.
+- Docker (Phase 18): `frontend/Dockerfile` build production (`npm run build` → `next start`); `NEXT_PUBLIC_API_BASE_URL` truyền qua **build arg** vì Next đóng băng biến `NEXT_PUBLIC_*` vào bundle lúc build.

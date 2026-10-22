@@ -11,6 +11,7 @@ def test_health_ok_when_db_up(client):
     body = resp.json()
     assert body["status"] == "ok"
     assert body["db"] == "ok"
+    assert body["vector"] == "ok"
     assert body["version"] == "0.0.1"
     assert isinstance(body["ai_configured"], bool)
 
@@ -22,6 +23,7 @@ def test_health_503_when_db_down(client_db_down):
     body = resp.json()
     assert body["status"] == "degraded"
     assert body["db"] == "error"
+    assert body["vector"] == "error"
 
 
 @pytest.mark.parametrize(("key", "expected"), [("", False), ("sk-test", True)])

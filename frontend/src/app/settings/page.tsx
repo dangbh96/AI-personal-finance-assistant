@@ -11,7 +11,7 @@ export default function SettingsPage() {
       <div>
         <h1 className="font-heading text-2xl font-semibold">Cài đặt</h1>
         <p className="text-sm text-muted-foreground">
-          Quản lý danh mục và cách AI phân loại chi tiêu theo ý bạn.
+          Quản lý danh mục, cách AI phân loại chi tiêu và chi phí AI.
         </p>
       </div>
       <Suspense

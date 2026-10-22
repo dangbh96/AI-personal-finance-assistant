@@ -19,10 +19,11 @@ flowchart TB
         r_search["search"]
         r_kb["knowledge"]
         r_sim["simulator"]
+        r_admin["admin (P18: ai-usage, smoke-data)<br/>health"]
     end
 
     subgraph ai ["ai/"]
-        client["openai_client<br/>(retry, timeout, logging)"]
+        client["openai_client<br/>(retry, timeout, logging,<br/>P18: ghi ai_call_logs qua core/ai_usage)"]
         nlp["nl_transaction_parser"]
         cls["classifier<br/>+ preference memory<br/>(P14: classify_batch_import,<br/>20 dòng / request)"]
         pref["preference_parser"]
@@ -58,6 +59,7 @@ flowchart TB
         s_search["embedding_service (nội dung embed, khoảng tiền,<br/>best-effort, backfill)<br/>search_service (hybrid vector + ILIKE, điểm, tổng tiền)"]
         s_kb["knowledge_chunking (đọc md / pdf, chia đoạn, citation)<br/>knowledge_service (ingest idempotent, search, tool search_knowledge)"]
         s_sim["simulator_service<br/>(mức nền chỉ đọc, apply_params,<br/>ngày đạt mục tiêu, budget variance,<br/>kịch bản đã lưu, tool simulate)<br/>simulator_narrative (validate, mẫu)"]
+        s_admin["admin_service<br/>(P18: báo cáo token / chi phí AI,<br/>smoke-check dữ liệu demo)"]
     end
 
     repos["repositories/"]
@@ -110,13 +112,14 @@ Hệ quả: toàn bộ `services/` test được **không cần OpenAI key**. Te
 - Semantic search (Phase 15): router `search` → `search_service.search_transactions(db, q, embedder, …)` — `embedder` = `ai/embeddings.embed_queries` (router / `coach_graph` truyền vào, `services` không import `ai`). `ai/embeddings` bọc `openai_client.create_embeddings` (`OPENAI_EMBEDDING_MODEL`, chia lô 100, timeout 15s, retry SDK, log task / số input / token / latency; seam test `openai_client._embed_raw`). Service: embed `"Chi tiêu {q}"` → `embedding_repository.vector_candidates` (top `limit × 5`, cosine `<=>`, HNSW, lọc ngày) ∪ `keyword_candidates` (ghi chú / tên danh mục ILIKE cả cụm + từ ≥ 3 ký tự, escape `%` `_`) → điểm `0.75 × (1 − distance) + 0.25 × keyword_boost` (1 = ghi chú chứa cụm, 0.5 = tên danh mục chứa cụm, còn lại 0.5 × tỉ lệ từ khoá có trong ghi chú; so khớp bỏ dấu) → bỏ dòng chỉ khớp ngữ nghĩa < 0.3 → tổng thu / chi bằng Python. Embed khi ghi: `api/embedding_hook.index_transactions / index_import_batch` (gọi **sau** khi dựng response) → `embedding_service.embed_transactions_best_effort` (không bao giờ raise; rollback + log). `embedding_service.backfill` dùng chung cho script `backfill_embeddings` và `POST /search/transactions/reindex`. Tool Coach `search_transactions` (`finance_tools.search_transactions_tool` → `search_service.search_for_coach`, dùng `CoachToolContext.embedder`).
 - RAG knowledge base (Phase 16): router `knowledge` (`GET /knowledge/search`, `GET /knowledge/documents`, `GET /knowledge/chunks/{id}`, `POST /knowledge/reindex`) → `knowledge_service` (phụ thuộc `knowledge_repository`, `knowledge_chunking`, `embedding_service.Embedder / current_model`; nhận `embedder` = `ai/embeddings.embed_knowledge` (ingest) / `embed_queries` (tìm)). `knowledge_chunking` là hàm thuần (đọc markdown / PDF bằng `pypdf`, chia đoạn, citation). `POST /knowledge/reindex` chỉ nhận đường dẫn **trong `backend/`** (`resolve_ingest_path`, 422 `invalid_path` — chống path traversal). Tool Coach `search_knowledge` → `knowledge_service.search_for_coach`; `coach_graph.response_guard` gọi thêm `coach_guard.check_tool_usage` + `check_citations`; `coach_evidence.select_citations` → `CoachAnswer.citations` → `coach_service` lưu `chat_messages.citations`.
 - What-if simulator (Phase 17): router `simulator` (`POST /simulator/run?today=`, `GET/POST /simulator/scenarios`, `DELETE /simulator/scenarios/{id}`) → `simulator_service` (phụ thuộc `transaction_repository`, `goal_repository`, `budget_repository`, `category_repository`, `scenario_repository`, `budget_service.allocation_scope / allocation_label / load_jar_categories`, `goal_service.months_remaining / suggested_monthly_saving`). `build_snapshot` chỉ đọc; `simulate` / `apply_params` / `compute_goal_completion` / `goal_impacts` / `compute_budget_variance` là hàm thuần. `with_narrative` → router gọi `ai/simulator_writer.write_narrative` (AI lỗi → bản mẫu). Chỉ `POST /simulator/scenarios` ghi (bảng `scenarios`); run **không ghi** gì. Tool Coach `simulate` → `simulator_service.simulate_for_coach`.
+- Hardening (Phase 18): router `admin` (`GET /admin/ai-usage?from&to&group_by=model|task|kind`, `GET /admin/smoke-data`) → `admin_service` (phụ thuộc `ai_call_log_repository` + các repository đếm dữ liệu demo; chỉ đọc). Ghi log lời gọi AI: `ai/openai_client` gọi `core/ai_usage.record_call(AICall)` sau mỗi `structured_completion` / `chat_with_tools` / `create_embeddings` (kể cả lỗi) → sink mặc định `db_sink` mở session riêng ghi `ai_call_logs` (lỗi ghi log **không bao giờ** làm hỏng lời gọi AI; test thay sink bằng list trong bộ nhớ). Health thêm kiểm tra extension `vector`. `coach_evidence` hiển thị ghi chú người dùng dạng trích dẫn “…” cắt ≤ 60 ký tự (fallback không “nói lại” prompt injection như lời của trợ lý).
 
 ## API conventions
 
 - Prefix `/api/v1`. JSON, `snake_case`.
 - Tiền trả về dạng số nguyên (đồng). Frontend format.
 - Ngày dạng ISO `YYYY-MM-DD`.
-- Lỗi: `{"detail": "...", "code": "..."}` (`app/core/errors.py`: `DomainError` → 422, `NotFoundError` → 404, `ConflictError` → 409 — vd. tháng đã có budget). Lỗi validate request giữ `detail` dạng danh sách của FastAPI, `code = "validation_error"`.
+- Lỗi: `{"detail": "...", "code": "..."}` (`app/core/errors.py`: `DomainError` → 422, `NotFoundError` → 404, `ConflictError` → 409 — vd. tháng đã có budget). Lỗi validate request giữ `detail` dạng danh sách của FastAPI, `code = "validation_error"`. Phase 18: route/method không tồn tại cũng theo format này (`404 not_found`, `405 method_not_allowed`…); exception không lường trước → middleware trả `500 {"detail": "Có lỗi không mong muốn…", "code": "internal_error"}` (log stacktrace, không lộ chi tiết) — middleware nằm **trong** CORS nên trình duyệt vẫn đọc được lỗi.
 - PATCH: chỉ field được gửi mới cập nhật; field không cho sửa / không tồn tại → 422 (`extra="forbid"`).
 - Danh sách có phân trang trả `{items, total, page, page_size}`.
 - Endpoint AI trả **draft**, không ghi DB; ghi DB qua endpoint CRUD thường sau khi user xác nhận.

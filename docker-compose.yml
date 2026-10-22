@@ -18,5 +18,42 @@ services:
       timeout: 3s
       retries: 10
 
+  # Phase 18: chạy cả stack bằng `docker compose up -d --build`.
+  # Dev hằng ngày vẫn có thể chỉ chạy `docker compose up -d db` + backend/frontend trên máy.
+  backend:
+    build: ./backend
+    container_name: pfa-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    # OPENAI_API_KEY… lấy từ backend/.env nếu có; thiếu file thì app vẫn chạy, AI báo "chưa cấu hình".
+    env_file:
+      - path: ./backend/.env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+psycopg://pfa:pfa@db:5432/pfa
+      CORS_ORIGINS: http://localhost:${FRONTEND_PORT:-3000}
+      UPLOAD_DIR: /app/uploads
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - pfa_uploads:/app/uploads
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Trình duyệt gọi API trực tiếp → phải là địa chỉ nhìn thấy từ máy người dùng.
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:${BACKEND_PORT:-8000}/api/v1
+    container_name: pfa-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+
 volumes:
   pfa_db_data:
+  pfa_uploads:

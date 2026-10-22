@@ -34,7 +34,7 @@ flowchart LR
     FE -->|"REST /api/v1 (JSON)"| API["FastAPI Backend"]
     subgraph BE ["Backend"]
         API --> SVC["Services (deterministic)"]
-        API --> AI["AI layer (parsers, classifier, vision)"]
+        API --> AI["AI layer (parsers, classifier, vision, embeddings, writers)"]
         API --> AG["Agents (LangGraph: Review, Coach)"]
         AG -->|"tools"| SVC
         AI --> SVC
@@ -44,6 +44,11 @@ flowchart LR
     AI --> OAI["OpenAI API"]
     AG --> OAI
 ```
+
+Vận hành (Phase 18): mọi lời gọi OpenAI đi qua `ai/openai_client.py` và được ghi vào `ai_call_logs`
+(token, chi phí ước tính, latency, trạng thái — không lưu nội dung) → xem ở `/settings?tab=ai-usage`.
+Lỗi API luôn có dạng `{"detail", "code"}` (kể cả 404/405/500). Cả stack chạy được bằng
+`docker compose up -d --build`; CI GitHub Actions chạy ruff + pytest (không AI) + frontend lint/typecheck/build.
 
 ## Cấu trúc repo đích
 
@@ -61,16 +66,19 @@ AI-personal-finance-assistant/
 │   │   ├── agents/          # LangGraph graphs + tools
 │   │   └── api/routers/     # FastAPI routers
 │   ├── alembic/
+│   ├── knowledge/           # bài viết kiến thức tài chính cho RAG (Phase 16)
 │   ├── tests/
 │   │   ├── unit/
 │   │   ├── api/
 │   │   └── ai_golden/       # golden test set cho tính năng AI (chạy có API key)
+│   ├── Dockerfile
 │   └── pyproject.toml
 ├── frontend/
 │   ├── src/app/             # Next.js App Router pages
 │   ├── src/components/
-│   └── src/lib/api.ts       # API client typed
+│   ├── src/lib/api.ts       # API client typed
+│   └── Dockerfile
 ├── docs/
-├── docker-compose.yml
-└── .env.example
+├── .github/workflows/ci.yml
+└── docker-compose.yml       # db + backend + frontend
 ```
