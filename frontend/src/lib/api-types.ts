@@ -646,7 +646,7 @@ export interface paths {
         put?: never;
         /**
          * Add Reflection
-         * @description Lưu câu trả lời phản tư + giao dịch "không đáng tiền" (phải là khoản chi trong tuần);
+         * @description Lưu câu trả lời nhìn lại + giao dịch "không đáng tiền" (phải là khoản chi trong tuần);
          *     review chuyển `completed`.
          */
         post: operations["add_reflection_api_v1_reviews_weekly__review_id__reflections_post"];
@@ -734,7 +734,7 @@ export interface paths {
         put?: never;
         /**
          * Add Monthly Reflection
-         * @description Lưu câu trả lời phản tư tháng + giao dịch muốn nhìn lại (phải là khoản chi trong tháng);
+         * @description Lưu câu trả lời nhìn lại tháng + giao dịch muốn nhìn lại (phải là khoản chi trong tháng);
          *     review chuyển `completed`.
          */
         post: operations["add_monthly_reflection_api_v1_reviews_monthly__review_id__reflections_post"];
@@ -5817,7 +5817,7 @@ export interface components {
             action: string | null;
             /**
              * Reflection Question
-             * @description Một câu hỏi phản tư cho user
+             * @description Một câu hỏi để user nhìn lại
              */
             reflection_question: string;
             /**
@@ -6622,7 +6622,7 @@ export interface components {
         };
         /**
          * WeeklyReflectionDigest
-         * @description Một câu trả lời phản tư của review tuần thuộc tháng (tuần có Thứ Hai trong tháng).
+         * @description Một câu trả lời nhìn lại của review tuần thuộc tháng (tuần có Thứ Hai trong tháng).
          */
         WeeklyReflectionDigest: {
             /**

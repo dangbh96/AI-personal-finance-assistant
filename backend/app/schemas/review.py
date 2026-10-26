@@ -165,7 +165,7 @@ class FlaggedTransaction(BaseModel):
 
 
 class WeeklyReflectionDigest(BaseModel):
-    """Một câu trả lời phản tư của review tuần thuộc tháng (tuần có Thứ Hai trong tháng)."""
+    """Một câu trả lời nhìn lại của review tuần thuộc tháng (tuần có Thứ Hai trong tháng)."""
 
     reflection_id: uuid.UUID
     weekly_review_id: uuid.UUID
@@ -219,7 +219,7 @@ class ReviewNarrativeOutput(BaseModel):
         min_length=1, max_length=3, description="What to notice — 1 đến 3 ý ngắn"
     )
     action: str | None = Field(description="Gợi ý có điều kiện ('nếu bạn muốn…'), không ra lệnh")
-    reflection_question: str = Field(description="Một câu hỏi phản tư cho user")
+    reflection_question: str = Field(description="Một câu hỏi để user nhìn lại")
     tone: NarrativeTone
 
 

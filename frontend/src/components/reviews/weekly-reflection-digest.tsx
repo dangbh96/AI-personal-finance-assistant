@@ -11,13 +11,13 @@ import type { MonthlyReviewMetrics } from "@/lib/api";
 import { formatWeekRange } from "@/lib/dates";
 import { formatVND } from "@/lib/format";
 
-/** Tóm tắt phản tư của các review tuần trong tháng (tuần có Thứ Hai thuộc tháng). */
+/** Tóm tắt chia sẻ trong các review tuần của tháng (tuần có Thứ Hai thuộc tháng). */
 export function WeeklyReflectionDigest({ metrics }: { metrics: MonthlyReviewMetrics }) {
   const digest = metrics.weekly_reflections;
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Phản tư các tuần</CardTitle>
+        <CardTitle>Nhìn lại các tuần</CardTitle>
         <CardDescription>
           {metrics.flagged_count > 0
             ? `Bạn đã đánh dấu ${metrics.flagged_count} khoản chưa đáng tiền, tổng ${formatVND(metrics.flagged_total)}.`
@@ -27,7 +27,7 @@ export function WeeklyReflectionDigest({ metrics }: { metrics: MonthlyReviewMetr
       <CardContent>
         {digest.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Chưa có phản tư tuần nào trong tháng.{" "}
+            Chưa có chia sẻ nào trong tháng.{" "}
             <Link href="/reviews/weekly" className="underline underline-offset-3">
               Mở review tuần
             </Link>

@@ -73,6 +73,6 @@ def get_weekly_review(db: DbSession, week_start: date):
     responses=ERRORS,
 )
 def add_reflection(db: DbSession, review_id: uuid.UUID, data: ReflectionCreate):
-    """Lưu câu trả lời phản tư + giao dịch "không đáng tiền" (phải là khoản chi trong tuần);
+    """Lưu câu trả lời nhìn lại + giao dịch "không đáng tiền" (phải là khoản chi trong tuần);
     review chuyển `completed`."""
     return review_service.add_weekly_reflection(db, review_id, data)

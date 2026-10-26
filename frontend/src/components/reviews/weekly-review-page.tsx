@@ -75,7 +75,7 @@ function WeekNav({ week, today }: { week: string; today: string }) {
   );
 }
 
-/** `/reviews/weekly/[week]`: tạo on-demand, đọc narrative + số liệu, trả lời phản tư. */
+/** `/reviews/weekly/[week]`: tạo on-demand, đọc narrative + số liệu, chia sẻ khi nhìn lại. */
 export function WeeklyReviewPage({ week }: { week: string }) {
   use(io());
   const today = useReviewToday();
@@ -133,12 +133,12 @@ export function WeeklyReviewPage({ week }: { week: string }) {
             Review tuần {formatWeekRange(week)}
             {data && (
               <Badge variant={data.status === "completed" ? "secondary" : "outline"}>
-                {data.status === "completed" ? "Đã phản tư" : "Chờ phản tư"}
+                {data.status === "completed" ? "Đã nhìn lại" : "Chưa nhìn lại"}
               </Badge>
             )}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Chuyện gì đã xảy ra → Vì sao → Điều đáng chú ý → Phản tư.{" "}
+            Chuyện gì đã xảy ra → Vì sao → Điều đáng chú ý → Nhìn lại.{" "}
             <Link href="/reviews/weekly" className="underline underline-offset-3">
               Tất cả review
             </Link>
@@ -230,7 +230,7 @@ export function WeeklyReviewPage({ week }: { week: string }) {
             <AlertDialogTitle>Tạo lại review tuần này?</AlertDialogTitle>
             <AlertDialogDescription>
               Số liệu và phần nhận xét sẽ được tính lại theo giao dịch hiện tại; review quay về
-              trạng thái “Chờ phản tư”. Các câu trả lời phản tư đã lưu vẫn được giữ.
+              trạng thái “Chưa nhìn lại”. Các chia sẻ đã lưu vẫn được giữ.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

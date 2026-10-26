@@ -60,7 +60,7 @@ Mọi code, API, DB, prompt và tài liệu **phải** dùng đúng tên trong c
 |---|---|---|
 | Review tuần | Weekly review | `WeeklyReview`, tuần bắt đầu Thứ Hai (`week_start`) |
 | Review tháng | Monthly review | `MonthlyReview` (`month`) |
-| Câu hỏi suy ngẫm | Reflection | `ReflectionAnswer` |
+| Nhìn lại / Chia sẻ | Reflection | `ReflectionAnswer` | UI dùng “Nhìn lại” cho thao tác, “Chia sẻ” cho câu trả lời |
 | Quan sát / Giải thích / Hành động | Observation / Explanation / Action | `observation`, `explanation`, `action` (3 tầng AI) |
 | Tư vấn điều chỉnh ngân sách | Budget advice | `BudgetAdvice`, `verdict` |
 | Kết luận tư vấn | Verdict | `adjust_budget`, `adjust_behavior`, `one_off`, `on_track` |

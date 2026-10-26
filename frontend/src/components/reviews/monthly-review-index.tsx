@@ -67,7 +67,7 @@ export function MonthlyReviewIndex() {
                   <span className="flex items-center gap-2">
                     {formatMonthLabel(r.month.slice(0, 7))}
                     <Badge variant={r.status === "completed" ? "secondary" : "outline"}>
-                      {r.status === "completed" ? "Đã phản tư" : "Chờ phản tư"}
+                      {r.status === "completed" ? "Đã nhìn lại" : "Chưa nhìn lại"}
                     </Badge>
                     {r.narrative.fallback_used && <Badge variant="outline">Bản tự động</Badge>}
                   </span>

@@ -12,7 +12,7 @@ Core loop: **Income → Pay Yourself First → Budget → Track → Classify →
 |---|---|---|
 | Ghi chép | CRUD giao dịch, nhập bằng câu tự nhiên ("ăn phở 45k"), học sở thích phân loại | `/`, `/transactions`, `/settings` |
 | Ngân sách | Envelope (theo danh mục), 50/30/20, Pay Yourself First; Budget vs Actual, vùng linh hoạt 🟢🟡🔴 | `/budget`, `/budget/new` |
-| Review | Review tuần / tháng (số liệu deterministic + AI diễn giải), phản tư, tư vấn điều chỉnh ngân sách | `/reviews/*`, `/budget/advice` |
+| Review | Review tuần / tháng (số liệu deterministic + AI diễn giải), nhìn lại chi tiêu, tư vấn điều chỉnh ngân sách | `/reviews/*`, `/budget/advice` |
 | Mục tiêu & dòng tiền | Mục tiêu tiết kiệm, phân bổ PYF, khoản định kỳ, lịch + dự báo số dư | `/goals`, `/calendar` |
 | Nhập liệu nhanh | Đọc hoá đơn bằng AI vision, import sao kê CSV/XLSX (mapping, dedup, phân loại hàng loạt) | `/import` |
 | AI nâng cao | Financial Coach (LangGraph + tool), semantic search, RAG kiến thức có trích nguồn, mô phỏng What-if | `/coach`, `/search`, `/simulator` |

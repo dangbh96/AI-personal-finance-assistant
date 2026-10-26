@@ -34,7 +34,7 @@ class WeeklyReview(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 class MonthlyReview(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """Review 1 tháng (`month` = ngày 1). Cùng cấu trúc với `WeeklyReview`; `metrics` có thêm
-    tiết kiệm, tỉ lệ theo spending_type, khoản bất thường, budget vs actual, phản tư các tuần."""
+    tiết kiệm, tỉ lệ theo spending_type, khoản bất thường, budget vs actual, nhìn lại các tuần."""
 
     __tablename__ = "monthly_reviews"
     __table_args__ = (
@@ -54,7 +54,7 @@ class MonthlyReview(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 
 class ReflectionAnswer(UUIDPrimaryKeyMixin, TimestampMixin, Base):
-    """Câu trả lời phản tư của user cho một review (weekly — Phase 6, monthly — Phase 7).
+    """Câu trả lời nhìn lại của user cho một review (weekly — Phase 6, monthly — Phase 7).
 
     `review_id` trỏ tới `weekly_reviews` hoặc `monthly_reviews` tuỳ `review_kind` nên không có FK.
     """

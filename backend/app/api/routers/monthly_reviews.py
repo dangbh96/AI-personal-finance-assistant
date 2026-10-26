@@ -79,6 +79,6 @@ def get_monthly_review(db: DbSession, month: date):
     responses=ERRORS,
 )
 def add_monthly_reflection(db: DbSession, review_id: uuid.UUID, data: ReflectionCreate):
-    """Lưu câu trả lời phản tư tháng + giao dịch muốn nhìn lại (phải là khoản chi trong tháng);
+    """Lưu câu trả lời nhìn lại tháng + giao dịch muốn nhìn lại (phải là khoản chi trong tháng);
     review chuyển `completed`."""
     return review_service.add_monthly_reflection(db, review_id, data)

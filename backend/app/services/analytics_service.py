@@ -9,7 +9,7 @@
 - Top contributor: dòng đang vượt mà giao dịch lớn nhất chiếm ≥ `TOP_CONTRIBUTOR_MIN_SHARE`
   (60%) phần vượt.
 - Review (Phase 6, 7): đọc giao dịch kỳ này / kỳ trước cho `review_metrics`; kỳ tháng gom thêm
-  budget vs actual (`summarize_budget`) và phản tư các review tuần trong tháng.
+  budget vs actual (`summarize_budget`) và nhìn lại các review tuần trong tháng.
 - Vùng linh hoạt (Phase 9): mỗi dòng (trừ savings) kèm `zone` từ `zone_service` (ngưỡng đã lưu +
   pro-rata); `get_budget_zones` thêm cách tính ngưỡng auto.
 """
@@ -493,7 +493,7 @@ MAX_BUDGET_OVER_LINES = 3
 @dataclass(frozen=True)
 class ReviewData:
     """Metrics của kỳ + giao dịch kỳ này (để `detect_highlights` tìm cụm / khoản lớn).
-    Kỳ `month` có thêm budget vs actual và phản tư của các review tuần trong tháng."""
+    Kỳ `month` có thêm budget vs actual và nhìn lại của các review tuần trong tháng."""
 
     metrics: PeriodMetrics
     transactions: list[TxRow]

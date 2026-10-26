@@ -67,7 +67,7 @@ export function WeeklyReviewIndex() {
                   <span className="flex items-center gap-2">
                     Tuần {formatWeekRange(r.week_start)}
                     <Badge variant={r.status === "completed" ? "secondary" : "outline"}>
-                      {r.status === "completed" ? "Đã phản tư" : "Chờ phản tư"}
+                      {r.status === "completed" ? "Đã nhìn lại" : "Chưa nhìn lại"}
                     </Badge>
                     {r.narrative.fallback_used && (
                       <Badge variant="outline">Bản tự động</Badge>

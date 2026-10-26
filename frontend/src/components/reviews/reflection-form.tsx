@@ -45,7 +45,7 @@ const COPY: Record<
   },
 };
 
-/** Câu hỏi phản tư + tick khoản chi trong kỳ; lưu xong review thành `completed`. */
+/** Câu hỏi gợi ý nhìn lại và chọn khoản chi trong kỳ; lưu xong review thành `completed`. */
 export function ReflectionForm({
   kind,
   reviewId,
@@ -108,7 +108,7 @@ export function ReflectionForm({
       );
       setAnswer("");
       setSelected(new Set());
-      setSavedMessage("Đã ghi nhận phản tư của bạn.");
+      setSavedMessage("Đã lưu chia sẻ của bạn.");
       onSaved(saved);
     } catch (err) {
       setError(describeError(err));
@@ -122,7 +122,7 @@ export function ReflectionForm({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Phản tư</CardTitle>
+        <CardTitle>Nhìn lại</CardTitle>
         <CardDescription>{question}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -150,7 +150,7 @@ export function ReflectionForm({
         )}
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
-            <Label htmlFor={`reflection-answer-${kind}`}>Câu trả lời của bạn</Label>
+            <Label htmlFor={`reflection-answer-${kind}`}>Chia sẻ của bạn</Label>
             <textarea
               id={`reflection-answer-${kind}`}
               value={answer}
@@ -198,7 +198,7 @@ export function ReflectionForm({
           )}
           <div>
             <Button type="submit" disabled={saving || empty}>
-              {saving ? "Đang lưu…" : "Lưu phản tư"}
+              {saving ? "Đang lưu…" : "Lưu chia sẻ"}
             </Button>
           </div>
         </form>

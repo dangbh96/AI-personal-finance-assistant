@@ -7,7 +7,7 @@
   top 3 khoản chi lớn nhất.
 - Riêng tháng (Phase 7, `compute_monthly_metrics`): tiết kiệm + tỉ lệ tiết kiệm, tỉ trọng
   spending_type (% 1 chữ số), chi thường xuyên vs bất thường, nguyên nhân tăng
-  (`increase_driver`), khoản bất thường lớn nhất, budget vs actual, phản tư các tuần.
+  (`increase_driver`), khoản bất thường lớn nhất, budget vs actual, nhìn lại các tuần.
 """
 
 import re

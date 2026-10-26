@@ -25,7 +25,7 @@ Trạng thái code giả định khi bắt đầu phase: Phase 5 đã có transa
 
 ## 2. Mục tiêu & giá trị cho user
 
-User có một trang review tuần theo format **What happened / Why / What to notice / Reflection**. App tự tổng hợp số liệu tuần, chỉ ra điểm đáng chú ý như "Ăn uống tăng 18%" hoặc "4 lần ăn tối, tổng 620.000", rồi hỏi user phản tư khoản nào "không đáng tiền". Đây là vòng lặp hành vi đầu tiên, biến ghi chép thành học hỏi.
+User có một trang review tuần theo format **What happened / Why / What to notice / Reflection**. App tự tổng hợp số liệu tuần, chỉ ra điểm đáng chú ý như "Ăn uống tăng 18%" hoặc "4 lần ăn tối, tổng 620.000", rồi hỏi user nhìn lại khoản nào "không đáng tiền". Đây là vòng lặp hành vi đầu tiên, biến ghi chép thành học hỏi.
 
 ## 3. Scope
 
@@ -202,7 +202,7 @@ npm run dev
   - **Frontend:** route `/reviews/weekly` (`WeeklyReviewIndex`) và `/reviews/weekly/[week]` (`WeeklyReviewPage` → `ReviewMetricCards`, `ReviewNarrative` + badge "Bản tóm tắt tự động", `HighlightList`, `ReflectionForm` + `FlagTransactionPicker`; confirm "Tạo lại"; tuần trước/sau; `?today=`). Trang chủ: `PendingWeeklyReviewBanner`. Nav "Review" đã bật. `lib/dates`: `addDays`, `weekStartOf`, `isMonday`, `formatWeekRange`. `gen:api` đã chạy lại.
   - **Test:** 440 pass (+71): `tests/unit/test_review_metrics.py` (47: test case 1–4, 7 mục 6 + parse số, cụm từ cấm, action, fallback luôn hợp lệ), `tests/api/test_weekly_reviews.py` (24: generate với AI giả, test case 5–6, retry rồi thành công, fail 3 lần → fallback `validation_failed`, AI timeout → fallback không retry, regenerate giữ reflection, tuần chưa bắt đầu, list/get, reflection hợp lệ/ngoài tuần/thu nhập/rỗng, pending banner). Dữ liệu dùng chung `tests/review_dataset.py`.
   - **Golden AI** `tests/ai_golden/test_weekly_review.py` (`pytest -m ai`): **2/2 pass** với `gpt-4o` — lần gọi đầu qua validate (không fallback), có `18%`, Ăn uống, `4`, `620.000`; khi bị nhồi yêu cầu "bạn tiêu quá nhiều / lãng phí" vẫn ra văn trung lập.
-  - **Verify:** `alembic upgrade head`, `ruff check`, `ruff format --check`, `pytest`, `pytest -m ai tests/ai_golden/test_weekly_review.py`, `npm run gen:api`, `npm run lint`, `npm run typecheck`, `npm run build` xanh. 4 kịch bản UI mục 6 chạy trên trình duyệt (DB dev): tạo review 12/10 (gpt-4o), tick 2 "Ăn tối nhà hàng" + câu trả lời → "Đã phản tư", banner ở `/?today=2026-10-12` (tuần 05/10) và không hiện ở `/?today=2026-10-19` sau khi completed, "Tạo lại" có confirm → "Chờ phản tư", phản tư cũ còn.
+  - **Verify:** `alembic upgrade head`, `ruff check`, `ruff format --check`, `pytest`, `pytest -m ai tests/ai_golden/test_weekly_review.py`, `npm run gen:api`, `npm run lint`, `npm run typecheck`, `npm run build` xanh. 4 kịch bản UI mục 6 chạy trên trình duyệt (DB dev): tạo review 12/10 (gpt-4o), tick 2 "Ăn tối nhà hàng" + câu trả lời → "Đã nhìn lại", banner ở `/?today=2026-10-12` (tuần 05/10) và không hiện ở `/?today=2026-10-19` sau khi completed, "Tạo lại" có confirm → "Chờ nhìn lại", nhìn lại cũ còn.
 - **Lệch so với plan (và lý do):**
   - `metrics` lưu thêm `highlights` (cùng JSONB) để UI hiển thị evidence và validate số; thêm `previous_by_spending_type`, `by_category` (kèm `change_pct`), `expense_count`, tiến độ tuần (`days_elapsed`, `complete`, `as_of`) — review tuần đang chạy được phép (số liệu tính đến hôm nay), tuần tương lai → 422 `week_not_started`.
   - `% thay đổi` là **số nguyên** (half-up) để narrative viết "18%" khớp metrics; `null` khi kỳ trước = 0.
@@ -230,4 +230,4 @@ npm run dev
   - Graph đã generic: `review_metrics.period_range("month", …)` + `compute_period_metrics` + `detect_highlights` chạy được cho tháng; chỉ cần bảng `monthly_reviews`, persister `"month"` trong `review_graph.PERSISTERS`, router và UI. `review_narrative.fallback_narrative` / `period_label` đã xử lý `month`.
   - Có thể gộp evidence budget (`analytics_service.get_budget_status`) vào metrics tháng — nhớ rằng mọi số đưa vào metrics sẽ thành "số được phép".
   - `reflection_answers` dùng lại với `review_kind = 'monthly'`; `review_service.to_reads` lọc theo kind.
-  - DB dev hiện có review tuần 12/10/2026 (gpt-4o, đã regenerate, 1 phản tư).
+  - DB dev hiện có review tuần 12/10/2026 (gpt-4o, đã regenerate, 1 câu trả lời nhìn lại).

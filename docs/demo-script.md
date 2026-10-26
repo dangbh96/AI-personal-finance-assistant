@@ -47,7 +47,7 @@ tháng này, embedding, kiến thức). `goals` / `recurring` / `ai` là khuyế
 | 4 | `/settings?tab=preferences` | Gõ `Tao coi giày là thiết yếu` → xác nhận | AI học sở thích; lần sau phân loại giày theo sở thích (badge "Theo sở thích đã học") |
 | 5 | `/budget/new` | Tạo ngân sách tháng sau theo 50/30/20 (hoặc "Copy tháng trước") → Lưu & kích hoạt | Bảng phân bổ do backend tính; cảnh báo nếu tổng ≠ thu nhập |
 | 6 | `/budget?month=2026-10&today=2026-10-15` | Tab "Theo dõi" | Budget vs Actual, vạch % tháng, badge on_track / ahead_of_pace / over_budget, cột **Vùng** 🟢🟡🔴; bấm dòng → giao dịch gây vượt |
-| 7 | `/reviews/weekly` → tuần trước | "Tạo review tuần này" → nhập phản tư | Metrics do code tính; AI chỉ viết 3 tầng Quan sát → Vì sao → Gợi ý, không phán xét |
+| 7 | `/reviews/weekly` → tuần trước | "Tạo review tuần này" → nhập chia sẻ khi nhìn lại | Metrics do code tính; AI chỉ viết 3 tầng Quan sát → Vì sao → Gợi ý, không phán xét |
 | 8 | `/reviews/monthly` → tháng trước | Tạo review tháng → "Tạo tư vấn điều chỉnh" | Biểu đồ cơ cấu; chuyển sang `/budget/advice` |
 | 9 | `/budget/advice` | Xem verdict ("Budget có thể thấp hơn thực tế" / "Khoản bất thường một lần" / …) → Accept hoặc Dismiss | Verdict do cây quyết định deterministic; chỉ đổi ngân sách khi user xác nhận |
 | 10 | `/goals` | Tạo mục tiêu "Mua laptop" 30.000.000, hạn 6 tháng; nhập thu nhập lương → dialog **Pay Yourself First** → xác nhận phân bổ | Gợi ý để dành / tháng; phân bổ chỉ ghi khi xác nhận |

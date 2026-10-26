@@ -152,7 +152,7 @@ function BudgetAdviceCta({
   );
 }
 
-/** `/reviews/monthly/[month]`: tạo on-demand, bức tranh tháng, narrative, phản tư tháng. */
+/** `/reviews/monthly/[month]`: tạo on-demand, bức tranh tháng, narrative, chia sẻ khi nhìn lại. */
 export function MonthlyReviewPage({ month }: { month: string }) {
   use(io());
   const today = useReviewToday();
@@ -214,7 +214,7 @@ export function MonthlyReviewPage({ month }: { month: string }) {
             Review {formatMonthLabel(month).toLowerCase()}
             {data && (
               <Badge variant={data.status === "completed" ? "secondary" : "outline"}>
-                {data.status === "completed" ? "Đã phản tư" : "Chờ phản tư"}
+                {data.status === "completed" ? "Đã nhìn lại" : "Chưa nhìn lại"}
               </Badge>
             )}
           </h1>
@@ -261,8 +261,8 @@ export function MonthlyReviewPage({ month }: { month: string }) {
             ) : (
               <>
                 <p>
-                  App sẽ tổng hợp thu, chi, tiết kiệm, cơ cấu chi tiêu, so với tháng trước, đối
-                  chiếu ngân sách và phản tư các tuần, rồi nhờ AI diễn giải. Nếu AI không dùng
+                  App sẽ tổng hợp thu, chi, tiết kiệm, cơ cấu chi tiêu, so với tháng trước,                   đối chiếu ngân sách và những chia sẻ khi nhìn lại từng tuần, rồi nhờ AI diễn giải.
+                  Nếu AI không dùng
                   được, bạn vẫn nhận bản tóm tắt tự động.
                   {isCurrent && " Tháng đang chạy — số liệu tính đến hôm nay."}
                 </p>
@@ -297,7 +297,7 @@ export function MonthlyReviewPage({ month }: { month: string }) {
             markedIds={new Set(data.metrics.irregular_items.map((t) => t.id))}
             markLabel="Bất thường"
             onSaved={(saved) => {
-              // Cập nhật tại chỗ (không unmount form → giữ thông báo "Đã ghi nhận").
+              // Cập nhật tại chỗ (không unmount form → giữ thông báo đã lưu).
               setGenerated({
                 ...data,
                 status: "completed",
@@ -320,9 +320,9 @@ export function MonthlyReviewPage({ month }: { month: string }) {
           <AlertDialogHeader>
             <AlertDialogTitle>Tạo lại review tháng này?</AlertDialogTitle>
             <AlertDialogDescription>
-              Số liệu và phần nhận xét sẽ được tính lại theo giao dịch, ngân sách và phản tư tuần
-              hiện tại; review quay về trạng thái “Chờ phản tư”. Các câu trả lời phản tư đã lưu
-              vẫn được giữ.
+              Số liệu và phần nhận xét sẽ được tính lại theo giao dịch, ngân sách và chia sẻ khi
+              nhìn lại các tuần hiện tại; review quay về trạng thái “Chưa nhìn lại”. Các chia sẻ
+              đã lưu vẫn được giữ.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

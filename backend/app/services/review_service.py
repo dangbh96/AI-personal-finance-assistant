@@ -168,7 +168,7 @@ def _apply(
 
 
 def weekly_reflections_in_month(db: Session, month: date) -> list[WeeklyReflectionDigest]:
-    """Phản tư của các review tuần có Thứ Hai trong tháng (tuần cũ nhất trước). Giao dịch được
+    """Nhìn lại của các review tuần có Thứ Hai trong tháng (tuần cũ nhất trước). Giao dịch được
     đánh dấu nhưng đã xoá thì bỏ qua; câu trả lời dài bị cắt còn `MAX_DIGEST_ANSWER_LENGTH`."""
     start, end = month_range(month)
     reviews = sorted(review_repository.list_weekly(db, start, end), key=lambda r: r.week_start)
@@ -269,7 +269,7 @@ def _add_reflection(
 def add_weekly_reflection(
     db: Session, review_id: uuid.UUID, data: ReflectionCreate
 ) -> ReflectionAnswer:
-    """Lưu câu trả lời phản tư (câu hỏi lấy từ narrative) + khoản chi “không đáng tiền” trong
+    """Lưu câu trả lời nhìn lại (câu hỏi lấy từ narrative) + khoản chi “không đáng tiền” trong
     tuần; review chuyển sang `completed`."""
     review = get_weekly(db, review_id)
     return _add_reflection(db, review, WEEKLY, review.week_start, week_end(review.week_start), data)

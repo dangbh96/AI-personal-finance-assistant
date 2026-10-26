@@ -255,10 +255,10 @@ phân bổ, cảnh báo tổng ≠ thu nhập. Trạng thái nháp → đang ch�
 **Phase 6 — Review tuần 🤖.** Code tính số liệu (tổng chi, so tuần trước, cơ cấu, cụm chi lặp lại như
 "4 lần ăn tối", khoản lớn) → AI (`gpt-4o`) viết nhận xét 3 tầng → **bộ kiểm tra tự động** xác nhận mọi số
 trong bài viết có trong số liệu, không có cụm từ phán xét → sai thì bắt viết lại (tối đa 2 lần) → vẫn sai
-thì dùng **bản mẫu** (template) không cần AI. Người dùng trả lời câu hỏi phản tư, đánh dấu khoản "không đáng tiền".
+thì dùng **bản mẫu** (template) không cần AI. Người dùng trả lời câu hỏi gợi ý nhìn lại, đánh dấu khoản "không đáng tiền".
 
 **Phase 7 — Review tháng 🤖 (✅ M4 — MVP).** Như tuần + tỉ lệ tiết kiệm, chi thường xuyên vs bất thường,
-biểu đồ, tổng hợp phản tư các tuần. Bắt buộc nêu khoản bất thường khi nó là nguyên nhân chi tăng.
+biểu đồ, tổng hợp chia sẻ khi nhìn lại các tuần. Bắt buộc nêu khoản bất thường khi nó là nguyên nhân chi tăng.
 
 **Phase 8 — Tư vấn điều chỉnh ngân sách 🧮 + 🤖.** Câu hỏi: *vượt ngân sách vì ngân sách sai hay vì hành vi?*
 Cây quyết định (code, không AI):
@@ -535,7 +535,7 @@ cảnh báo chi phí AI theo ngưỡng; đồng bộ ngân hàng (Open Banking) 
 ### Về sản phẩm
 
 **H: Khác gì app ghi chép chi tiêu thông thường (Money Lover, Misa…)?**
-Đ: Ba điểm: (1) **review là trung tâm** — app chủ động tổng kết tuần / tháng, đặt câu hỏi phản tư, chứ không
+Đ: Ba điểm: (1) **review là trung tâm** — app chủ động tổng kết tuần / tháng, đặt câu hỏi gợi ý nhìn lại, chứ không
 chỉ vẽ biểu đồ; (2) **phân biệt "ngân sách sai" hay "hành vi sai"** bằng cây quyết định có số liệu;
 (3) **trợ lý AI trả lời bằng dữ liệu của chính bạn**, có bảng bằng chứng và trích nguồn, không phán xét.
 

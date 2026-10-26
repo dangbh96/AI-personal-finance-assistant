@@ -4,7 +4,7 @@
                                                ↘ (AI lỗi / fail sau 2 lần retry) fallback ↗
 
 - `collect_metrics`, `detect_highlights`, `validate`, `fallback` là deterministic (services).
-  Kỳ `month`: `collect_metrics` gom thêm budget vs actual + phản tư các review tuần trong tháng,
+  Kỳ `month`: `collect_metrics` gom thêm budget vs actual + nhìn lại các review tuần trong tháng,
   `detect_highlights` dựng `MonthlyReviewMetrics` (tiết kiệm, tỉ trọng, khoản bất thường…).
 - `write_narrative` gọi OpenAI (model smart) qua `ai/review_writer` (prompt theo kỳ); output không
   qua kiểm tra (số ngoài metrics, cụm từ cấm, thiếu tầng) → gửi lỗi cho model viết lại, tối đa
